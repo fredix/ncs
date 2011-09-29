@@ -1,0 +1,5 @@
+contact : fredix at nodecast dot net
+this is the backend server of nodecast
+
+qmake
+make
