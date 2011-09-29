@@ -1,0 +1,6 @@
+ncs
+*.o
+qrc_nodecast-dispatcher.cpp
+moc*
+core*
+ncs.pro.user
