@@ -255,6 +255,8 @@ Hash Nosql::XMLtoHash(QDomElement &xml)
 bo Nosql::CreateHost(Hash &r_hash, const bo &data, const be &user_id)
 {
     std::cout << "Nosql::CreateHost" << std::endl;
+    std::cout << "data : " << data << std::endl;
+
     QString tmp;
     tmp.append(m_database).append(".hosts");
 

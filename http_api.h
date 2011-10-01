@@ -42,7 +42,8 @@ public:
 
 
 public slots:
-        void host(QxtWebRequestEvent* event, QString a, QString b);
+        void host(QxtWebRequestEvent* event, QString action, QString uuid);
+        void host(QxtWebRequestEvent* event, QString action);
 
 private:
         zmq::context_t *m_context;
@@ -51,7 +52,7 @@ private:
 
         Nosql &nosql_;
         bool checkAuth(QString header, BSONObjBuilder &payload);
-        QString buildResponse(QString status);
+        QString buildResponse(QString action, QString status);
 };
 
 
