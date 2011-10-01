@@ -19,7 +19,7 @@ SOURCES += main.cpp \
     xmpp_client.cpp \
     api.cpp \
     http_api.cpp
-LIBS += -L/usr/local/lib/ \
+LIBS += -L./externals/mongodb-2.0/ \
     -L./externals/qxmpp-0.3.0/lib/ \
     -lmongoclient \
     -lboost_system \
@@ -31,7 +31,7 @@ LIBS += -L/usr/local/lib/ \
     -lqxmpp
 #INCLUDEPATH += /usr/local/include
 INCLUDEPATH += ./externals/qxmpp-0.3.0/src/
-INCLUDEPATH += mongodb
+INCLUDEPATH += ./externals/mongodb-2.0/
 HEADERS += main.h \
     nosql.h \
     payload.h \
