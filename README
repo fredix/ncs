@@ -1,5 +1,32 @@
-contact : fredix at nodecast dot net
-this is the backend server of nodecast
+ncs is the nodecast server
 
+
+INSTALL 
+
+first, make some links in the externals directory :
+cd externals
+ln -s mongodb-src-r2.0.0 mongodb
+ln -s qxmpp-0.3.0 qxmpp
+
+If you prefer to use your system's libraries, you should modify the ncs.pro
+
+
+second, make the mongodb client :
+cd externals/mongodb
+scons mongoclient
+
+third, make the qxmpp client :
+cd externals/qxmpp
 qmake
 make
+
+last, make the nodecast server :
+qmake
+make
+
+
+USE
+ncs --mongodb-ip=127.0.0.1 --mongodb-base=nodecast_prod
+
+
+contact : fredix at nodecast dot net

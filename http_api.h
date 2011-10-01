@@ -22,10 +22,14 @@
 #define HTTP_API_H
 
 #include "nosql.h"
+#include <zmq.hpp>
 #include <QxtWebSlotService>
 #include <QxtWebPageEvent>
 #include <QxtWebContent>
+ #include <QUuid>
 
+using namespace mongo;
+using namespace bson;
 
 class Http_api : public QxtWebSlotService
 {    
@@ -41,7 +45,12 @@ public slots:
         void host(QxtWebRequestEvent* event, QString a, QString b);
 
 private:
-        bool checkAuth(QString header);
+        zmq::context_t *m_context;
+        zmq::socket_t *z_push_api;
+        zmq::message_t *z_message;
+
+        Nosql &nosql_;
+        bool checkAuth(QString header, BSONObjBuilder &payload);
         QString buildResponse(QString status);
 };
 

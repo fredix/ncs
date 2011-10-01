@@ -86,7 +86,7 @@ void Zdispatch::receive_payload()
 
         std::cout << "Zdispatch::receive_payload WHILE TRUE" << std::endl;
 
-        std::cout << "Zdispatch received request: [" << (char*) request.data() << "]" << std::endl;
+        //std::cout << "Zdispatch received request: [" << (char*) request.data() << "]" << std::endl;
         bo data = bo((char*)request.data());
         be uuid = data.getField("uuid");
         be qname = data.getField("action");

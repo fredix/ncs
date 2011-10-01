@@ -183,6 +183,23 @@ QBool Nosql::ReadFile(const be &gfs_id)
 
 }
 
+bo Nosql::WriteFile(const string xml)
+{
+    std::cout << "Nosql::WriteFile : " << std::endl;
+
+    bo struct_file;
+    try {
+        struct_file = this->m_gfs->storeFile(xml.c_str(), xml.size(), "", "xml");
+
+    }
+    catch(mongo::DBException &e ) {
+        std::cout << "caught on write file : " << e.what() << std::endl;
+        qDebug() << "Nosql::WriteFile ERROR ON GRIDFS";
+    }
+
+    return struct_file;
+}
+
 QBool Nosql::Insert(QString a_document, bo a_datas)
 {
     qDebug() << "Nosql::Insert";

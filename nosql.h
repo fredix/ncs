@@ -22,9 +22,9 @@
 #define NOSQL_H
 
 
-#include "externals/mongodb/client/dbclient.h"
-#include "externals/mongodb/client/gridfs.h"
-#include "externals/mongodb//bson/bson.h"
+#include "mongodb/client/dbclient.h"
+#include "mongodb/client/gridfs.h"
+#include "mongodb/bson/bson.h"
 
 
 #include <QObject>
@@ -55,7 +55,7 @@ public:
     bo CreateOsystem(Hash &r_hash, const bo &data);
     bo CreateOsversion(bo &data);
     QBool Update(QString a_document, const bo &element_id, const bo &a_datas);
-
+    bo WriteFile(const string xml);
 
 
 protected:
@@ -71,8 +71,6 @@ private:
     mongo::GridFile *m_gf;
     bo m_grid_file;
     bo m_datas;
-
-
 };
 
 
