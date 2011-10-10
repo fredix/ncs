@@ -1,0 +1,1 @@
+QXT_MODULES = docs berkeley core designer gui network sql web zeroconf

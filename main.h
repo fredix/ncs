@@ -38,7 +38,7 @@ class Dispatcher : public QObject
 {
     Q_OBJECT
 public:
-    Dispatcher();
+    Dispatcher(QString mongodb_ip, QString mongodb_base);
     ~Dispatcher();
     Nosql *nosql;
     Zeromq *zeromq;

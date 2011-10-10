@@ -20,6 +20,12 @@ cd externals/qxmpp
 qmake
 make
 
+four, install the libqxt library 
+cd externals/libqxt-v0.6.1
+qmake
+make
+make install
+
 last, make the nodecast server :
 qmake
 make

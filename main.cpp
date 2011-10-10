@@ -24,9 +24,19 @@
 
 
 
-Dispatcher::Dispatcher()
+Dispatcher::Dispatcher(QString mongodb_ip, QString mongodb_base)
 {
     qDebug() << "Dispatcher construct";
+
+    nosql = new Nosql(mongodb_ip, mongodb_base);
+    payload = new Payload(*nosql);
+    zeromq = new Zeromq("127.0.0.1", 12345);
+    xmpp_server = new Xmpp_server("ncs", "nodecast");
+
+
+    /*********** HTTP API *************/
+    api = new Api(*nosql);
+    api->Init_http();
 }
 
 Dispatcher::~Dispatcher()
@@ -98,24 +108,9 @@ int main(int argc, char *argv[])
     }
 
 
-    Dispatcher dispatcher;
-
-    dispatcher.nosql = new Nosql(mongodb_ip, mongodb_base);
-    dispatcher.payload = new Payload(*dispatcher.nosql);
-    dispatcher.zeromq = new Zeromq("127.0.0.1", 12345);
-    dispatcher.xmpp_server = new Xmpp_server("dispatcher", "nodecast");
+    Dispatcher dispatcher(mongodb_ip, mongodb_base);
 
 
-
-
-    /*********** HTTP API *************/
-
-    dispatcher.api = new Api(*dispatcher.nosql);
-    dispatcher.api->Init_http();
-
-
-   // dispatcher.api_http->session.setPort(4567);
-    //dispatcher.api_http->session.setConnector();
 
 
 
