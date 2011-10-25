@@ -106,8 +106,7 @@ bo Nosql::Find(QString a_document, const bo &datas)
 
 /*
  *
- ExtractXML parse the deserialized job from Qpid server.
- Struct of the job from the Ruby code :
+ Struct of the job :
   job = {
     :email => @current_user.email,
     :uuid => params[:id], (Private host's uuid)
@@ -116,10 +115,11 @@ bo Nosql::Find(QString a_document, const bo &datas)
   }
  *
  */
-QDomDocument Nosql::ExtractXML(const be &gfs_id)
+
+bo Nosql::ExtractJSON(const be &gfs_id)
 {
-    qDebug() << "Nosql::ExtractXML";
-    QDomDocument m_xml_datas;
+    qDebug() << "Nosql::ExtractJSON";
+    bo m_bo_json;
 
     cout << "gfs_id : " << gfs_id.jsonString(TenGen) << endl;
 
@@ -133,26 +133,40 @@ QDomDocument Nosql::ExtractXML(const be &gfs_id)
         else {
             std::cout << "Find file !" << std::endl;
 
-            QFile xml_tmp("/tmp/dispatcher_nodecast_tmp.xml");
+            QFile json_tmp("/tmp/ncs.json");
 
-            m_gf->write(xml_tmp.fileName().toStdString().c_str());
+            m_gf->write(json_tmp.fileName().toStdString().c_str());
 
+            json_tmp.open(QIODevice::ReadOnly);
 
+            QString json = QString::fromUtf8(json_tmp.readAll());
 
-            if( !m_xml_datas.setContent(&xml_tmp, false))
+            //std::cout << "json : " << json.toStdString() << std::endl;
+
+            try {
+                m_bo_json = mongo::fromjson(json.toStdString());
+            }
+            catch(mongo::DBException &e ) {
+                std::cout << "caught on parsing json file : " << e.what() << std::endl;
+                qDebug() << "Nosql::ExtractJSON ERROR ON GRIDFS";
+            }
+
+            //std::cout << "m_bo_json : " << m_bo_json << std::endl;
+
+            if (m_bo_json.nFields() == 0)
             {
-                std::cout << "can not create XML" << std::endl;
+                std::cout << "can not read JSON file" << std::endl;
             }
             else
             {
-                std::cout << "XML created !" << std::endl;
+                std::cout << "JSON created !" << std::endl;
             }
 
-            xml_tmp.close();
+            json_tmp.close();
             delete(this->m_gf);
         }
     }
-    return m_xml_datas;
+    return m_bo_json;
 }
 
 
@@ -252,7 +266,7 @@ Hash Nosql::XMLtoHash(QDomElement &xml)
 
 
 
-bo Nosql::CreateHost(Hash &r_hash, const bo &data, const be &user_id)
+bo Nosql::CreateHost(bo &payload, const bo &data, const be &user_id)
 {
     std::cout << "Nosql::CreateHost" << std::endl;
     std::cout << "data : " << data << std::endl;
@@ -273,14 +287,14 @@ bo Nosql::CreateHost(Hash &r_hash, const bo &data, const be &user_id)
     l_bob_host << "user_id" << user_id;
     l_bob_host.append(data.getField("created_at"));
     l_bob_host << "updated_at" << data.getField("created_at");
-    l_bob_host << "public" << r_hash["public"].toBool();
+    l_bob_host << "public" << payload["public"];
     l_bob_host << "blocked" << false;
-    l_bob_host << "host_type" << r_hash["device"].toString().toStdString();
+    l_bob_host << "host_type" << payload["device"];
 
 
-    l_bob_host << "os_version_number" << r_hash["version"].toString().toStdString();
-    l_bob_host << "patch_level" << r_hash["patch_level"].toString().toStdString();
-    l_bob_host << "architecture" << r_hash["architecture"].toString().toStdString();
+    l_bob_host << "os_version_number" << payload["sysinfo"]["version"];
+    l_bob_host << "patch_level" << payload["sysinfo"]["patch_level"];
+    l_bob_host << "architecture" << payload["sysinfo"]["architecture"];
 
 
     // find the last inserted row to increase counter
@@ -291,29 +305,29 @@ bo Nosql::CreateHost(Hash &r_hash, const bo &data, const be &user_id)
 
 
     // embedded CPU
-    l_bob_host_cpu << "vendor" << r_hash["cpu_hardware"].toHash()["vendor"].toString().toStdString();
-    l_bob_host_cpu << "model" << r_hash["cpu_hardware"].toHash()["model"].toString().toStdString();
-    l_bob_host_cpu << "mhz" << r_hash["cpu_hardware"].toHash()["mhz"].toString().toStdString();
-    l_bob_host_cpu << "cache_size" << r_hash["cpu_hardware"].toHash()["cache_size"].toString().toStdString();
-    l_bob_host_cpu << "number" << r_hash["cpu_hardware"].toHash()["number"].toString().toStdString();
-    l_bob_host_cpu << "total_cores" << r_hash["cpu_hardware"].toHash()["total_cores"].toString().toStdString();
-    l_bob_host_cpu << "total_sockets" << r_hash["cpu_hardware"].toHash()["total_sockets"].toString().toStdString();
-    l_bob_host_cpu << "cores_per_socket" << r_hash["cpu_hardware"].toHash()["cores_per_socket"].toString().toStdString();
+    l_bob_host_cpu << "vendor" << payload["sysinfo"]["cpu_hardware"]["vendor"];
+    l_bob_host_cpu << "model" << payload["sysinfo"]["cpu_hardware"]["model"];
+    l_bob_host_cpu << "mhz" << payload["sysinfo"]["cpu_hardware"]["mhz"];
+    l_bob_host_cpu << "cache_size" << payload["sysinfo"]["cpu_hardware"]["cache_size"];
+    l_bob_host_cpu << "number" << payload["sysinfo"]["cpu_hardware"]["number"];
+    l_bob_host_cpu << "total_cores" << payload["sysinfo"]["cpu_hardware"]["total_cores"];
+    l_bob_host_cpu << "total_sockets" << payload["sysinfo"]["cpu_hardware"]["total_sockets"];
+    l_bob_host_cpu << "cores_per_socket" << payload["sysinfo"]["cpu_hardware"]["cores_per_socket"];
 
 
     // embedded RAM
-    l_bob_host_ram << "mem_ram" << r_hash["memory"].toHash()["mem_ram"].toString().toStdString();
-    l_bob_host_ram << "mem_total" << r_hash["memory"].toHash()["mem_total"].toString().toStdString();
-    l_bob_host_ram << "swap_total" << r_hash["memory"].toHash()["swap_total"].toString().toStdString();
+    l_bob_host_ram << "mem_ram" << payload["sysinfo"]["memory"]["mem_ram"];
+    l_bob_host_ram << "mem_total" << payload["sysinfo"]["memory"]["mem_total"];
+    l_bob_host_ram << "swap_total" << payload["sysinfo"]["memory"]["swap_total"];
 
     // embedded NETWORK
-    l_bob_host_network << "hostname" << r_hash["network"].toHash()["hostname"].toString().toStdString();
-    l_bob_host_network << "domain_name" << r_hash["network"].toHash()["domain_name"].toString().toStdString();
-    l_bob_host_network << "default_gateway" << r_hash["network"].toHash()["default_gateway"].toString().toStdString();
-    l_bob_host_network << "primary_dns" << r_hash["network"].toHash()["primary_dns"].toString().toStdString();
-    l_bob_host_network << "secondary_dns" << r_hash["network"].toHash()["secondary_dns"].toString().toStdString();
-    l_bob_host_network << "primary_interface" << r_hash["network"].toHash()["primary_interface"].toString().toStdString();
-    l_bob_host_network << "primary_addr" << r_hash["network"].toHash()["primary_addr"].toString().toStdString();
+    l_bob_host_network << "hostname" << payload["sysinfo"]["network"]["hostname"];
+    l_bob_host_network << "domain_name" << payload["sysinfo"]["network"]["domain_name"];
+    l_bob_host_network << "default_gateway" << payload["sysinfo"]["network"]["default_gateway"];
+    l_bob_host_network << "primary_dns" << payload["sysinfo"]["network"]["primary_dns"];
+    l_bob_host_network << "secondary_dns" << payload["sysinfo"]["network"]["secondary_dns"];
+    l_bob_host_network << "primary_interface" << payload["sysinfo"]["network"]["primary_interface"];
+    l_bob_host_network << "primary_addr" << payload["sysinfo"]["network"]["primary_addr"];
 
 
     l_bob_host << "cpu" << l_bob_host_cpu.obj();
@@ -334,7 +348,7 @@ bo Nosql::CreateHost(Hash &r_hash, const bo &data, const be &user_id)
 
 
 
-bo Nosql::CreateOsystem(Hash &r_hash, const bo &data)
+bo Nosql::CreateOsystem(bo &payload, const bo &data)
 {
     std::cout << "Nosql::CreateOsystem" << std::endl;
 
@@ -345,13 +359,13 @@ bo Nosql::CreateOsystem(Hash &r_hash, const bo &data)
     l_bob_os << mongo::GENOID;
     l_bob_os.append(data.getField("created_at"));
     l_bob_os << "updated_at" << data.getField("created_at");
-    l_bob_os << "name" << r_hash["name"].toString().toLower().toStdString();
-    l_bob_os << "vendor" << r_hash["vendor"].toString().toLower().toStdString();
+    l_bob_os << "name" << payload["name"];
+    l_bob_os << "vendor" << payload["vendor"];
     //l_bob_os << "vendor_version" << r_hash["vendor_version"].toString().toLower().toStdString();
     //l_bob_os << "vendor_code_name" << r_hash["vendor_code_name"].toString().toLower().toStdString();
-    l_bob_os << "description" << r_hash["description"].toString().toStdString();
-    l_bob_os << "os_base" << r_hash["os_base"].toString().toStdString();
-    l_bob_os << "os_type" << r_hash["os_type"].toString().toStdString();
+    l_bob_os << "description" << payload["description"];
+    l_bob_os << "os_base" << payload["os_base"];
+    l_bob_os << "os_type" << payload["os_type"];
     l_bob_os << "hosts_number" << 1;
 
 

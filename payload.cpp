@@ -37,9 +37,7 @@ void Payload::s_job_receive(bo data)
 
     std::cout << "Payload::s_job_receive" << std::endl;
 
-    QDomDocument l_xml_datas;
-    Hash l_hash;
-    Hash r_hash;
+    bo l_json_datas;
 
     bo msg = data;
 
@@ -64,26 +62,17 @@ void Payload::s_job_receive(bo data)
 
 
     cout << "UUID BEFORE EXTRACT : " << uuid.toString() << endl;
-    l_xml_datas = nosql_.ExtractXML(gfs_id);
+    //l_xml_datas = nosql_.ExtractXML(gfs_id);
+    l_json_datas = nosql_.ExtractJSON(gfs_id);
     cout << "UUID AFTER EXTRACT : " << uuid.toString() << endl;
 
-    QDomNode n = l_xml_datas.firstChild();
-    if (n.isNull()) {
-        std::cout << "Payload::s_job_receive, XML FROM GRIDFS IS EMPTY" << std::endl;
+
+    std::cout << "Payload::s_job_receive, JSON sysinfo : " << l_json_datas["sysinfo"] << std::endl;
+
+    if (l_json_datas.nFields() == 0) {
+        std::cout << "Payload::s_job_receive, JSON FROM GRIDFS IS EMPTY" << std::endl;
         return;
     }
-
-    QDomElement l_xml = l_xml_datas.documentElement();
-    l_hash = nosql_.XMLtoHash(l_xml);
-
-
-    r_hash.insert("bo", QString::fromStdString(data.jsonString(TenGen)));
-
-    std::cout << "hash: " << l_hash.count() << std::endl;
-
-    qDebug() << "hash value : " << l_hash["cpu_hardware"].toHash()["cpu_mhz"];
-    qDebug() << "hash value : " << l_hash["version"];
-    qDebug() << "hash value : " << l_hash["process"].toHash()["processus"].toHash()["state_name"].toString();
 
 
     if (queue_name=="dispatcher.update")
@@ -122,12 +111,12 @@ void Payload::s_job_receive(bo data)
             std::cout << "os_version : " << os_version.toString() << std::endl;
         }
 
-
-        if (host.getField("public").boolean() != QVariant(l_hash["public"]).toBool() )
-        {
-            bo bo_public = BSON("public" << QVariant(l_hash["public"]).toBool());
+        //if (host.getField("public").boolean() != QVariant(l_hash["public"]).toBool() )
+        if (host.getField("public").boolean() != l_json_datas.getField("public").boolean() )
+        {   
+            bo bo_public = BSON("public" << l_json_datas.getField("public"));
             std::cout << "Payload::s_job_receive, BO PUBLIC : " << bo_public << std::endl;
-            nosql_.Update("hosts", host_id.wrap(), bo_public);
+            nosql_.Update("hosts", host_id.wrap(), l_json_datas.getField("public").wrap());
         }
 
 
@@ -150,7 +139,7 @@ void Payload::s_job_receive(bo data)
         std::cout << "Payload::s_job_receive, before create host" << std::endl;
         std::cout << "Payload::s_job_receive, user id : " << user_id.toString() << std::endl;
 
-        bo host = nosql_.CreateHost(l_hash, data, user_id);
+        bo host = nosql_.CreateHost(l_json_datas, data, user_id);
         be host_id = host.getField("_id");
 
         std::cout << "Payload::s_job_receive, user id : " << user_id.toString() << std::endl;
@@ -158,13 +147,13 @@ void Payload::s_job_receive(bo data)
 
 
         //bo os = BSON("vendor" << l_hash["vendor"].toString().toLower().toStdString() << "vendor_version" << l_hash["vendor_version"].toString().toLower().toStdString());
-        bo os = BSON("vendor" << l_hash["vendor"].toString().toLower().toStdString());
+        bo os = BSON("vendor" << l_json_datas["vendor"]);
 
         //bo os = BSON("vendor" << "prot" << "vendor_version" << l_hash["vendor_version"].toString().toStdString());
 
         std::cout << "Payload::s_job_receive, OS : " << os.toString() << std::endl;
 
-        bo osystem = nosql_.Find("osystems", os);
+        bo osystem = nosql_.Find("osystems", l_json_datas["sysinfo"]["vendor"].wrap());
 
         std::cout << "Payload::s_job_receive, OSYSTEM : " << osystem.toString() << std::endl;
         std::cout << "Payload::s_job_receive, OSYSTEM NB : " << osystem.nFields() << std::endl;
@@ -175,7 +164,7 @@ void Payload::s_job_receive(bo data)
         if (osystem.nFields() == 0)
         {
             std::cout << "Payload::s_job_receive, OSYSTEM NOT FOUND" << std::endl;
-            osystem = nosql_.CreateOsystem(l_hash, data);
+            osystem = nosql_.CreateOsystem(l_json_datas, data);
         }
 
         be osystem_id = osystem.getField("_id");
@@ -205,7 +194,10 @@ void Payload::s_job_receive(bo data)
 
 
 
-        bo version = BSON("osystem_id" << osystem.getField("_id") << "vendor_version" << l_hash["vendor_version"].toString().toLower().toStdString());
+        //bo version = BSON("osystem_id" << osystem.getField("_id") << "vendor_version" << l_hash["vendor_version"].toString().toLower().toStdString());
+        bo version = BSON("osystem_id" << osystem.getField("_id") << "vendor_version" << l_json_datas["sysinfo"]["vendor_version"]);
+
+
         bo os_version = nosql_.Find("os_versions", version);
 
         if (os_version.nFields() == 0)
@@ -215,8 +207,8 @@ void Payload::s_job_receive(bo data)
             bo data_version = BSON(mongo::GENOID <<
                                     "created_at" << data.getField("created_at") <<
                                     "osystem_id" << osystem.getField("_id") <<
-                                    "vendor_version" << l_hash["vendor_version"].toString().toLower().toStdString() <<
-                                    "vendor_code_name" << l_hash["vendor_code_name"].toString().toLower().toStdString() <<
+                                    "vendor_version" << l_json_datas["sysinfo"]["vendor_version"] <<
+                                    "vendor_code_name" << l_json_datas["sysinfo"]["vendor_code_name"] <<
                                     "hosts_number" << 1);
 
             os_version = nosql_.CreateOsversion(data_version);
@@ -251,8 +243,8 @@ void Payload::s_job_receive(bo data)
 
 
         // update host's profil_id
-        std::cout << "profil : " << l_hash["profil"].toString().toStdString() << std::endl;
-        bo profil_filter = BSON("context" << l_hash["profil"].toString().toLower().toStdString() << "user_id" << user_id);
+        std::cout << "profil : " << l_json_datas["profil"] << std::endl;
+        bo profil_filter = BSON("context" << l_json_datas["profil"] << "user_id" << user_id);
         std::cout << "Payload::s_job_receive, profil_filter : " << profil_filter.toString() << std::endl;
 
         bo profil = nosql_.Find("profils", profil_filter);
@@ -295,114 +287,60 @@ void Payload::s_job_receive(bo data)
 
 
     /*
-      Serializing datas and send to workers
+      Send payload to workers
     */
 
     qDebug() << "Serializing datas and send to workers";
 
-    QByteArray ar;
-    //QByteArray al;
-    QString l_payload;
-    //QString deserialize;
-
-
-
-    if (l_hash["activated_cpu"].toBool())
+    if (l_json_datas["cpu_usage"]["activated"].boolean())
     {
-
-        //Serializing
-        QDataStream out(&ar,QIODevice::WriteOnly);   // write the data
-        r_hash.insert("xml", l_hash["cpu_usage"].toHash());
-        //out << l_hash["cpu_usage"].toHash();
-        out << r_hash;
-        l_payload = ar.toBase64();
-
         qDebug() << "emit payload_cpu(l_payload)";
-        emit payload_cpu(l_payload);
+
+        bo payload = BSON("headers" << data << "cpu_usage" << l_json_datas["cpu_usage"]);
+        emit payload_cpu(payload);
     }
 
 
-    if (l_hash["activated_load"].toBool())
+    if (l_json_datas["load"]["activated"].boolean())
     {
-        //Serializing
-        QDataStream out1(&ar,QIODevice::WriteOnly);   // write the data
-        //out1 << l_hash["load"].toHash();
-        r_hash.insert("xml", l_hash["load"].toHash());
-        //out << l_hash["cpu_usage"].toHash();
-        out1 << r_hash;
-        l_payload = ar.toBase64();
-
         qDebug() << "emit payload_load(l_payload)";
-        emit payload_load(l_payload);
+
+        bo payload = BSON("headers" << data << "load" << l_json_datas["load"]);
+        emit payload_load(payload);
     }
 
-    if (l_hash["activated_network"].toBool())
+    if (l_json_datas["network"]["activated"].boolean())
     {
-        //Serializing
-        QDataStream out2(&ar,QIODevice::WriteOnly);   // write the data
-        //out2 << l_hash["network"].toHash();
-        r_hash.insert("xml", l_hash["network"].toHash());
-        out2 << r_hash;
-        l_payload = ar.toBase64();
-
         qDebug() << "emit payload_network(l_payload)";
-        emit payload_network(l_payload);
+
+        bo payload = BSON("headers" << data << "network" << l_json_datas["network"]);
+        emit payload_network(payload);
     }
 
-    if (l_hash["activated_memory"].toBool())
+    if (l_json_datas["memory"]["activated"].boolean())
     {
-        //Serializing
-        QDataStream out3(&ar,QIODevice::WriteOnly);   // write the data
-        r_hash.insert("xml", l_hash["memory"].toHash());
-        //out3 << l_hash["memory"].toHash();
-        out3 << r_hash;
-        l_payload = ar.toBase64();
-
         qDebug() << "emit payload_memory(l_payload)";
-        emit payload_memory(l_payload);
+
+        bo payload = BSON("headers" << data << "memory" << l_json_datas["memory"]);
+        emit payload_memory(payload);
     }
 
-    if (l_hash["activated_uptime"].toBool())
+    if (l_json_datas["uptime"]["activated"].boolean())
     {
-        //Serializing
-        QDataStream out4(&ar,QIODevice::WriteOnly);   // write the data
-        r_hash.insert("xml", l_hash["uptime"].toHash());
-        //out4 << l_hash["uptime"].toHash();
-        out4 << r_hash;
-        l_payload = ar.toBase64();
-
         qDebug() << "emit payload_uptime(l_payload)";
-        emit payload_uptime(l_payload);
+
+        bo payload = BSON("headers" << data << "uptime" << l_json_datas["uptime"]);
+        emit payload_uptime(payload);
     }
 
 
-    if (l_hash["activated_process"].toBool())
+    if (l_json_datas["process"]["activated"].boolean())
     {
-        //Serializing
-        QDataStream out5(&ar,QIODevice::WriteOnly);   // write the data        
-
-        QString tmp = QString::fromStdString(msg.jsonString(TenGen));
-        out5 << tmp;
-        l_payload = ar.toBase64();
-
-
         qDebug() << "emit payload_process(l_payload)";
-        //emit payload_process(data.jsonString(TenGen));
-        emit payload_process(l_payload);
+
+        bo payload = BSON("headers" << data << "process" << l_json_datas["process"]);
+        emit payload_process(payload);
     }
 
 
-    /*
-    Deserializing
-    al = QByteArray::fromBase64(serialize.toAscii());
-
-    //qDebug() << "al value: " << al.toBase64();
-
-
-    QDataStream in(&al,QIODevice::ReadOnly);   // read the data serialized from the file
-    in >> r_hash;
-
-    qDebug() << "r_hash value: " << r_hash.value("version").toString();
-
-    */
 }

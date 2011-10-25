@@ -104,12 +104,12 @@ private:
 
 
 public slots:
-    void send_payload_load(QString payload);
-    void send_payload_cpu(QString payload);
-    void send_payload_network(QString payload);
-    void send_payload_memory(QString payload);
-    void send_payload_uptime(QString payload);
-    void send_payload_process(QString payload);
+    void send_payload_load(bson::bo payload);
+    void send_payload_cpu(bson::bo payload);
+    void send_payload_network(bson::bo payload);
+    void send_payload_memory(bson::bo payload);
+    void send_payload_uptime(bson::bo payload);
+    void send_payload_process(bson::bo payload);
 };
 
 

@@ -23,10 +23,10 @@
 
 #include "nosql.h"
 #include <zmq.hpp>
-#include <QxtWebSlotService>
-#include <QxtWebPageEvent>
-#include <QxtWebContent>
- #include <QUuid>
+#include <QxtWeb/QxtWebSlotService>
+#include <QxtWeb/QxtWebPageEvent>
+#include <QxtWeb/QxtWebContent>
+#include <QUuid>
 
 using namespace mongo;
 using namespace bson;

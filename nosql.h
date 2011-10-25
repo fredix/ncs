@@ -26,6 +26,7 @@
 #include "mongodb/client/gridfs.h"
 #include "mongodb/bson/bson.h"
 
+#include <qjson/parser.h>
 
 #include <QObject>
 #include <QDomDocument>
@@ -49,10 +50,10 @@ public:
     ~Nosql();
     bo Find(QString a_document, const bo &datas);
     QBool Insert(QString a_document, bo a_datas);
-    QDomDocument ExtractXML(const be &gfs_id);
+    bo ExtractJSON(const be &gfs_id);
     Hash XMLtoHash(QDomElement &xml);
-    bo CreateHost(Hash &r_hash, const bo &data, const be &user_id);
-    bo CreateOsystem(Hash &r_hash, const bo &data);
+    bo CreateHost(bo &payload, const bo &data, const be &user_id);
+    bo CreateOsystem(bo &payload, const bo &data);
     bo CreateOsversion(bo &data);
     QBool Update(QString a_document, const bo &element_id, const bo &a_datas);
     bo WriteFile(const string xml);

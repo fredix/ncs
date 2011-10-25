@@ -156,7 +156,7 @@ Zworker_push::~Zworker_push()
 {}
 
 
-void Zworker_push::send_payload_load(QString payload)
+void Zworker_push::send_payload_load(bson::bo payload)
 {
     std::cout << "Zworker_push::send_payload_load slot" << std::endl;
 
@@ -166,73 +166,63 @@ void Zworker_push::send_payload_load(QString payload)
     //sender.send(message, ZMQ_NOBLOCK);
 
 
-    z_message->rebuild(payload.size());
-    memcpy(z_message->data(), (char*)payload.toAscii().data(), payload.size());
-
+    z_message->rebuild(payload.objsize());
+    memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
     z_load_sender->send(*z_message, ZMQ_NOBLOCK);
-    //sleep (1);              //  Give 0MQ time to deliver
 }
 
 
-void Zworker_push::send_payload_cpu(QString payload)
+void Zworker_push::send_payload_cpu(bson::bo payload)
 {
     std::cout << "Zworker_push::send_payload_cpu slot" << std::endl;
 
     /***************** PUSH ********************/
     std::cout << "Zworker_push::send_payload_cpu Sending tasks to workers...\n" << std::endl;
 
-    z_message->rebuild(payload.size());
-    memcpy(z_message->data(), (char*)payload.toAscii().data(), payload.size());
-
+    z_message->rebuild(payload.objsize());
+    memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
     z_cpu_sender->send(*z_message, ZMQ_NOBLOCK);
-    //sleep (1);              //  Give 0MQ time to deliver
 }
 
-void Zworker_push::send_payload_network(QString payload)
+void Zworker_push::send_payload_network(bson::bo payload)
 {
     std::cout << "Zworker_push::send_payload_network slot" << std::endl;
 
     /***************** PUSH ********************/
     std::cout << "Zworker_push::send_payload_network Sending tasks to workers...\n" << std::endl;
 
-    z_message->rebuild(payload.size());
-    memcpy(z_message->data(), (char*)payload.toAscii().data(), payload.size());
-
+    z_message->rebuild(payload.objsize());
+    memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
     z_network_sender->send(*z_message, ZMQ_NOBLOCK);
-    //sleep (1);              //  Give 0MQ time to deliver
 }
 
-void Zworker_push::send_payload_memory(QString payload)
+void Zworker_push::send_payload_memory(bson::bo payload)
 {
     std::cout << "Zworker_push::send_payload_memory slot" << std::endl;
 
     /***************** PUSH ********************/
     std::cout << "Zworker_push::send_payload_memory Sending tasks to workers...\n" << std::endl;
 
-    z_message->rebuild(payload.size());
-    memcpy(z_message->data(), (char*)payload.toAscii().data(), payload.size());
-
+    z_message->rebuild(payload.objsize());
+    memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
     z_memory_sender->send(*z_message, ZMQ_NOBLOCK);
-    //sleep (1);              //  Give 0MQ time to deliver
 }
 
 
-void Zworker_push::send_payload_uptime(QString payload)
+void Zworker_push::send_payload_uptime(bson::bo payload)
 {
     std::cout << "Zworker_push::send_payload_uptime slot" << std::endl;
 
     /***************** PUSH ********************/
     std::cout << "Zworker_push::send_payload_uptime Sending tasks to workers...\n" << std::endl;
 
-    z_message->rebuild(payload.size());
-    memcpy(z_message->data(), (char*)payload.toAscii().data(), payload.size());
-
+    z_message->rebuild(payload.objsize());
+    memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
     z_uptime_sender->send(*z_message, ZMQ_NOBLOCK);
-    //sleep (1);              //  Give 0MQ time to deliver
 }
 
 
-void Zworker_push::send_payload_process(QString payload)
+void Zworker_push::send_payload_process(bson::bo payload)
 {
     std::cout << "Zworker_push::send_payload_process slot" << std::endl;
 
@@ -242,12 +232,9 @@ void Zworker_push::send_payload_process(QString payload)
 
     //std::cout << "PROCESS BSON TO STRING : " << payload.toStdString() << std::endl;
 
-    z_message->rebuild(payload.size());
-    memcpy(z_message->data(), (char*)payload.toAscii().data() , payload.size());
-    //memcpy(z_message->data(), (char*)payload.data() , payload.size());
-
+    z_message->rebuild(payload.objsize());
+    memcpy(z_message->data(), (char*)payload.objdata() , payload.objsize());
     z_process_sender->send(*z_message, ZMQ_NOBLOCK);
-    //sleep (1);              //  Give 0MQ time to deliver
 }
 
 

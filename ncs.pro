@@ -26,8 +26,12 @@ LIBS += ./externals/mongodb/libmongoclient.a \
     -lboost_thread-mt \
     -lmemcached \
     -lQxtCore \
-    -lzmq
-#INCLUDEPATH += /usr/local/include
+    -lQxtWeb \
+    -lzmq \
+    -lqjson
+INCLUDEPATH += /usr/include/qxt/
+INCLUDEPATH += /usr/include/qxt/QxtCore
+INCLUDEPATH += /usr/include/qxt/QxtWeb
 INCLUDEPATH += ./externals/
 INCLUDEPATH += ./externals/qxmpp/src/
 HEADERS += main.h \
