@@ -235,34 +235,6 @@ QBool Nosql::Insert(QString a_document, bo a_datas)
     return QBool(true);
 }
 
-Hash Nosql::XMLtoHash(QDomElement &xml)
-{
-    //std::cout << "Nosql::XMLtoHash" << std::endl;
-
-    Hash l_hash;
-    QDomNodeList childs = xml.childNodes();
-
-    for (int x = 0; x < childs.count(); x++)
-    {
-        QDomElement element = childs.item(x).toElement();
-
-        //std::cout << "element count : " << element.childNodes().count() << std::endl;
-
-
-        if (element.childNodes().count() > 1)
-        {
-            //std::cout << "element.childNodes().count() : " << element.childNodes().count() << std::endl;
-
-            l_hash.insert(element.tagName(), XMLtoHash(element));
-        }
-        else {
-            l_hash.insert(element.tagName(), element.text());
-        }
-    }
-
-    //std::cout << "Nosql::XMLtoHash : l_hash = " << l_hash.count() << std::endl;
-    return l_hash;
-}
 
 
 
@@ -287,7 +259,7 @@ bo Nosql::CreateHost(bo &payload, const bo &data, const be &user_id)
     l_bob_host << "user_id" << user_id;
     l_bob_host.append(data.getField("created_at"));
     l_bob_host << "updated_at" << data.getField("created_at");
-    l_bob_host << "public" << payload["public"];
+    l_bob_host << "public" << payload["public"].boolean();
     l_bob_host << "blocked" << false;
     l_bob_host << "host_type" << payload["device"];
 
@@ -303,37 +275,34 @@ bo Nosql::CreateHost(bo &payload, const bo &data, const be &user_id)
     l_bob_host << "counter" << last_host.getField("counter").Int() + 1;
 
 
-
     // embedded CPU
-    l_bob_host_cpu << "vendor" << payload["sysinfo"]["cpu_hardware"]["vendor"];
-    l_bob_host_cpu << "model" << payload["sysinfo"]["cpu_hardware"]["model"];
-    l_bob_host_cpu << "mhz" << payload["sysinfo"]["cpu_hardware"]["mhz"];
-    l_bob_host_cpu << "cache_size" << payload["sysinfo"]["cpu_hardware"]["cache_size"];
-    l_bob_host_cpu << "number" << payload["sysinfo"]["cpu_hardware"]["number"];
-    l_bob_host_cpu << "total_cores" << payload["sysinfo"]["cpu_hardware"]["total_cores"];
-    l_bob_host_cpu << "total_sockets" << payload["sysinfo"]["cpu_hardware"]["total_sockets"];
-    l_bob_host_cpu << "cores_per_socket" << payload["sysinfo"]["cpu_hardware"]["cores_per_socket"];
+    l_bob_host_cpu << "vendor" << payload["cpu_hardware"]["vendor"];
+    l_bob_host_cpu << "model" << payload["cpu_hardware"]["model"];
+    l_bob_host_cpu << "mhz" << payload["cpu_hardware"]["mhz"];
+    l_bob_host_cpu << "cache_size" << payload["cpu_hardware"]["cache_size"];
+    l_bob_host_cpu << "number" << payload["cpu_hardware"]["number"];
+    l_bob_host_cpu << "total_cores" << payload["cpu_hardware"]["total_cores"];
+    l_bob_host_cpu << "total_sockets" << payload["cpu_hardware"]["total_sockets"];
+    l_bob_host_cpu << "cores_per_socket" << payload["cpu_hardware"]["cores_per_socket"];
 
 
     // embedded RAM
-    l_bob_host_ram << "mem_ram" << payload["sysinfo"]["memory"]["mem_ram"];
-    l_bob_host_ram << "mem_total" << payload["sysinfo"]["memory"]["mem_total"];
-    l_bob_host_ram << "swap_total" << payload["sysinfo"]["memory"]["swap_total"];
+    l_bob_host_ram << "mem_ram" << payload["memory"]["mem_ram"];
+    l_bob_host_ram << "mem_total" << payload["memory"]["mem_total"];
+    l_bob_host_ram << "swap_total" << payload["memory"]["swap_total"];
 
     // embedded NETWORK
-    l_bob_host_network << "hostname" << payload["sysinfo"]["network"]["hostname"];
-    l_bob_host_network << "domain_name" << payload["sysinfo"]["network"]["domain_name"];
-    l_bob_host_network << "default_gateway" << payload["sysinfo"]["network"]["default_gateway"];
-    l_bob_host_network << "primary_dns" << payload["sysinfo"]["network"]["primary_dns"];
-    l_bob_host_network << "secondary_dns" << payload["sysinfo"]["network"]["secondary_dns"];
-    l_bob_host_network << "primary_interface" << payload["sysinfo"]["network"]["primary_interface"];
-    l_bob_host_network << "primary_addr" << payload["sysinfo"]["network"]["primary_addr"];
-
+    l_bob_host_network << "hostname" << payload["network"]["hostname"];
+    l_bob_host_network << "domain_name" << payload["network"]["domain_name"];
+    l_bob_host_network << "default_gateway" << payload["network"]["default_gateway"];
+    l_bob_host_network << "primary_dns" << payload["network"]["primary_dns"];
+    l_bob_host_network << "secondary_dns" << payload["network"]["secondary_dns"];
+    l_bob_host_network << "primary_interface" << payload["network"]["primary_interface"];
+    l_bob_host_network << "primary_addr" << payload["network"]["primary_addr"];
 
     l_bob_host << "cpu" << l_bob_host_cpu.obj();
     l_bob_host << "ram" << l_bob_host_ram.obj();
     l_bob_host << "network" << l_bob_host_network.obj();
-
 
     l_bo_host = l_bob_host.obj();
 
@@ -341,7 +310,6 @@ bo Nosql::CreateHost(bo &payload, const bo &data, const be &user_id)
     Insert("hosts", l_bo_host);
 
 
-    //std::cout << "Nosql::XMLtoHash : l_hash = " << l_hash.count() << std::endl;
     return l_bo_host;
 }
 
@@ -359,24 +327,20 @@ bo Nosql::CreateOsystem(bo &payload, const bo &data)
     l_bob_os << mongo::GENOID;
     l_bob_os.append(data.getField("created_at"));
     l_bob_os << "updated_at" << data.getField("created_at");
-    l_bob_os << "name" << payload["name"];
-    l_bob_os << "vendor" << payload["vendor"];
+    l_bob_os << "name" << payload["sysinfo"]["name"];
+    l_bob_os << "vendor" << payload["sysinfo"]["vendor"];
     //l_bob_os << "vendor_version" << r_hash["vendor_version"].toString().toLower().toStdString();
     //l_bob_os << "vendor_code_name" << r_hash["vendor_code_name"].toString().toLower().toStdString();
-    l_bob_os << "description" << payload["description"];
-    l_bob_os << "os_base" << payload["os_base"];
-    l_bob_os << "os_type" << payload["os_type"];
+    l_bob_os << "description" << payload["sysinfo"]["description"];
+    l_bob_os << "os_base" << payload["sysinfo"]["os_base"];
+    l_bob_os << "os_type" << payload["sysinfo"]["os_type"];
     l_bob_os << "hosts_number" << 1;
-
-
 
     l_bo_os = l_bob_os.obj();
 
     std::cout << "OSYSTEM : " << l_bo_os.toString() << std::endl;
     Insert("osystems", l_bo_os);
 
-
-    //std::cout << "Nosql::XMLtoHash : l_hash = " << l_hash.count() << std::endl;
     return l_bo_os;
 }
 

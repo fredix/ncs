@@ -62,7 +62,6 @@ void Payload::s_job_receive(bo data)
 
 
     cout << "UUID BEFORE EXTRACT : " << uuid.toString() << endl;
-    //l_xml_datas = nosql_.ExtractXML(gfs_id);
     l_json_datas = nosql_.ExtractJSON(gfs_id);
     cout << "UUID AFTER EXTRACT : " << uuid.toString() << endl;
 
@@ -147,7 +146,7 @@ void Payload::s_job_receive(bo data)
 
 
         //bo os = BSON("vendor" << l_hash["vendor"].toString().toLower().toStdString() << "vendor_version" << l_hash["vendor_version"].toString().toLower().toStdString());
-        bo os = BSON("vendor" << l_json_datas["vendor"]);
+        bo os = BSON("vendor" << l_json_datas["sysinfo"]["vendor"]);
 
         //bo os = BSON("vendor" << "prot" << "vendor_version" << l_hash["vendor_version"].toString().toStdString());
 
