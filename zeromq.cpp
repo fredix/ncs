@@ -37,7 +37,7 @@ Zreceive::Zreceive(zmq::context_t *a_context, QString a_port, QString a_inproc, 
 
 void Zreceive::init_payload()
 {
-    m_mutex->lock();
+    //m_mutex->lock();
     qDebug() << "Zreceive::init_payload";
     z_sender = new zmq::socket_t(*m_context, ZMQ_PULL);
     //z_sender->connect("tcp://*:5555");
@@ -45,17 +45,15 @@ void Zreceive::init_payload()
     z_sender->connect("tcp://*:" + m_port.toAscii());
 
 
-
     zmq::socket_t z_workers (*m_context, ZMQ_PUSH);
     z_workers.bind ("inproc://" + m_inproc.toAscii());
 
+    m_mutex->unlock();
 
     //  Connect work threads to client threads via a queue
     std::cout << "Zreceive::init_payload BEFORE ZMQ_STREAMER" << std::endl;
     zmq::device (ZMQ_STREAMER, *z_sender, z_workers);
     std::cout << "Zreceive::init_payload AFTER ZMQ_STREAMER" << std::endl;
-
-    m_mutex->unlock();
 }
 
 Zreceive::~Zreceive()
@@ -71,19 +69,25 @@ Zdispatch::~Zdispatch()
 {}
 
 
-Zdispatch::Zdispatch(zmq::context_t *a_context, QString a_inproc, QMutex *a_mutex) : m_inproc(a_inproc), m_mutex(a_mutex)
+Zdispatch::Zdispatch(zmq::context_t *a_context, QString a_inproc, QMutex *a_http_mutex, QMutex *a_xmpp_mutex) : m_context(a_context), m_inproc(a_inproc), m_http_mutex(a_http_mutex), m_xmpp_mutex(a_xmpp_mutex)
 {        
     std::cout << "Zdispatch::Zdispatch constructeur" << std::endl;
 
-    m_context = a_context;
 }
 
 void Zdispatch::receive_payload()
 {
-    m_mutex->lock();
+    m_http_mutex->lock();
+    m_xmpp_mutex->lock();
+
     std::cout << "Zdispatch::receive_payload" << std::endl;
-    zmq::socket_t socket (*m_context, ZMQ_PULL);
-    socket.connect ("inproc://" + m_inproc.toAscii());
+    //zmq::socket_t socket (*m_context, ZMQ_PULL);
+    m_socket = new zmq::socket_t (*m_context, ZMQ_PULL);
+    m_socket->connect("inproc://" + m_inproc.toAscii());
+
+    m_http_mutex->unlock();
+    m_xmpp_mutex->unlock();
+
 
     std::cout << "Zdispatch::receive_payload AFTER inproc" << std::endl;
 
@@ -91,7 +95,7 @@ void Zdispatch::receive_payload()
     while (true) {
         //  Wait for next request from client
         zmq::message_t request;
-        socket.recv (&request);
+        m_socket->recv (&request);
 
         std::cout << "Zdispatch::receive_payload WHILE TRUE" << std::endl;
 
@@ -119,10 +123,8 @@ void Zdispatch::receive_payload()
 
         std::cout << "Zdispatch AFTER emit forward_payload" << std::endl;
 
-        m_mutex->unlock();
-
         //sleep (1);              //  Give 0MQ time to deliver
-    }
+    }    
 }
 
 
@@ -267,14 +269,18 @@ Zeromq::Zeromq(QString host, int port)
     http://labs.qt.nokia.com/2010/06/17/youre-doing-it-wrong/
     ******************************/
 
-    QMutex *zmutex = new QMutex;
+    QMutex *http_mutex = new QMutex();
+    QMutex *xmpp_mutex = new QMutex();
+
+    http_mutex->lock();
+    xmpp_mutex->lock();
 
     m_context = new zmq::context_t(1);
 
 
     /**** PULL DATA ON HTTP API ****/
     QThread *thread_http_receive = new QThread;
-    receive_http = new Zreceive(m_context, "5555", "http", zmutex);
+    receive_http = new Zreceive(m_context, "5555", "http", http_mutex);
     connect(thread_http_receive, SIGNAL(started()), receive_http, SLOT(init_payload()));
     receive_http->moveToThread(thread_http_receive);
     thread_http_receive->start();
@@ -284,7 +290,7 @@ Zeromq::Zeromq(QString host, int port)
 
     /**** PULL DATA ON XMPP API ****/
     QThread *thread_xmpp_receive = new QThread;
-    receive_xmpp = new Zreceive(m_context, "5556", "xmpp", zmutex);
+    receive_xmpp = new Zreceive(m_context, "5556", "xmpp", xmpp_mutex);
     connect(thread_xmpp_receive, SIGNAL(started()), receive_xmpp, SLOT(init_payload()));
     receive_xmpp->moveToThread(thread_xmpp_receive);
     thread_xmpp_receive->start();
@@ -292,8 +298,9 @@ Zeromq::Zeromq(QString host, int port)
     std::cout << "Zeromq::Zeromq AFTER thread_receive" << std::endl;
 
 
+
     QThread *thread_dispatch_http = new QThread;
-    dispatch_http = new Zdispatch(m_context, "http", zmutex);
+    dispatch_http = new Zdispatch(m_context, "http", http_mutex, xmpp_mutex);
     connect(thread_dispatch_http, SIGNAL(started()), dispatch_http, SLOT(receive_payload()));
 
     dispatch_http->moveToThread(thread_dispatch_http);
@@ -302,7 +309,7 @@ Zeromq::Zeromq(QString host, int port)
 
 
     QThread *thread_dispatch_xmpp = new QThread;
-    dispatch_xmpp = new Zdispatch(m_context, "xmpp", zmutex);
+    dispatch_xmpp = new Zdispatch(m_context, "xmpp", http_mutex, xmpp_mutex);
     connect(thread_dispatch_xmpp, SIGNAL(started()), dispatch_xmpp, SLOT(receive_payload()));
 
     dispatch_xmpp->moveToThread(thread_dispatch_xmpp);

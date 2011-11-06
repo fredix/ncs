@@ -213,7 +213,7 @@ void Http_api::host(QxtWebRequestEvent* event, QString action, QString uuid)
         bo payload = payload_builder.obj();
 
         /****** PUSH API PAYLOAD *******/
-        qDebug() << "PUSH API PAYLOAD";
+        qDebug() << "PUSH HTTP PAYLOAD";
         z_message->rebuild(payload.objsize());
         memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
         z_push_api->send(*z_message, ZMQ_NOBLOCK);

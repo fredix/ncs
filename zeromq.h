@@ -38,15 +38,18 @@ class Zdispatch : public QObject
 {
     Q_OBJECT
 public:
-    Zdispatch(zmq::context_t *a_context, QString a_inproc, QMutex *a_mutex);
+    Zdispatch(zmq::context_t *a_context, QString a_inproc, QMutex *a_http_mutex, QMutex *a_xmpp_mutex);
     Zdispatch();
     ~Zdispatch();
 
 
 private:
-    QMutex *m_mutex;
+    QMutex *m_http_mutex;
+    QMutex *m_xmpp_mutex;
+
     zmq::context_t *m_context;
     QString m_inproc;
+    zmq::socket_t *m_socket;
 
 signals:
     void forward_payload(bson::bo data);
