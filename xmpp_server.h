@@ -22,8 +22,9 @@
 #define XMPP_SERVER_H
 
 #include "QXmppLogger.h"
-#include "QXmppIncomingClient.h"
+//#include "QXmppPasswordChecker.h"
 #include "QXmppServer.h"
+#include "QXmppIncomingClient.h"
 
 
 
@@ -37,7 +38,7 @@ class passwordChecker : public QXmppPasswordChecker
             return QXmppPasswordChecker::NoError;
         else
             return QXmppPasswordChecker::AuthorizationError;
-    }
+    };
 
     /// Retrieves the password for the given username.
     bool getPassword(const QString &username, QString &password)
@@ -49,7 +50,19 @@ class passwordChecker : public QXmppPasswordChecker
         } else {
             return false;
         }
-    }
+    };
+
+    /// Retrieves the password for the given username.
+    /*QXmppPasswordReply::Error getPassword(const QXmppPasswordRequest &request, QString &password)
+    {
+        if (request.username() == m_username)
+            {
+                password = m_password;
+                return QXmppPasswordReply::NoError;
+            } else {
+                return QXmppPasswordReply::AuthorizationError;
+            }
+    }*/
 
     /// Returns true as we implemented getPassword().
     bool hasGetPassword() const
@@ -62,8 +75,9 @@ public:
     QString m_password;
 };
 
-class Xmpp_server
-{
+class Xmpp_server : public QObject
+{    
+    Q_OBJECT
 public:
     Xmpp_server();
     Xmpp_server(QString a_jabberid, QString a_jabberpassword);

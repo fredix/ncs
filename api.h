@@ -21,11 +21,13 @@
 #ifndef API_H
 #define API_H
 
+#include <QThread>
 #include "nosql.h"
 #include "http_api.h"
 #include <QxtHttpServerConnector>
 #include <QxtHttpSessionManager>
-
+#include "xmpp_server.h"
+#include "xmpp_client.h"
 
 class Api : public QObject
 {
@@ -34,7 +36,8 @@ public:
     Api(Nosql &a, QObject *parent = 0);
     ~Api();
 
-    void Init_http();
+    void Http_init();
+    void Xmpp_init();
 
 
 protected:
@@ -44,6 +47,8 @@ private:
     QxtHttpServerConnector m_connector;
     QxtHttpSessionManager m_session;
     Http_api *m_http_api;
+    Xmpp_server *m_xmpp_server;
+    Xmpp_client *m_xmpp_client;
 };
 
 #endif // API_H

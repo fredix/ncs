@@ -22,9 +22,9 @@
 #define NOSQL_H
 
 
-#include "mongodb/client/dbclient.h"
-#include "mongodb/client/gridfs.h"
-#include "mongodb/bson/bson.h"
+#include "client/dbclient.h"
+#include "client/gridfs.h"
+#include "bson/bson.h"
 
 #include <qjson/parser.h>
 
@@ -55,7 +55,7 @@ public:
     bo CreateOsystem(bo &payload, const bo &data);
     bo CreateOsversion(bo &data);
     QBool Update(QString a_document, const bo &element_id, const bo &a_datas);
-    bo WriteFile(const string xml);
+    bo WriteFile(const string json);
 
 
 protected:

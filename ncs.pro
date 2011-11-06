@@ -19,21 +19,23 @@ SOURCES += main.cpp \
     xmpp_client.cpp \
     api.cpp \
     http_api.cpp
-LIBS += ./externals/mongodb/libmongoclient.a \
-    ./externals/qxmpp/lib/libqxmpp.a \
-    -lboost_system \
-    -lboost_filesystem \
-    -lboost_thread-mt \
-    -lmemcached \
-    -lQxtCore \
-    -lQxtWeb \
-    -lzmq \
-    -lqjson
+LIBS += /usr/local/lib/libmongoclient.a \
+        /usr/local/lib/libqxmpp-3.0.a \
+        -lboost_system \
+        -lboost_filesystem-mt \
+        -lboost_thread-mt \
+        -lmemcached \
+        -lQxtCore \
+        -lQxtWeb \
+        -lzmq
+
+INCLUDEPATH += /usr/include/
 INCLUDEPATH += /usr/include/qxt/
 INCLUDEPATH += /usr/include/qxt/QxtCore
 INCLUDEPATH += /usr/include/qxt/QxtWeb
-INCLUDEPATH += ./externals/
-INCLUDEPATH += ./externals/qxmpp/src/
+INCLUDEPATH += ./externals/mongodb-src-r2.0.1
+INCLUDEPATH += ./externals/qxmpp-0.3.0/src/
+
 HEADERS += main.h \
     nosql.h \
     payload.h \

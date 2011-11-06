@@ -30,13 +30,13 @@ Xmpp_server::Xmpp_server(QString a_jabberid, QString a_jabberpassword) : m_jabbe
     m_checker.m_username = m_jabberid;
     m_checker.m_password = m_jabberpassword;
 
-    m_logger.setLoggingType(QXmppLogger::StdoutLogging);
+    //m_logger.setLoggingType(QXmppLogger::StdoutLogging);
+    //m_logger.setLoggingType(QXmppLogger::FileLogging);
 
 
     const QString domain = QString::fromLocal8Bit("localhost");
 
     m_server.setDomain(domain);
-
     m_server.setLogger(&m_logger);
     m_server.setPasswordChecker(&m_checker);
     m_server.listenForClients();

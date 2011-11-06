@@ -24,10 +24,11 @@
 #include <QObject>
 #include <QThread>
 #include <QDebug>
+#include <QMutex>
 #include <QxtCore/QxtCommandOptions>
 
 #include <zmq.hpp>
-#include "externals/mongodb/client/gridfs.h"
+#include "client/gridfs.h"
 
 using namespace mongo;
 using namespace bson;
@@ -37,13 +38,15 @@ class Zdispatch : public QObject
 {
     Q_OBJECT
 public:
-    Zdispatch(zmq::context_t *a_context);
+    Zdispatch(zmq::context_t *a_context, QString a_inproc, QMutex *a_mutex);
     Zdispatch();
     ~Zdispatch();
 
 
 private:
+    QMutex *m_mutex;
     zmq::context_t *m_context;
+    QString m_inproc;
 
 signals:
     void forward_payload(bson::bo data);
@@ -59,15 +62,17 @@ class Zreceive : public QObject
 {
     Q_OBJECT
 public:
-    Zreceive();
+    Zreceive(zmq::context_t *a_context, QString port, QString inproc, QMutex *a_mutex);
     ~Zreceive();
     zmq::context_t *m_context;
 
 private:
+    QMutex *m_mutex;
+    QString m_inproc;
+    QString m_port;
     zmq::socket_t *z_sender;
-
     QString m_host;
-    int m_port;
+
 
 signals:
     void send_payload();
@@ -124,8 +129,13 @@ public:
     Zeromq(QString host, int port);
     ~Zeromq();
 
-    Zdispatch *dispatch;
-    Zreceive *receive;
+    zmq::context_t *m_context;
+
+    Zdispatch *dispatch_http;
+    Zdispatch *dispatch_xmpp;
+
+    Zreceive *receive_http;
+    Zreceive *receive_xmpp;
     Zworker_push *worker_push;
 
 signals:

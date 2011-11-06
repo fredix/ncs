@@ -21,7 +21,6 @@
 #ifndef PAYLOAD_H
 #define PAYLOAD_H
 
-#include <qjson/parser.h>
 #include "nosql.h"
 #include "zeromq.h"
 
@@ -44,11 +43,9 @@ protected:
      Nosql &nosql_;     
 
 
-private:
-     QJson::Parser parser;
-
 public slots:
      void s_job_receive(bson::bo data);
+
 signals:
     void payload_cpu(bson::bo data);
     void payload_load(bson::bo data);

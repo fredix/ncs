@@ -31,12 +31,12 @@ Dispatcher::Dispatcher(QString mongodb_ip, QString mongodb_base)
     nosql = new Nosql(mongodb_ip, mongodb_base);
     payload = new Payload(*nosql);
     zeromq = new Zeromq("127.0.0.1", 12345);
-    xmpp_server = new Xmpp_server("ncs", "nodecast");
 
 
     /*********** HTTP API *************/
     api = new Api(*nosql);
-    api->Init_http();
+    api->Http_init();
+    api->Xmpp_init();
 }
 
 Dispatcher::~Dispatcher()
@@ -110,32 +110,10 @@ int main(int argc, char *argv[])
 
 
 
-
-
-
-/*
-    qRegisterMetaType<QXmppLogger::MessageType>("QXmppLogger::MessageType");
-
-
-    QThread *thread_xmpp_client = new QThread;
-
-
-
-    dispatcher.xmpp_client = new Xmpp_client();
-    dispatcher.xmpp_client->connectToServer("qxmpp.test1@localhost", "qxmpp123");
-
-    dispatcher.xmpp_client->logger()->setLoggingType(QXmppLogger::StdoutLogging);
-
-    //QObject::connect(thread_xmpp_client, SIGNAL(started()), dispatcher.xmpp_client, SLOT(messageReceived(const QXmppMessage&)));
-    dispatcher.xmpp_client->moveToThread(thread_xmpp_client);
-    thread_xmpp_client->start();
-
-    std::cout << "ncs OK" << std::endl;
-*/
-
     qRegisterMetaType<bson::bo>("bson::bo");
 
-    QObject::connect(dispatcher.zeromq->dispatch, SIGNAL(forward_payload(bson::bo)), dispatcher.payload, SLOT(s_job_receive(bson::bo)), Qt::BlockingQueuedConnection);
+    QObject::connect(dispatcher.zeromq->dispatch_http, SIGNAL(forward_payload(bson::bo)), dispatcher.payload, SLOT(s_job_receive(bson::bo)), Qt::BlockingQueuedConnection);
+    QObject::connect(dispatcher.zeromq->dispatch_xmpp, SIGNAL(forward_payload(bson::bo)), dispatcher.payload, SLOT(s_job_receive(bson::bo)), Qt::BlockingQueuedConnection);
 
     QObject::connect(dispatcher.payload, SIGNAL(payload_load(bson::bo)), dispatcher.zeromq->worker_push, SLOT(send_payload_load(bson::bo)), Qt::QueuedConnection);
     QObject::connect(dispatcher.payload, SIGNAL(payload_cpu(bson::bo)), dispatcher.zeromq->worker_push, SLOT(send_payload_cpu(bson::bo)), Qt::QueuedConnection);

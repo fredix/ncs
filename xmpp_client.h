@@ -23,26 +23,42 @@
 
 #include <QObject>
 #include <QDebug>
+#include <QVariant>
 
 #include "QXmppMessage.h"
 #include "QXmppLogger.h"
 #include "QXmppClient.h"
+#include "QXmppIncomingClient.h"
 
+#include "nosql.h"
+#include <zmq.hpp>
 
 class Xmpp_client : public QXmppClient
 {    
     Q_OBJECT
 
 public:
-    Xmpp_client(QObject *parent = 0);
+    Xmpp_client(Nosql& a, QObject *parent = 0);
     ~Xmpp_client();
 
 private:
     QXmppLogger m_logger;
+    QXmppPresence subscribe;
+
+    zmq::context_t *m_context;
+    zmq::socket_t *z_push_api;
+    zmq::message_t *z_message;
+
+    Nosql &nosql_;
+    bool checkAuth(QString credentials, BSONObjBuilder &payload);
+    QString buildResponse(QString action, QString status);
 
 
 public slots:
+    void connectedToServer();
+    void connectedError();
     void messageReceived(const QXmppMessage&);
+    void presenceReceived(const QXmppPresence& presence);
 };
 
 #endif // XMPP_CLIENT_H

@@ -29,8 +29,6 @@
 #include "nosql.h"
 #include "payload.h"
 #include "zeromq.h"
-#include "xmpp_server.h"
-#include "xmpp_client.h"
 #include "api.h"
 
 
@@ -43,8 +41,6 @@ public:
     Nosql *nosql;
     Zeromq *zeromq;
     Payload *payload;
-    Xmpp_server *xmpp_server;
-    Xmpp_client *xmpp_client;
     Api *api;
 };
 

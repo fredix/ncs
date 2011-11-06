@@ -197,13 +197,13 @@ QBool Nosql::ReadFile(const be &gfs_id)
 
 }
 
-bo Nosql::WriteFile(const string xml)
+bo Nosql::WriteFile(const string json)
 {
     std::cout << "Nosql::WriteFile : " << std::endl;
 
     bo struct_file;
     try {
-        struct_file = this->m_gfs->storeFile(xml.c_str(), xml.size(), "", "xml");
+        struct_file = this->m_gfs->storeFile(json.c_str(), json.size(), "", "json");
 
     }
     catch(mongo::DBException &e ) {

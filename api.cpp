@@ -27,7 +27,7 @@ Api::~Api()
 {}
 
 
-void Api::Init_http()
+void Api::Http_init()
 {
     m_session.setPort(4567);
     m_session.setConnector(&m_connector);
@@ -38,4 +38,21 @@ void Api::Init_http()
 
     m_session.setStaticContentService(m_http_api);
     m_session.start();
+}
+
+
+
+void Api::Xmpp_init()
+{
+    qRegisterMetaType<QXmppLogger::MessageType>("QXmppLogger::MessageType");
+
+    QThread *thread_xmpp_server = new QThread;
+    m_xmpp_server = new Xmpp_server("ncs", "scn");
+    m_xmpp_server->moveToThread(thread_xmpp_server);
+    thread_xmpp_server->start();
+
+    QThread *thread_xmpp_client = new QThread;
+    m_xmpp_client = new Xmpp_client(nosql_);
+    m_xmpp_client->moveToThread(thread_xmpp_client);
+    thread_xmpp_client->start();
 }
