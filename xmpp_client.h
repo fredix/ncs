@@ -24,6 +24,7 @@
 #include <QObject>
 #include <QDebug>
 #include <QVariant>
+#include <QUuid>
 
 #include "QXmppMessage.h"
 #include "QXmppLogger.h"

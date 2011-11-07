@@ -104,7 +104,8 @@ void Http_api::host(QxtWebRequestEvent* event, QString action)
         qDebug() << "Bytes to read: " << myContent->unreadBytes();
         myContent->waitForAllContent();
 
-        QByteArray requestContent = myContent->readAll();
+        QByteArray requestContent = QByteArray::fromBase64(myContent->readAll());
+
         //qDebug() << "Content: ";
         //qDebug() << requestContent;
 

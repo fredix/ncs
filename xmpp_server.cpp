@@ -30,7 +30,7 @@ Xmpp_server::Xmpp_server(QString a_jabberid, QString a_jabberpassword) : m_jabbe
     m_checker.m_username = m_jabberid;
     m_checker.m_password = m_jabberpassword;
 
-    //m_logger.setLoggingType(QXmppLogger::StdoutLogging);
+    m_logger.setLoggingType(QXmppLogger::StdoutLogging);
     //m_logger.setLoggingType(QXmppLogger::FileLogging);
 
 

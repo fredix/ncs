@@ -128,20 +128,36 @@ void Xmpp_client::messageReceived(const QXmppMessage& message)
 
     bo payload = mongo::fromjson(msg.data());
 
-
-
     be action = payload["action"];
-    be uuid = payload["uuid"];
     be credentials = payload["credentials"];
-
 
     std::cout << "uuid : " << payload["uuid"] << std::endl;
     std::cout << "action : " << payload["action"] << std::endl;
 
-     QString bodyMessage;
-     BSONObjBuilder payload_builder;
-     payload_builder.append("action", "dispatcher.update");
-     payload_builder.append("uuid", uuid.valuestr());
+    QString bodyMessage;
+    BSONObjBuilder payload_builder;
+
+
+    if (qstrcmp(action.valuestr(), "create") == 0)
+    {
+        QUuid uuid = QUuid::createUuid();
+        QUuid pub_uuid = QUuid::createUuid();
+        QString str_uuid = uuid.toString().mid(1,36);
+        QString str_pub_uuid = pub_uuid.toString().mid(1,36);
+
+        payload_builder.append("uuid", str_uuid.toStdString());
+        payload_builder.append("pub_uuid", str_pub_uuid.toStdString());
+        payload_builder.append("action", "dispatcher.create");
+        bodyMessage = buildResponse(action.valuestr(), str_uuid);
+    }
+    else
+    {
+        payload_builder.append("action", "dispatcher.update");
+        payload_builder.append("uuid", payload["uuid"].valuestr());
+        bodyMessage = buildResponse(action.valuestr(), "proceed");
+     }
+
+
 
 
      bool res = checkAuth(credentials.valuestr(), payload_builder);
@@ -174,7 +190,7 @@ void Xmpp_client::messageReceived(const QXmppMessage& message)
 
             bo b_payload = payload_builder.obj();
 
-            std::cout << "PAYLOAD !!!! : " << b_payload << std::endl;
+            std::cout << "PAYLOAD !!!! >>: " << b_payload << std::endl;
 
 
             /****** PUSH API PAYLOAD *******/
@@ -184,7 +200,6 @@ void Xmpp_client::messageReceived(const QXmppMessage& message)
             z_push_api->send(*z_message, ZMQ_NOBLOCK);
             /************************/
          }
-         bodyMessage = buildResponse(action.valuestr(), "proceed");
      }
      sendMessage(from, bodyMessage);
 }
