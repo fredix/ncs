@@ -69,6 +69,7 @@ bool Http_api::checkAuth(QString header, BSONObjBuilder &payload_builder)
 
 
 
+
 /********** CREATE HOST ************/
 void Http_api::host(QxtWebRequestEvent* event, QString action)
 {
@@ -141,7 +142,7 @@ void Http_api::host(QxtWebRequestEvent* event, QString action)
         /************************/
 
         }
-        bodyMessage = buildResponse("create", str_uuid);
+        bodyMessage = buildResponse("create", str_uuid, str_pub_uuid);
     }
     qDebug() << bodyMessage;
 
@@ -187,7 +188,7 @@ void Http_api::host(QxtWebRequestEvent* event, QString action, QString uuid)
 
         QByteArray requestContent = QByteArray::fromBase64(myContent->readAll());
         //qDebug() << "Content: ";
-        //qDebug() << requestContent;
+        qDebug() << "RECEIVE PAYLOAD !!!!!  : " << requestContent.data();
 
         //bo gfs_file_struct;
         bo gfs_file_struct = nosql_.WriteFile(requestContent.data());
@@ -231,21 +232,124 @@ void Http_api::host(QxtWebRequestEvent* event, QString action, QString uuid)
 }
 
 
-QString Http_api::buildResponse(QString action, QString status)
+/**************  GET PAGE **********************/
+
+
+/********** INDEX PAGE ************/
+void Http_api::index(QxtWebRequestEvent* event)
 {
+/*    QString bodyMessage;
+    bodyMessage = buildResponse("error", "ncs version 0.9.1");
+
+    qDebug() << bodyMessage;
+
+  */
+
+    QxtHtmlTemplate index;
+    QxtWebPageEvent *page;
+
+        if(!index.open("html_templates/index.html"))
+        {
+            index["content"]="error 404";
+            page = new QxtWebPageEvent(event->sessionID,
+                                       event->requestID,
+                                       index.render().toUtf8());
+            page->status=404;
+            qDebug() << "error 404";
+        }
+        else
+        {
+            index["ncs_version"]="0.9.1";
+
+            page = new QxtWebPageEvent(event->sessionID,
+                                       event->requestID,
+                                       index.render().toUtf8());
+
+            page->contentType="text/html";
+        }
+
+        postEvent(page);
+
+
+        /* postEvent(new QxtWebPageEvent(event->sessionID,
+                                      event->requestID,
+                                      index.render().toUtf8()));
+
+        */
+}
+
+/********** ADMIN PAGE ************/
+void Http_api::admin(QxtWebRequestEvent* event, QString action)
+{
+/*    QString bodyMessage;
+    bodyMessage = buildResponse("error", "ncs version 0.9.1");
+
+    qDebug() << bodyMessage;
+
+  */
+
+    QxtHtmlTemplate index;
+    QxtWebPageEvent *page;
+
+        if(!index.open("html_templates/admin.html"))
+        {
+            index["content"]="error 404";
+            page = new QxtWebPageEvent(event->sessionID,
+                                       event->requestID,
+                                       index.render().toUtf8());
+            page->status = 404;
+            qDebug() << "error 404";
+        }
+        else
+        {
+            index["content"]="Ncs admin pages";
+            index["prot"]="PROT";
+
+            page = new QxtWebPageEvent(event->sessionID,
+                                       event->requestID,
+                                       index.render().toUtf8());
+
+            page->contentType="text/html";
+        }
+
+        postEvent(page);
+
+
+        /* postEvent(new QxtWebPageEvent(event->sessionID,
+                                      event->requestID,
+                                      index.render().toUtf8()));
+
+        */
+}
+
+
+
+
+
+
+
+
+
+QString Http_api::buildResponse(QString action, QString data1, QString data2)
+{
+    QVariantMap data;
     QString body;
+
+
     if (action == "update")
     {
-        body.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?><host><status>" + status + "</status></host>");
+        data.insert("status", data1);
     }
     else if (action == "create")
     {
-        body.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?><host><uuid>" + status + "</uuid></host>");
+        data.insert("uuid", data1);
+        data.insert("pub_uuid", data2);
     }
     else if (action == "error")
     {
-        body.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?><host><error>" + status + "</error></host>");
+        data.insert("error", data1);
     }
+    body = QxtJSON::stringify(data);
 
     return body;
 }

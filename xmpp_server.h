@@ -25,6 +25,7 @@
 //#include "QXmppPasswordChecker.h"
 #include "QXmppServer.h"
 #include "QXmppIncomingClient.h"
+#include "nosql.h"
 
 
 
@@ -34,15 +35,57 @@ class passwordChecker : public QXmppPasswordChecker
     /// Checks that the given credentials are valid.
     QXmppPasswordChecker::Error checkPassword(const QString &username, const QString &password)
     {
+        // construct a bson object with username and token
+        bo auth = BSON("pub_uuid" << username.toStdString() << "uuid" << password.toStdString());
+        std::cout << "AUTH !!!!!!!!   :     " << auth << std::endl;
+
+
+        // search user through users's collection with the bson object payload
+        bo host = nosql_->Find("hosts", auth);
+        if (host.nFields() != 0)
+        {
+            be host_id = host.getField("_id");
+            std::cout << "host_id : " << host_id << std::endl;
+            return QXmppPasswordChecker::NoError;
+        }
+
+        qDebug() << "mongoDB auth failed !";
+
+        // used only for the qxmpp client embedded into the ncs server.
         if (username == m_username && password == m_password)
             return QXmppPasswordChecker::NoError;
         else
             return QXmppPasswordChecker::AuthorizationError;
+
+        /*
+
+        if (username == m_username && password == m_password)
+            return QXmppPasswordChecker::NoError;
+        else
+            return QXmppPasswordChecker::AuthorizationError;
+            */
     };
 
     /// Retrieves the password for the given username.
     bool getPassword(const QString &username, QString &password)
     {
+
+        bo auth = BSON("pub_uuid" << username.toStdString() << "uuid" << password.toStdString());
+
+
+        std::cout << "AUTH !!!!!!!!   :     " << auth << std::endl;
+
+
+        bo user = nosql_->Find("users", auth);
+        if (user.nFields() != 0)
+        {
+            be login = user.getField("login");
+            std::cout << "user : " << login << std::endl;
+            return true;
+        }
+
+        qDebug() << "mongoDB auth failed !";
+
         if (username == m_username)
         {
             password = m_password;
@@ -67,26 +110,28 @@ class passwordChecker : public QXmppPasswordChecker
     /// Returns true as we implemented getPassword().
     bool hasGetPassword() const
     {
-        return true;
+        return false;
     }
 
 public:
     QString m_username;
-    QString m_password;
+    QString m_password;        
+    Nosql *nosql_;
 };
 
 class Xmpp_server : public QObject
 {    
     Q_OBJECT
 public:
-    Xmpp_server();
-    Xmpp_server(QString a_jabberid, QString a_jabberpassword);
+    Xmpp_server(Nosql &a);
+
 
 private:
+    //Nosql &nosql_;
     QString m_jabberid;
     QString m_jabberpassword;
-    QXmppLogger m_logger;
     passwordChecker m_checker;
+    QXmppLogger m_logger;
     QXmppServer m_server;
 };
 

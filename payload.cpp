@@ -301,7 +301,8 @@ void Payload::s_job_receive(bo data)
 
 
     if (l_json_datas["load"]["activated"].boolean())
-    {
+    {             
+        std::cout << "load : " << l_json_datas["load"]["activated"] << std::endl;
         qDebug() << "emit payload_load(l_payload)";
 
         bo payload = BSON("headers" << data << "load" << l_json_datas["load"]);

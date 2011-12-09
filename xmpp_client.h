@@ -25,6 +25,7 @@
 #include <QDebug>
 #include <QVariant>
 #include <QUuid>
+#include <QxtJSON>
 
 #include "QXmppMessage.h"
 #include "QXmppLogger.h"
@@ -52,7 +53,7 @@ private:
 
     Nosql &nosql_;
     bool checkAuth(QString credentials, BSONObjBuilder &payload);
-    QString buildResponse(QString action, QString status);
+    QString buildResponse(QString action, QString data1, QString data2="");
 
 
 public slots:

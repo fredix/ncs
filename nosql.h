@@ -26,7 +26,6 @@
 #include "client/gridfs.h"
 #include "bson/bson.h"
 
-#include <qjson/parser.h>
 
 #include <QObject>
 #include <QDomDocument>

@@ -20,15 +20,15 @@
 
 #include "xmpp_server.h"
 
-Xmpp_server::Xmpp_server()
-{}
 
-Xmpp_server::Xmpp_server(QString a_jabberid, QString a_jabberpassword) : m_jabberid(a_jabberid), m_jabberpassword(a_jabberpassword)
+Xmpp_server::Xmpp_server(Nosql &a)
 {
     qDebug() << "Xmpp_server construct param";
 
-    m_checker.m_username = m_jabberid;
-    m_checker.m_password = m_jabberpassword;
+
+    m_checker.nosql_ = &a;
+    m_checker.m_username = "ncs";
+    m_checker.m_password = "scn";
 
     m_logger.setLoggingType(QXmppLogger::StdoutLogging);
     //m_logger.setLoggingType(QXmppLogger::FileLogging);

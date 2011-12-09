@@ -20,14 +20,14 @@ SOURCES += main.cpp \
     api.cpp \
     http_api.cpp
 LIBS += /usr/local/lib/libmongoclient.a \
-        /usr/local/lib/libqxmpp-3.0.a \
         -lboost_system \
         -lboost_filesystem-mt \
         -lboost_thread-mt \
         -lmemcached \
         -lQxtCore \
         -lQxtWeb \
-        -lzmq
+        -lzmq \
+        -lqxmpp
 
 INCLUDEPATH += /usr/include/
 INCLUDEPATH += /usr/include/qxt/

@@ -53,7 +53,7 @@ Xmpp_client::Xmpp_client(Nosql& a, QObject *parent) : QXmppClient(parent), nosql
 
     //this->logger()->setLoggingType(QXmppLogger::StdoutLogging);
 
-    this->logger()->setLoggingType(QXmppLogger::FileLogging);
+    //this->logger()->setLoggingType(QXmppLogger::FileLogging);
 
 
     this->configuration().setJid("ncs@localhost");
@@ -148,7 +148,7 @@ void Xmpp_client::messageReceived(const QXmppMessage& message)
         payload_builder.append("uuid", str_uuid.toStdString());
         payload_builder.append("pub_uuid", str_pub_uuid.toStdString());
         payload_builder.append("action", "dispatcher.create");
-        bodyMessage = buildResponse(action.valuestr(), str_uuid);
+        bodyMessage = buildResponse(action.valuestr(), str_uuid, str_pub_uuid);
     }
     else
     {
@@ -190,7 +190,7 @@ void Xmpp_client::messageReceived(const QXmppMessage& message)
 
             bo b_payload = payload_builder.obj();
 
-            std::cout << "PAYLOAD !!!! >>: " << b_payload << std::endl;
+            //std::cout << "PAYLOAD !!!! >>: " << b_payload << std::endl;
 
 
             /****** PUSH API PAYLOAD *******/
@@ -255,23 +255,27 @@ void Xmpp_client::presenceReceived(const QXmppPresence& presence)
 
 
 
-
-
-QString Xmpp_client::buildResponse(QString action, QString status)
+QString Xmpp_client::buildResponse(QString action, QString data1, QString data2)
 {
+    QVariantMap data;
     QString body;
     if (action == "update")
     {
-        body.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?><host><status>" + status + "</status></host>");
+        //body.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?><host><status>" + data1 + "</status></host>");
+        data.insert("status", data1);
     }
     else if (action == "create")
     {
-        body.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?><host><uuid>" + status + "</uuid></host>");
+        //body.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?><host><uuid>" + data1 + "</uuid><pub_uuid>" + data2 + "</pub_uuid></host>");
+        data.insert("uuid", data1);
+        data.insert("pub_uuid", data2);
     }
     else if (action == "error")
     {
-        body.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?><host><error>" + status + "</error></host>");
+        //body.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?><host><error>" + data1 + "</error></host>");
+        data.insert("error", data1);
     }
+    body = QxtJSON::stringify(data);
 
     return body;
 }
