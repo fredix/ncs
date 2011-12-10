@@ -21,7 +21,7 @@
 
 #include "xmpp_client.h"
 
-Xmpp_client::Xmpp_client(Nosql& a, QObject *parent) : QXmppClient(parent), nosql_(a)
+Xmpp_client::Xmpp_client(Nosql& a, QString a_domain, QObject *parent) : QXmppClient(parent), nosql_(a), m_domain(a_domain)
 {
     qDebug() << "Xmpp_client::Xmpp_client !!!";
 
@@ -56,7 +56,7 @@ Xmpp_client::Xmpp_client(Nosql& a, QObject *parent) : QXmppClient(parent), nosql
     //this->logger()->setLoggingType(QXmppLogger::FileLogging);
 
 
-    this->configuration().setJid("ncs@localhost");
+    this->configuration().setJid("ncs@" + m_domain);
     this->configuration().setPassword("scn");
     this->configuration().setResource("cli");
 

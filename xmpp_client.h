@@ -40,10 +40,11 @@ class Xmpp_client : public QXmppClient
     Q_OBJECT
 
 public:
-    Xmpp_client(Nosql& a, QObject *parent = 0);
+    Xmpp_client(Nosql& a, QString a_domain, QObject *parent = 0);
     ~Xmpp_client();
 
 private:
+    QString m_domain;
     QXmppLogger m_logger;
     QXmppPresence subscribe;
 
