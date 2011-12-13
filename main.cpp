@@ -24,7 +24,7 @@
 
 
 
-Dispatcher::Dispatcher(QString mongodb_ip, QString mongodb_base)
+Dispatcher::Dispatcher(QString mongodb_ip, QString mongodb_base, QString domain_name)
 {
     qDebug() << "Dispatcher construct";
 
@@ -36,7 +36,7 @@ Dispatcher::Dispatcher(QString mongodb_ip, QString mongodb_base)
     /*********** HTTP API *************/
     api = new Api(*nosql);
     api->Http_init();
-    api->Xmpp_init();
+    api->Xmpp_init(domain_name);
 }
 
 Dispatcher::~Dispatcher()
@@ -57,6 +57,7 @@ int main(int argc, char *argv[])
     bool verbose;
     QString mongodb_ip;
     QString mongodb_base; 
+    QString domain_name;
 
     /*
     openlog("NODECAST",LOG_PID,LOG_USER);
@@ -74,6 +75,9 @@ int main(int argc, char *argv[])
     options.alias("mongodb-ip", "mdip");
     options.add("mongodb-base", "set the mongodb base", QxtCommandOptions::Required);
     options.alias("mongodb-base", "mdp");
+    options.add("domain-name", "set the domain name", QxtCommandOptions::Required);
+    options.alias("domain-name", "dn");
+
 
     options.add("verbose", "show more information about the process; specify twice for more detail", QxtCommandOptions::AllowMultiple);
     options.alias("verbose", "v");
@@ -106,7 +110,18 @@ int main(int argc, char *argv[])
     }
 
 
-    Dispatcher dispatcher(mongodb_ip, mongodb_base);
+    if(options.count("domain-name")) {
+        domain_name = options.value("domain-name").toString();
+    }
+    else {
+        std::cout << "ncs: --domain-name requires a parameter" << std::endl;
+        options.showUsage();
+        return -1;
+    }
+
+
+
+    Dispatcher dispatcher(mongodb_ip, mongodb_base, domain_name);
 
 
 

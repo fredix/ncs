@@ -42,10 +42,10 @@ void Api::Http_init()
 
 
 
-void Api::Xmpp_init()
+void Api::Xmpp_init(QString domain_name)
 {
     qRegisterMetaType<QXmppLogger::MessageType>("QXmppLogger::MessageType");
 
-    m_xmpp_server = new Xmpp_server(nosql_, "api.nodecast.net");
-    m_xmpp_client = new Xmpp_client(nosql_, "api.nodecast.net");
+    m_xmpp_server = new Xmpp_server(nosql_, domain_name);
+    m_xmpp_client = new Xmpp_client(nosql_, domain_name);
 }

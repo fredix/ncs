@@ -30,7 +30,7 @@ Xmpp_server::Xmpp_server(Nosql &a, QString a_domain) : m_domain(a_domain)
     m_checker.m_username = "ncs";
     m_checker.m_password = "scn";
 
-    m_logger.setLoggingType(QXmppLogger::StdoutLogging);
+    //m_logger.setLoggingType(QXmppLogger::StdoutLogging);
     //m_logger.setLoggingType(QXmppLogger::FileLogging);
 
 
