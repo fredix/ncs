@@ -34,5 +34,10 @@ make
 USE
 ncs --mongodb-ip=127.0.0.1 --mongodb-base=nodecast_prod
 
+MONGODB
+create index :
+db.process_statistics.getIndexKeys();
+db.process_statistics.ensureIndex({host_id: 1, created_at: -1});
+
 
 contact : fredix at nodecast dot net

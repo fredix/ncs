@@ -124,9 +124,24 @@ void Xmpp_client::messageReceived(const QXmppMessage& message)
     qDebug() << "Xmpp_client::messageReceived !!!";
 
     QString from = message.from();
+
     QByteArray msg = QByteArray::fromBase64(message.body().toUtf8());
 
-    bo payload = mongo::fromjson(msg.data());
+    bo payload;
+    try {
+        payload = mongo::fromjson(msg.data());
+    }
+    catch(mongo::MsgAssertionException &e ) {
+        std::cout << "caught error on parsing json : " << e.what() << std::endl;
+        return;
+    }
+
+    if (payload.nFields() == 0)
+    {
+        std::cout << "caught error on create bson" << std::endl;
+        return;
+    }
+
 
     be action = payload["action"];
     be credentials = payload["credentials"];
