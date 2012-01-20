@@ -24,7 +24,7 @@
 
 
 
-Dispatcher::Dispatcher(QString mongodb_ip, QString mongodb_base, QString domain_name)
+Dispatcher::Dispatcher(QString mongodb_ip, QString mongodb_base, QString domain_name, int xmpp_client_port, int xmpp_server_port)
 {
     qDebug() << "Dispatcher construct";
 
@@ -36,7 +36,7 @@ Dispatcher::Dispatcher(QString mongodb_ip, QString mongodb_base, QString domain_
     /*********** HTTP API *************/
     api = new Api(*nosql);
     api->Http_init();
-    api->Xmpp_init(domain_name);
+    api->Xmpp_init(domain_name, xmpp_client_port, xmpp_server_port);
 }
 
 Dispatcher::~Dispatcher()
@@ -58,6 +58,8 @@ int main(int argc, char *argv[])
     QString mongodb_ip;
     QString mongodb_base; 
     QString domain_name;
+    int xmpp_client_port;
+    int xmpp_server_port;
 
     /*
     openlog("NODECAST",LOG_PID,LOG_USER);
@@ -77,6 +79,10 @@ int main(int argc, char *argv[])
     options.alias("mongodb-base", "mdp");
     options.add("domain-name", "set the domain name", QxtCommandOptions::Required);
     options.alias("domain-name", "dn");
+    options.add("xmpp-client-port", "set the xmpp client port", QxtCommandOptions::Required);
+    options.alias("xmpp-client-port", "xcp");
+    options.add("xmpp-server-port", "set the xmpp server port", QxtCommandOptions::Required);
+    options.alias("xmpp-server-port", "xsp");
 
 
     options.add("verbose", "show more information about the process; specify twice for more detail", QxtCommandOptions::AllowMultiple);
@@ -120,8 +126,26 @@ int main(int argc, char *argv[])
     }
 
 
+    if(options.count("xmpp-client-port")) {
+        xmpp_client_port = options.value("xmpp-client-port").toInt();
+    }
+    else {
+        std::cout << "ncs: --xmpp-client-port requires a parameter" << std::endl;
+        options.showUsage();
+        return -1;
+    }
 
-    Dispatcher dispatcher(mongodb_ip, mongodb_base, domain_name);
+    if(options.count("xmpp-server-port")) {
+        xmpp_server_port = options.value("xmpp-server-port").toInt();
+    }
+    else {
+        std::cout << "ncs: --xmpp-server-port requires a parameter" << std::endl;
+        options.showUsage();
+        return -1;
+    }
+
+
+    Dispatcher dispatcher(mongodb_ip, mongodb_base, domain_name, xmpp_client_port, xmpp_server_port);
 
 
 

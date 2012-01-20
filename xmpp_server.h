@@ -123,12 +123,14 @@ class Xmpp_server : public QObject
 {    
     Q_OBJECT
 public:
-    Xmpp_server(Nosql &a, QString a_domain);
+    Xmpp_server(Nosql &a, QString a_domain, int a_xmpp_client_port, int a_xmpp_server_port);
 
 
 private:
     //Nosql &nosql_;
     QString m_domain;
+    int m_xmpp_client_port;
+    int m_xmpp_server_port;
     QString m_jabberid;
     QString m_jabberpassword;
     passwordChecker m_checker;

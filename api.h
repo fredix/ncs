@@ -37,7 +37,7 @@ public:
     ~Api();
 
     void Http_init();
-    void Xmpp_init(QString domain_name);
+    void Xmpp_init(QString domain_name, int xmpp_client_port, int xmpp_server_port);
 
 
 protected:

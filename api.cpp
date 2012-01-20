@@ -42,10 +42,10 @@ void Api::Http_init()
 
 
 
-void Api::Xmpp_init(QString domain_name)
+void Api::Xmpp_init(QString domain_name, int xmpp_client_port, int xmpp_server_port)
 {
     qRegisterMetaType<QXmppLogger::MessageType>("QXmppLogger::MessageType");
 
-    m_xmpp_server = new Xmpp_server(nosql_, domain_name);
-    m_xmpp_client = new Xmpp_client(nosql_, domain_name);
+    m_xmpp_server = new Xmpp_server(nosql_, domain_name, xmpp_client_port, xmpp_server_port);
+    m_xmpp_client = new Xmpp_client(nosql_, domain_name, xmpp_client_port);
 }

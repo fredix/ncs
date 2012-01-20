@@ -21,7 +21,7 @@
 #include "xmpp_server.h"
 
 
-Xmpp_server::Xmpp_server(Nosql &a, QString a_domain) : m_domain(a_domain)
+Xmpp_server::Xmpp_server(Nosql &a, QString a_domain, int a_xmpp_client_port, int a_xmpp_server_port) : m_domain(a_domain), m_xmpp_client_port(a_xmpp_client_port), m_xmpp_server_port(a_xmpp_server_port)
 {
     qDebug() << "Xmpp_server construct param";
 
@@ -39,7 +39,9 @@ Xmpp_server::Xmpp_server(Nosql &a, QString a_domain) : m_domain(a_domain)
     m_server.setDomain(a_domain);
     m_server.setLogger(&m_logger);
     m_server.setPasswordChecker(&m_checker);
-    m_server.listenForClients();
-    m_server.listenForServers();
 
+    QHostAddress bind_ip(QHostAddress::Any);
+
+    m_server.listenForClients(bind_ip, m_xmpp_client_port);
+    m_server.listenForServers(bind_ip, m_xmpp_server_port);
 }
