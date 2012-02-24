@@ -29,31 +29,54 @@
 
 #include <zmq.hpp>
 #include "client/gridfs.h"
+#include "nosql.h"
 
 using namespace mongo;
 using namespace bson;
+
+
+
+class Ztracker : public QObject
+{
+    Q_OBJECT
+public:
+    Ztracker(Nosql &a, zmq::context_t *a_context);
+    ~Ztracker();
+
+private:
+    zmq::context_t *m_context;
+    zmq::socket_t *m_socket;
+    Nosql &nosql_;
+
+public slots:
+    void init();
+};
+
 
 
 class Zdispatch : public QObject
 {
     Q_OBJECT
 public:
-    Zdispatch(zmq::context_t *a_context, QString a_inproc, QMutex *a_http_mutex, QMutex *a_xmpp_mutex);
-    Zdispatch();
+    Zdispatch(Nosql &a, zmq::context_t *a_context);
     ~Zdispatch();
 
 
 private:
-    QMutex *m_http_mutex;
-    QMutex *m_xmpp_mutex;
-
     zmq::context_t *m_context;
-    QString m_inproc;
     zmq::socket_t *m_socket;
+    Nosql &nosql_;
+
 
 signals:
     void forward_payload(bson::bo data);
-
+    void payload_cpu(bson::bo data);
+    void payload_load(bson::bo data);
+    void payload_network(bson::bo data);
+    void payload_memory(bson::bo data);
+    void payload_uptime(bson::bo data);
+    void payload_process(bson::bo data);
+    void payload_filesystem(bson::bo data);
 
 public slots:
     void receive_payload();
@@ -65,7 +88,7 @@ class Zreceive : public QObject
 {
     Q_OBJECT
 public:
-    Zreceive(zmq::context_t *a_context, QString port, QString inproc, QMutex *a_mutex);
+    Zreceive(zmq::context_t *a_context, QString a_port, QString inproc);
     ~Zreceive();
     zmq::context_t *m_context;
 
@@ -73,6 +96,7 @@ private:
     QMutex *m_mutex;
     QString m_inproc;
     QString m_port;
+    zmq::socket_t *z_workers;
     zmq::socket_t *z_sender;
     QString m_host;
 
@@ -104,6 +128,7 @@ private:
     zmq::socket_t *z_memory_sender;
     zmq::socket_t *z_uptime_sender;
     zmq::socket_t *z_process_sender;
+    zmq::socket_t *z_filesystem_sender;
 
     zmq::message_t *z_message;
 
@@ -118,6 +143,7 @@ public slots:
     void send_payload_memory(bson::bo payload);
     void send_payload_uptime(bson::bo payload);
     void send_payload_process(bson::bo payload);
+    void send_payload_filesystem(bson::bo payload);
 };
 
 
@@ -128,18 +154,24 @@ class Zeromq : public QObject
 {    
     Q_OBJECT
 public:
-    Zeromq();
-    Zeromq(QString host, int port);
+    Zeromq(Nosql &a, QString host, int port);
     ~Zeromq();
+    void init();
 
     zmq::context_t *m_context;
 
-    Zdispatch *dispatch_http;
-    Zdispatch *dispatch_xmpp;
+    Zdispatch *dispatch;
+    Ztracker *ztracker;
 
     Zreceive *receive_http;
     Zreceive *receive_xmpp;
     Zworker_push *worker_push;
+
+private:
+    QMutex *m_http_mutex;
+    QMutex *m_xmpp_mutex;
+    Nosql &nosql_;
+
 
 signals:
     void payload(bo data);

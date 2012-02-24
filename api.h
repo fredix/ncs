@@ -23,6 +23,7 @@
 
 #include <QThread>
 #include "nosql.h"
+#include "zeromq.h"
 #include "http_api.h"
 #include <QxtHttpServerConnector>
 #include <QxtHttpSessionManager>
@@ -33,7 +34,7 @@ class Api : public QObject
 {
     Q_OBJECT
 public:
-    Api(Nosql &a, QObject *parent = 0);
+    Api(Nosql &a, Zeromq &z, QObject *parent = 0);
     ~Api();
 
     void Http_init();
@@ -42,6 +43,7 @@ public:
 
 protected:
      Nosql &nosql_;
+     Zeromq &zeromq_;
 
 private:
     QxtHttpServerConnector m_connector;

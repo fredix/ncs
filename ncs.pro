@@ -13,7 +13,6 @@ QXT     += core web
 TEMPLATE = app
 SOURCES += main.cpp \
     nosql.cpp \
-    payload.cpp \
     zeromq.cpp \
     xmpp_server.cpp \
     xmpp_client.cpp \
@@ -38,7 +37,6 @@ INCLUDEPATH += ./externals/qxmpp-0.3.0/src/
 
 HEADERS += main.h \
     nosql.h \
-    payload.h \
     zeromq.h \
     xmpp_server.h \
     xmpp_client.h \

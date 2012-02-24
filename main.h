@@ -27,7 +27,6 @@
 #include <QDomDocument>
 
 #include "nosql.h"
-#include "payload.h"
 #include "zeromq.h"
 #include "api.h"
 
@@ -38,9 +37,10 @@ class Dispatcher : public QObject
 public:
     Dispatcher(QString mongodb_ip, QString mongodb_base, QString domain_name, int xmpp_client_port, int xmpp_server_port);
     ~Dispatcher();
+
     Nosql *nosql;
     Zeromq *zeromq;
-    Payload *payload;
+    //Payload *payload;
     Api *api;
 };
 

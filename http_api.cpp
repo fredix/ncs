@@ -22,12 +22,13 @@
 #include "http_api.h"
 
 
-Http_api::Http_api(QxtAbstractWebSessionManager * sm, Nosql &a, QObject * parent): QxtWebSlotService(sm,parent), nosql_(a)
+Http_api::Http_api(QxtAbstractWebSessionManager * sm, Nosql &a, Zeromq &z, QObject * parent): QxtWebSlotService(sm,parent), nosql_(a), zeromq_(z)
 {
     z_message = new zmq::message_t(2);
-    m_context = new zmq::context_t(1);
-    z_push_api = new zmq::socket_t(*m_context, ZMQ_PUSH);
-    z_push_api->bind("tcp://*:5555");
+    //m_context = new zmq::context_t(1);
+    z_push_api = new zmq::socket_t(*zeromq_.m_context, ZMQ_PUSH);
+    //z_push_api->bind("tcp://*:5555");
+    z_push_api->bind("inproc://http");
 }
 
 
@@ -71,7 +72,7 @@ bool Http_api::checkAuth(QString header, BSONObjBuilder &payload_builder)
 
 
 /********** CREATE HOST ************/
-void Http_api::host(QxtWebRequestEvent* event, QString action)
+void Http_api::payload(QxtWebRequestEvent* event, QString action)
 {
     qDebug() << "action : " << action << " headers : " << event->headers;
     QString bodyMessage;
@@ -105,7 +106,8 @@ void Http_api::host(QxtWebRequestEvent* event, QString action)
         qDebug() << "Bytes to read: " << myContent->unreadBytes();
         myContent->waitForAllContent();
 
-        QByteArray requestContent = QByteArray::fromBase64(myContent->readAll());
+        //QByteArray requestContent = QByteArray::fromBase64(myContent->readAll());
+        QByteArray requestContent = myContent->readAll();
 
         //qDebug() << "Content: ";
         //qDebug() << requestContent;
@@ -154,7 +156,7 @@ void Http_api::host(QxtWebRequestEvent* event, QString action)
 
 
 /********** UPDATE HOST ************/
-void Http_api::host(QxtWebRequestEvent* event, QString action, QString uuid)
+void Http_api::payload(QxtWebRequestEvent* event, QString action, QString uuid)
 {
     qDebug() << "action : " << action << " uuid : " << uuid << " headers : " << event->headers;
 
@@ -259,7 +261,7 @@ void Http_api::index(QxtWebRequestEvent* event)
         }
         else
         {
-            index["ncs_version"]="0.9.1";
+            index["ncs_version"]="0.9.5";
 
             page = new QxtWebPageEvent(event->sessionID,
                                        event->requestID,

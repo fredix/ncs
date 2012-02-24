@@ -32,7 +32,7 @@ make
 
 
 USE
-ncs --mongodb-ip=127.0.0.1 --mongodb-base=nodecast_prod
+ncs --mongodb-ip=127.0.0.1 --mongodb-base=nodecast_prod --domain-name=(localhost|external IP|your-domain-name.tld) --xmpp-client-port 6222  --xmpp-server-port 6269
 
 MONGODB
 create index :

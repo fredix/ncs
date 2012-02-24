@@ -33,6 +33,8 @@
 #include "QXmppIncomingClient.h"
 
 #include "nosql.h"
+#include "zeromq.h"
+
 #include <zmq.hpp>
 
 class Xmpp_client : public QXmppClient
@@ -40,7 +42,7 @@ class Xmpp_client : public QXmppClient
     Q_OBJECT
 
 public:
-    Xmpp_client(Nosql& a, QString a_domain, int a_xmpp_client_port, QObject *parent = 0);
+    Xmpp_client(Nosql& a, Zeromq& z, QString a_domain, int a_xmpp_client_port, QObject *parent = 0);
     ~Xmpp_client();
 
 private:
@@ -49,11 +51,12 @@ private:
     QXmppLogger m_logger;
     QXmppPresence subscribe;
 
-    zmq::context_t *m_context;
+    //zmq::context_t *m_context;
     zmq::socket_t *z_push_api;
     zmq::message_t *z_message;
 
     Nosql &nosql_;
+    Zeromq &zeromq_;
     bool checkAuth(QString credentials, BSONObjBuilder &payload);
     QString buildResponse(QString action, QString data1, QString data2="");
 

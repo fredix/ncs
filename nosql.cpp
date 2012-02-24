@@ -60,11 +60,11 @@ Nosql::Nosql(QString a_server, QString a_database) : m_server(a_server), m_datab
 }
 
 
-bo Nosql::Find(QString a_document, const bo &datas)
+bo Nosql::Find(string a_document, const bo &datas)
 {
     qDebug() << "Nosql::Find";
     QString tmp;
-    tmp.append(this->m_database).append(".").append(a_document);
+    tmp.append(this->m_database).append(".").append(a_document.data());
 
     qDebug() << "m_database.a_document" << tmp;
 
@@ -98,7 +98,7 @@ bo Nosql::Find(QString a_document, const bo &datas)
 
     }
     catch(mongo::DBException &e ) {
-        std::cout << "caught on find into " << m_server.toAscii().data() << "." << a_document.toAscii().data() << " : " << e.what() << std::endl;
+        std::cout << "caught on find into " << m_server.toAscii().data() << "." << a_document.data() << " : " << e.what() << std::endl;
         exit(1);
     }
 
@@ -238,137 +238,6 @@ QBool Nosql::Insert(QString a_document, bo a_datas)
 
 
 
-bo Nosql::CreateHost(bo &payload, const bo &data, const be &user_id)
-{
-    std::cout << "Nosql::CreateHost" << std::endl;
-    std::cout << "data : " << data << std::endl;
-
-    QString tmp;
-    tmp.append(m_database).append(".hosts");
-
-    bo l_bo_host;
-    bob l_bob_host;
-    bob l_bob_host_cpu;
-    bob l_bob_host_ram;
-    bob l_bob_host_network;
-
-    l_bob_host << mongo::GENOID;
-    l_bob_host.append(data.getField("uuid"));
-    l_bob_host.append(data.getField("pub_uuid"));
-    //l_bob_host.append(user_id.getField("user_id"));
-    l_bob_host << "user_id" << user_id;
-    l_bob_host.append(data.getField("created_at"));
-    l_bob_host << "updated_at" << data.getField("created_at");
-    l_bob_host << "public" << payload["public"].boolean();
-    l_bob_host << "blocked" << false;
-    l_bob_host << "host_type" << payload["device"];
-
-
-    l_bob_host << "os_version_number" << payload["sysinfo"]["version"];
-    l_bob_host << "patch_level" << payload["sysinfo"]["patch_level"];
-    l_bob_host << "architecture" << payload["sysinfo"]["architecture"];
-
-
-    // find the last inserted row to increase counter
-    auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toAscii().data(), mongo::Query(BSONObj()).sort("_id", -1),1);
-    bo last_host = cursor->more() ? cursor->nextSafe().copy() : BSON("counter" << 0);
-    l_bob_host << "counter" << last_host.getField("counter").Int() + 1;
-
-
-    // embedded CPU
-    l_bob_host_cpu << "vendor" << payload["cpu_hardware"]["vendor"];
-    l_bob_host_cpu << "model" << payload["cpu_hardware"]["model"];
-    l_bob_host_cpu << "mhz" << payload["cpu_hardware"]["mhz"];
-    l_bob_host_cpu << "cache_size" << payload["cpu_hardware"]["cache_size"];
-    l_bob_host_cpu << "number" << payload["cpu_hardware"]["number"];
-    l_bob_host_cpu << "total_cores" << payload["cpu_hardware"]["total_cores"];
-    l_bob_host_cpu << "total_sockets" << payload["cpu_hardware"]["total_sockets"];
-    l_bob_host_cpu << "cores_per_socket" << payload["cpu_hardware"]["cores_per_socket"];
-
-
-    // embedded RAM
-    l_bob_host_ram << "mem_ram" << payload["memory"]["mem_ram"];
-    l_bob_host_ram << "mem_total" << payload["memory"]["mem_total"];
-    l_bob_host_ram << "swap_total" << payload["memory"]["swap_total"];
-
-    // embedded NETWORK
-    l_bob_host_network << "hostname" << payload["network"]["hostname"];
-    l_bob_host_network << "domain_name" << payload["network"]["domain_name"];
-    l_bob_host_network << "default_gateway" << payload["network"]["default_gateway"];
-    l_bob_host_network << "primary_dns" << payload["network"]["primary_dns"];
-    l_bob_host_network << "secondary_dns" << payload["network"]["secondary_dns"];
-    l_bob_host_network << "primary_interface" << payload["network"]["primary_interface"];
-    l_bob_host_network << "primary_addr" << payload["network"]["primary_addr"];
-
-    l_bob_host << "cpu" << l_bob_host_cpu.obj();
-    l_bob_host << "ram" << l_bob_host_ram.obj();
-    l_bob_host << "network" << l_bob_host_network.obj();
-
-    l_bo_host = l_bob_host.obj();
-
-    std::cout << "HOST : " << l_bo_host.toString() << std::endl;
-    Insert("hosts", l_bo_host);
-
-
-    return l_bo_host;
-}
-
-
-
-
-bo Nosql::CreateOsystem(bo &payload, const bo &data)
-{
-    std::cout << "Nosql::CreateOsystem" << std::endl;
-
-    bo l_bo_os;
-    bob l_bob_os;
-
-
-    l_bob_os << mongo::GENOID;
-    l_bob_os.append(data.getField("created_at"));
-    l_bob_os << "updated_at" << data.getField("created_at");
-    l_bob_os << "name" << payload["sysinfo"]["name"];
-    l_bob_os << "vendor" << payload["sysinfo"]["vendor"];
-    //l_bob_os << "vendor_version" << r_hash["vendor_version"].toString().toLower().toStdString();
-    //l_bob_os << "vendor_code_name" << r_hash["vendor_code_name"].toString().toLower().toStdString();
-    l_bob_os << "description" << payload["sysinfo"]["description"];
-    l_bob_os << "os_base" << payload["sysinfo"]["os_base"];
-    l_bob_os << "os_type" << payload["sysinfo"]["os_type"];
-    l_bob_os << "hosts_number" << 1;
-
-    l_bo_os = l_bob_os.obj();
-
-    std::cout << "OSYSTEM : " << l_bo_os.toString() << std::endl;
-    Insert("osystems", l_bo_os);
-
-    return l_bo_os;
-}
-
-
-
-
-bo Nosql::CreateOsversion(bo &data)
-{
-    std::cout << "Nosql::CreateOsversion" << std::endl;
-
-    bo l_bo_os;
-    bob l_bob_os;
-
-
-    //l_bob_os = data;
-    //l_bob_os << "hosts_number" << 1;
-
-
-
-    //l_bo_os = data.obj();
-
-    std::cout << "OS_VERSION : " << data.toString() << std::endl;
-    Insert("os_versions", data);
-
-
-    //std::cout << "Nosql::XMLtoHash : l_hash = " << l_hash.count() << std::endl;
-    return data;
-}
 
 
 QBool Nosql::Update(QString a_document, const bo &element_id, const bo &a_datas)

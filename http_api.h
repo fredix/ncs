@@ -22,6 +22,7 @@
 #define HTTP_API_H
 
 #include "nosql.h"
+#include "zeromq.h"
 #include <zmq.hpp>
 #include <QxtWeb/QxtWebSlotService>
 #include <QxtWeb/QxtWebPageEvent>
@@ -38,23 +39,23 @@ class Http_api : public QxtWebSlotService
     Q_OBJECT
 
 public:
-    Http_api(QxtAbstractWebSessionManager * sm, Nosql& a, QObject * parent = 0);
+    Http_api(QxtAbstractWebSessionManager *sm, Nosql& a, Zeromq& z, QObject * parent = 0);
     //Http_api(QxtAbstractWebSessionManager * sm, Nosql& a);    
     ~Http_api();
 
 public slots:        
     void index(QxtWebRequestEvent* event);
     void admin(QxtWebRequestEvent* event, QString action);
-    void host(QxtWebRequestEvent* event, QString action, QString uuid);
-    void host(QxtWebRequestEvent* event, QString action);
+    void payload(QxtWebRequestEvent* event, QString action, QString uuid);
+    void payload(QxtWebRequestEvent* event, QString action);
 
 
 private:
-    zmq::context_t *m_context;
     zmq::socket_t *z_push_api;
     zmq::message_t *z_message;
 
     Nosql &nosql_;
+    Zeromq &zeromq_;
     bool checkAuth(QString header, BSONObjBuilder &payload);
     QString buildResponse(QString action, QString data1, QString data2="");
 };

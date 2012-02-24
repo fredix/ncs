@@ -47,7 +47,7 @@ public:
     Nosql(QString a_server, QString a_database);
     Nosql();
     ~Nosql();
-    bo Find(QString a_document, const bo &datas);
+    bo Find(string a_document, const bo &datas);
     QBool Insert(QString a_document, bo a_datas);
     bo ExtractJSON(const be &gfs_id);
     bo CreateHost(bo &payload, const bo &data, const be &user_id);

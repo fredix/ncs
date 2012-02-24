@@ -21,15 +21,17 @@
 
 #include "xmpp_client.h"
 
-Xmpp_client::Xmpp_client(Nosql& a, QString a_domain, int a_xmpp_client_port, QObject *parent) : QXmppClient(parent), nosql_(a), m_domain(a_domain), m_xmpp_client_port(a_xmpp_client_port)
+Xmpp_client::Xmpp_client(Nosql& a, Zeromq &z, QString a_domain, int a_xmpp_client_port, QObject *parent) : QXmppClient(parent), nosql_(a), zeromq_(z), m_domain(a_domain), m_xmpp_client_port(a_xmpp_client_port)
 {
     qDebug() << "Xmpp_client::Xmpp_client !!!";
 
 
     z_message = new zmq::message_t(2);
-    m_context = new zmq::context_t(1);
-    z_push_api = new zmq::socket_t(*m_context, ZMQ_PUSH);
-    z_push_api->bind("tcp://*:5556");
+    //m_context = new zmq::context_t(1);
+    z_push_api = new zmq::socket_t(*zeromq_.m_context, ZMQ_PUSH);
+    //z_push_api = new zmq::socket_t(*m_context, ZMQ_PUSH);
+    //z_push_api->bind("tcp://*:5556");
+    z_push_api->bind("inproc://xmpp");
 
 
 
@@ -148,6 +150,8 @@ void Xmpp_client::messageReceived(const QXmppMessage& message)
 
     std::cout << "uuid : " << payload["uuid"] << std::endl;
     std::cout << "action : " << payload["action"] << std::endl;
+    std::cout << "device : " << payload["device"] << std::endl;
+
 
     QString bodyMessage;
     BSONObjBuilder payload_builder;
@@ -163,6 +167,7 @@ void Xmpp_client::messageReceived(const QXmppMessage& message)
         payload_builder.append("uuid", str_uuid.toStdString());
         payload_builder.append("pub_uuid", str_pub_uuid.toStdString());
         payload_builder.append("action", "dispatcher.create");
+
         bodyMessage = buildResponse(action.valuestr(), str_uuid, str_pub_uuid);
     }
     else
@@ -205,7 +210,7 @@ void Xmpp_client::messageReceived(const QXmppMessage& message)
 
             bo b_payload = payload_builder.obj();
 
-            //std::cout << "PAYLOAD !!!! >>: " << b_payload << std::endl;
+            std::cout << "PAYLOAD !!!! >>: " << b_payload << std::endl;
 
 
             /****** PUSH API PAYLOAD *******/
