@@ -74,7 +74,7 @@ bool Http_api::checkAuth(QString header, BSONObjBuilder &payload_builder)
 /********** CREATE HOST ************/
 void Http_api::payload(QxtWebRequestEvent* event, QString action)
 {
-    qDebug() << "action : " << action << " headers : " << event->headers;
+    qDebug() << "CREATE HOST : " << "action : " << action << " headers : " << event->headers;
     QString bodyMessage;
 
     //QString uuid = QUuid::createUuid().toString();
@@ -85,6 +85,12 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
     QString str_pub_uuid = pub_uuid.toString().mid(1,36);
 
     //QString uuid = QUuid::createUuid().toString().mid(1,36).toUpper();
+
+
+
+    QString payloadfilename = event->headers.value("X-payloadfilename");
+    qDebug() << "FILENAME : " << payloadfilename;
+
 
     BSONObjBuilder payload_builder;
     payload_builder.append("action", "dispatcher.create");
@@ -109,11 +115,7 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
         //QByteArray requestContent = QByteArray::fromBase64(myContent->readAll());
         QByteArray requestContent = myContent->readAll();
 
-        //qDebug() << "Content: ";
-        //qDebug() << requestContent;
-
-        //bo gfs_file_struct;
-        bo gfs_file_struct = nosql_.WriteFile(requestContent.data());
+        bo gfs_file_struct = nosql_.WriteFile(payloadfilename.toStdString(), requestContent.data());
 
 
         if (gfs_file_struct.nFields() == 0)
@@ -125,24 +127,23 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
             std::cout << "writefile : " << gfs_file_struct << std::endl;
             //std::cout << "writefile id : " << gfs_file_struct.getField("_id") << " date : " << gfs_file_struct.getField("uploadDate") << std::endl;
 
-        be uploaded_at = gfs_file_struct.getField("uploadDate");
+            be uploaded_at = gfs_file_struct.getField("uploadDate");
 
-        std::cout << "uploaded : " << uploaded_at << std::endl;
-
-
-        payload_builder.append("created_at", uploaded_at.date());
-        payload_builder.append(gfs_file_struct.getField("_id"));
+            std::cout << "uploaded : " << uploaded_at << std::endl;
 
 
-        bo payload = payload_builder.obj();
+            payload_builder.append("created_at", uploaded_at.date());
+            payload_builder.append(gfs_file_struct.getField("_id"));
 
-        /****** PUSH API PAYLOAD *******/
-        qDebug() << "PUSH API PAYLOAD";
-        z_message->rebuild(payload.objsize());
-        memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
-        z_push_api->send(*z_message, ZMQ_NOBLOCK);
-        /************************/
 
+            bo payload = payload_builder.obj();
+
+            /****** PUSH API PAYLOAD *******/
+            qDebug() << "PUSH API PAYLOAD";
+            z_message->rebuild(payload.objsize());
+            memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
+            z_push_api->send(*z_message, ZMQ_NOBLOCK);
+            /************************/
         }
         bodyMessage = buildResponse("create", str_uuid, str_pub_uuid);
     }
@@ -158,7 +159,7 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
 /********** UPDATE HOST ************/
 void Http_api::payload(QxtWebRequestEvent* event, QString action, QString uuid)
 {
-    qDebug() << "action : " << action << " uuid : " << uuid << " headers : " << event->headers;
+    qDebug()  << "UPDATE HOST : " << "action : " << action << " uuid : " << uuid << " headers : " << event->headers;
 
 /*
      QHash<QString, QString>::const_iterator i = event->headers.constBegin();
@@ -170,10 +171,18 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action, QString uuid)
 */
     QString bodyMessage;
 
+    QUuid session_uuid = QUuid::createUuid();
+    QString str_session_uuid = session_uuid.toString().mid(1,36);
+
 
     BSONObjBuilder payload_builder;
     payload_builder.append("action", "dispatcher.update");
     payload_builder.append("uuid", uuid.toStdString());
+
+
+    QString payloadfilename = event->headers.value("X-payloadfilename");
+    qDebug() << "FILENAME : " << payloadfilename;
+
 
     bool res = checkAuth(event->headers.value("Authorization"), payload_builder);
 
@@ -188,13 +197,12 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action, QString uuid)
         qDebug() << "Bytes to read: " << myContent->unreadBytes();
         myContent->waitForAllContent();
 
-        QByteArray requestContent = QByteArray::fromBase64(myContent->readAll());
+        //QByteArray requestContent = QByteArray::fromBase64(myContent->readAll());
+        QByteArray requestContent = myContent->readAll();
         //qDebug() << "Content: ";
         qDebug() << "RECEIVE PAYLOAD !!!!!  : " << requestContent.data();
 
-        //bo gfs_file_struct;
-        bo gfs_file_struct = nosql_.WriteFile(requestContent.data());
-
+        bo gfs_file_struct = nosql_.WriteFile(payloadfilename.toStdString(), requestContent.data());
 
         if (gfs_file_struct.nFields() == 0)
         {
@@ -203,28 +211,23 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action, QString uuid)
         else
         {
             std::cout << "writefile : " << gfs_file_struct << std::endl;
-            //std::cout << "writefile id : " << gfs_file_struct.getField("_id") << " date : " << gfs_file_struct.getField("uploadDate") << std::endl;
+            //std::cout << "writefile id : " << gfs_file_struct.getField("_id") << " date : " << gfs_file_struct.getField("uploadDate") << std::endl;        
+            be uploaded_at = gfs_file_struct.getField("uploadDate");
+            std::cout << "uploaded : " << uploaded_at << std::endl;
 
-        be uploaded_at = gfs_file_struct.getField("uploadDate");
-
-        std::cout << "uploaded : " << uploaded_at << std::endl;
-
-
-        payload_builder.append("created_at", uploaded_at.date());
-        payload_builder.append(gfs_file_struct.getField("_id"));
+            payload_builder.append("created_at", uploaded_at.date());
+            payload_builder.append(gfs_file_struct.getField("_id"));
 
 
-        bo payload = payload_builder.obj();
-
-        /****** PUSH API PAYLOAD *******/
-        qDebug() << "PUSH HTTP PAYLOAD";
-        z_message->rebuild(payload.objsize());
-        memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
-        z_push_api->send(*z_message, ZMQ_NOBLOCK);
-        /************************/
-
+            bo payload = payload_builder.obj();
+            /****** PUSH API PAYLOAD *******/
+            qDebug() << "PUSH HTTP PAYLOAD";
+            z_message->rebuild(payload.objsize());
+            memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
+            z_push_api->send(*z_message, ZMQ_NOBLOCK);
+            /************************/
         }
-        bodyMessage = buildResponse("update", "proceed");
+        bodyMessage = buildResponse("update", str_session_uuid);
     }
     qDebug() << bodyMessage;
 
@@ -340,7 +343,7 @@ QString Http_api::buildResponse(QString action, QString data1, QString data2)
 
     if (action == "update")
     {
-        data.insert("status", data1);
+        data.insert("uuid", data1);
     }
     else if (action == "create")
     {

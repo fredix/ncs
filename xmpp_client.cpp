@@ -25,6 +25,14 @@ Xmpp_client::Xmpp_client(Nosql& a, Zeromq &z, QString a_domain, int a_xmpp_clien
 {
     qDebug() << "Xmpp_client::Xmpp_client !!!";
 
+    QXmppTransferManager *manager = new QXmppTransferManager;
+    this->addExtension (manager);
+
+    // uncomment one of the following if you only want to use a specific transfer method:
+    //
+     manager->setSupportedMethods(QXmppTransferJob::InBandMethod);
+    // manager->setSupportedMethods(QXmppTransferJob::SocksMethod);
+
 
     z_message = new zmq::message_t(2);
     //m_context = new zmq::context_t(1);
@@ -53,6 +61,14 @@ Xmpp_client::Xmpp_client(Nosql& a, Zeromq &z, QString a_domain, int a_xmpp_clien
 
 
 
+    check = connect(manager, SIGNAL(fileReceived(QXmppTransferJob*)),
+                             SLOT(file_received(QXmppTransferJob*)));
+
+
+    check = connect(manager, SIGNAL(jobFinished(QXmppTransferJob*)),
+                             SLOT(job_finished(QXmppTransferJob*)));
+
+
     //this->logger()->setLoggingType(QXmppLogger::StdoutLogging);
 
     //this->logger()->setLoggingType(QXmppLogger::FileLogging);
@@ -76,6 +92,50 @@ Xmpp_client::Xmpp_client(Nosql& a, Zeromq &z, QString a_domain, int a_xmpp_clien
 Xmpp_client::~Xmpp_client()
 {}
 
+
+void Xmpp_client::file_received (QXmppTransferJob *job)
+{
+    qDebug() << "Xmpp_client::file_received";
+    qDebug() << "Got transfer request from:" << job->jid();
+
+
+    bool check = connect(job, SIGNAL(error(QXmppTransferJob::Error)), this, SLOT(job_error(QXmppTransferJob::Error)));
+    Q_ASSERT(check);
+
+    check = connect(job, SIGNAL(finished()), this, SLOT(job_finished()));
+    Q_ASSERT(check);
+
+    check = connect(job, SIGNAL(progress(qint64,qint64)), this, SLOT(job_progress(qint64,qint64)));
+    Q_ASSERT(check);
+
+
+
+    // allocate a buffer to receive the file
+    m_buffer = new QBuffer(this);
+    m_buffer->open(QIODevice::WriteOnly);
+    job->accept(m_buffer);
+}
+
+void Xmpp_client::job_error(QXmppTransferJob::Error error)
+{
+    qDebug() << "Transmission failed : " << error;
+}
+
+/// A file transfer has made progress.
+
+void Xmpp_client::job_progress(qint64 done, qint64 total)
+{
+    qDebug() << "Transmission progress:" << done << "/" << total;
+}
+
+
+void Xmpp_client::job_finished ()
+{
+    qDebug() << "Xmpp_client::job_finished";
+
+    m_buffer->write("/tmp/xmpp_file");
+    m_buffer->close ();
+}
 
 
 
@@ -147,10 +207,13 @@ void Xmpp_client::messageReceived(const QXmppMessage& message)
 
     be action = payload["action"];
     be credentials = payload["credentials"];
+    be filename = payload["filename"];
+
 
     std::cout << "uuid : " << payload["uuid"] << std::endl;
     std::cout << "action : " << payload["action"] << std::endl;
     std::cout << "device : " << payload["device"] << std::endl;
+    std::cout << "filename : " << payload["filename"] << std::endl;
 
 
     QString bodyMessage;
@@ -189,7 +252,7 @@ void Xmpp_client::messageReceived(const QXmppMessage& message)
      else
      {
 
-         bo gfs_file_struct = nosql_.WriteFile(payload["datas"].toString(false));
+         bo gfs_file_struct = nosql_.WriteFile("filename.str()", payload["datas"].valuestr());
 
 
          if (gfs_file_struct.nFields() == 0)

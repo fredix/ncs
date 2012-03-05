@@ -54,6 +54,29 @@ public slots:
 
 
 
+
+
+class Zworker_push : public QObject
+{
+    Q_OBJECT
+public:
+    Zworker_push(zmq::context_t *a_context, string a_worker, string a_port);
+    ~Zworker_push();
+    void push_payload(bson::bo payload);
+
+private:
+    string m_worker;
+    string m_port;
+    zmq::context_t *m_context;
+    zmq::socket_t *z_sender;
+    zmq::message_t *z_message;
+
+    QString m_host;
+    //int m_port;
+};
+
+
+
 class Zdispatch : public QObject
 {
     Q_OBJECT
@@ -66,17 +89,11 @@ private:
     zmq::context_t *m_context;
     zmq::socket_t *m_socket;
     Nosql &nosql_;
-
-
-signals:
-    void forward_payload(bson::bo data);
-    void payload_cpu(bson::bo data);
-    void payload_load(bson::bo data);
-    void payload_network(bson::bo data);
-    void payload_memory(bson::bo data);
-    void payload_uptime(bson::bo data);
-    void payload_process(bson::bo data);
-    void payload_filesystem(bson::bo data);
+    //typedef QSharedPointer<Zworker_push> Zworker_pushPtr; QHash<QString, Zworker_pushPtr> hash;
+    QHash<QString, Zworker_push*> workers_push;
+    //QList <Zworker_push*> workers_push;
+    QList <QString> worker_name;
+    //QList <QThread*> l_workers_push;
 
 public slots:
     void receive_payload();
@@ -106,44 +123,6 @@ signals:
 
 public slots:
     void init_payload();
-};
-
-
-
-
-
-
-class Zworker_push : public QObject
-{
-    Q_OBJECT
-public:
-    Zworker_push();
-    Zworker_push(zmq::context_t *a_context);
-    ~Zworker_push();
-
-private:
-    zmq::socket_t *z_load_sender;
-    zmq::socket_t *z_cpu_sender;
-    zmq::socket_t *z_network_sender;
-    zmq::socket_t *z_memory_sender;
-    zmq::socket_t *z_uptime_sender;
-    zmq::socket_t *z_process_sender;
-    zmq::socket_t *z_filesystem_sender;
-
-    zmq::message_t *z_message;
-
-    QString m_host;
-    int m_port;
-
-
-public slots:
-    void send_payload_load(bson::bo payload);
-    void send_payload_cpu(bson::bo payload);
-    void send_payload_network(bson::bo payload);
-    void send_payload_memory(bson::bo payload);
-    void send_payload_uptime(bson::bo payload);
-    void send_payload_process(bson::bo payload);
-    void send_payload_filesystem(bson::bo payload);
 };
 
 

@@ -170,6 +170,32 @@ bo Nosql::ExtractJSON(const be &gfs_id)
 }
 
 
+
+QBool Nosql::ExtractBinary(const be &gfs_id, QString path, QString &filename)
+{
+    qDebug() << "Nosql::ExtractBinary";
+
+    cout << "gfs_id : " << gfs_id.jsonString(TenGen) << endl;
+
+    //Query req = Query("{" + uuid.jsonString(TenGen) + "}");
+
+    if (ReadFile(gfs_id))
+    {
+        if (!m_gf->exists()) {
+            std::cout << "file not found" << std::endl;
+        }
+        else {
+            filename = QString::fromStdString (m_gf->getFilename());
+            std::cout << "Find file : " << m_gf->getFilename ()<< std::endl;
+            QFile binary_tmp(path + m_gf->getFilename().data());
+            m_gf->write(binary_tmp.fileName().toStdString().c_str());
+            delete(this->m_gf);
+        }
+        return QBool(true);
+    }
+    return QBool(false);
+}
+
 QBool Nosql::ReadFile(const be &gfs_id)
 {
     std::cout << "Nosql::ReadFile : " << gfs_id << std::endl;
@@ -197,13 +223,13 @@ QBool Nosql::ReadFile(const be &gfs_id)
 
 }
 
-bo Nosql::WriteFile(const string json)
+bo Nosql::WriteFile(const string filename, const char *data)
 {
-    std::cout << "Nosql::WriteFile : " << std::endl;
+    std::cout << "Nosql::WriteFile : " << filename << std::endl;
 
     bo struct_file;
     try {
-        struct_file = this->m_gfs->storeFile(json.c_str(), json.size(), "", "json");
+        struct_file = this->m_gfs->storeFile(data, strlen(data), filename, "bin");
 
     }
     catch(mongo::DBException &e ) {

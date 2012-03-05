@@ -145,110 +145,107 @@ void Zdispatch::receive_payload()
 
         //std::cout << "Zdispatch received request: [" << (char*) request.data() << "]" << std::endl;
         bo data = bo((char*)request.data());
-        be uuid = data.getField("uuid");
-        be qname = data.getField("action");
+        be uuid = data.getFieldDotted("payload.uuid");
+        be qname = data.getFieldDotted("payload.action");
+        be gfs_id = data.getFieldDotted("payload._id");
 
+        be action = data.getField("action");
+        be format = data.getField("format");
+
+
+        be workers = data.getField("workers");        
+
+        list<be> w_list;
+        workers.Obj().elems(w_list);
+
+
+        if (workers_push.size() == 0)
+        {
+            list<be>::iterator i;
+            for(i = w_list.begin(); i != w_list.end(); ++i) {
+                QString w_name = (*i).fieldName();
+
+                worker_name.push_front(w_name);
+                string worker_port = (*i).str();
+
+                //std::cout << "worker : " << worker_name << "port : " << worker_port << " " << std::endl;
+
+                workers_push[w_name] = new Zworker_push(m_context, w_name.toStdString(), worker_port);
+
+    /*
+                QThread *thread_worker_push = new QThread;
+                Zworker_push *worker_push = new Zworker_push(m_context, worker_name, worker_port);
+                //connect(thread_worker_load, SIGNAL(started()), worker_load, SLOT(send_payload()));
+
+                worker_push->moveToThread(thread_worker_push);
+                thread_worker_push->start();
+
+                l_workers_push.push_front(thread_worker_push);
+    */
+
+            }
+
+        }
+
+        std::cout << "workers : " << workers << std::endl;
 
         std::cout << "uuid : " << uuid.toString() << std::endl;
         std::cout << "action : " << qname.toString() << std::endl;
 
 
 
-        //  Send reply back to client
-        //zmq::message_t reply (6);
-        //memcpy ((void *) reply.data (), "PROCESS", 9);
-        //socket.send (reply);
-
-
         /***************** PUSH ********************/
         std::cout << "Zdispatch BEFORE emit forward_payload" << std::endl;
-
-        //emit forward_payload(data);
-
 
 
         std::cout << "DATA : " <<  data << std::endl;
 
-        be gfs_id = data.getField("_id");
 
         std::cout << "GFS ID : " << gfs_id << std::endl;
 
 
-        bo l_json_datas = nosql_.ExtractJSON(gfs_id);
 
-
-
-        qDebug() << "Serializing datas and send to workers";
-        qDebug() << "SEND CPU SIGNAL";
-
-        if (l_json_datas["cpu_usage"]["activated"].boolean())
+        if (format.str() == "json" && action.str() == "split")
         {
-            qDebug() << "emit payload_cpu(l_payload)";
+            bo l_json_datas = nosql_.ExtractJSON(gfs_id);
 
-            bo payload = BSON("headers" << data << "cpu_usage" << l_json_datas["cpu_usage"]);
-            emit payload_cpu(payload);
+            qDebug() << "SPLIT !!!!!!!!!!";
+
+
+
+            for (int i = 0; i < worker_name.size(); ++i)
+            {
+                QString w_name = (QString) worker_name.at(i);
+                qDebug() << "WNAME : " << w_name;
+
+
+                //std::cout << "DATA : " << l_json_datas[w_name] << std::endl;
+
+                bo payload = BSON("headers" << data["payload"] << "worker" << w_name.toStdString() << "payload" << l_json_datas[w_name.toStdString()]);
+                workers_push[w_name]->push_payload(payload);
+            }
+
         }
-
-        qDebug() << "SEND LOAD SIGNAL";
-
-
-        if (l_json_datas["load"]["activated"].boolean())
+        else if (format.str() == "binary" && action.str() == "copy")
         {
-            std::cout << "load : " << l_json_datas["load"]["activated"] << std::endl;
-            qDebug() << "emit payload_load(l_payload)";
+            qDebug() << "BINARY && COPY";
+            QString filename;
+            if (nosql_.ExtractBinary(gfs_id, "/tmp/", filename))
+            {
+                for (int i = 0; i < worker_name.size(); ++i)
+                {
+                    QString w_name = (QString) worker_name.at(i);
+                    qDebug() << "WNAME : " << w_name;
 
-            bo payload = BSON("headers" << data << "load" << l_json_datas["load"]);
-            emit payload_load(payload);
+
+                    //std::cout << "DATA : " << l_json_datas[w_name] << std::endl;
+
+                    bo payload = BSON("headers" << data["payload"] << "worker" << w_name.toStdString() << "payload" << "/tmp/" + filename.toStdString());
+                    workers_push[w_name]->push_payload(payload);
+                }
+            }
+
         }
-
-        if (l_json_datas["network"]["activated"].boolean())
-        {
-            qDebug() << "emit payload_network(l_payload)";
-
-            bo payload = BSON("headers" << data << "network" << l_json_datas["network"]);
-            emit payload_network(payload);
-        }
-
-        if (l_json_datas["memory"]["activated"].boolean())
-        {
-            qDebug() << "emit payload_memory(l_payload)";
-
-            bo payload = BSON("headers" << data << "memory" << l_json_datas["memory"]);
-            emit payload_memory(payload);
-        }
-
-        if (l_json_datas["uptime"]["activated"].boolean())
-        {
-            qDebug() << "emit payload_uptime(l_payload)";
-
-            bo payload = BSON("headers" << data << "uptime" << l_json_datas["uptime"]);
-            emit payload_uptime(payload);
-        }
-
-
-        if (l_json_datas["process"]["activated"].boolean())
-        {
-            qDebug() << "emit payload_process(l_payload)";
-
-            bo payload = BSON("headers" << data << "process" << l_json_datas["process"]);
-            emit payload_process(payload);
-        }
-
-
-        std::cout << "FILE SYSTEM : " << l_json_datas["filesystems"] << "\n" << std::endl;
-
-
-        if (l_json_datas["filesystems"]["activated"].boolean())
-        {
-            qDebug() << "emit payload_filesystem(l_payload)";
-
-            bo payload = BSON("headers" << data << "filesystems" << l_json_datas["filesystems"]);
-            emit payload_filesystem(payload);
-        }
-
-
-
-
 
 
         std::cout << "Zdispatch AFTER emit forward_payload" << std::endl;
@@ -262,147 +259,40 @@ void Zdispatch::receive_payload()
 
 
 
-Zworker_push::Zworker_push(zmq::context_t *a_context)
+Zworker_push::Zworker_push(zmq::context_t *a_context, string a_worker, string a_port) : m_context(a_context), m_worker(a_worker), m_port(a_port)
 {
-    std::cout << "Zworker_load::Zworker_load constructeur" << std::endl;
+    std::cout << "Zworker_push::Zworker_push constructeur" << std::endl;
 
+      z_sender = new zmq::socket_t(*m_context, ZMQ_PUSH);
 
-    z_load_sender = new zmq::socket_t(*a_context, ZMQ_PUSH);
-    z_load_sender->bind("tcp://*:5560");
+      string addr = "tcp://*:" + m_port;
 
-    z_cpu_sender = new zmq::socket_t(*a_context, ZMQ_PUSH);
-    z_cpu_sender->bind("tcp://*:5561");
+      std::cout << "ADDR : " << addr << std::endl;
 
-    z_network_sender = new zmq::socket_t(*a_context, ZMQ_PUSH);
-    z_network_sender->bind("tcp://*:5562");
+      z_sender->bind(addr.data());
 
-    z_memory_sender = new zmq::socket_t(*a_context, ZMQ_PUSH);
-    z_memory_sender->bind("tcp://*:5563");
-
-    z_uptime_sender = new zmq::socket_t(*a_context, ZMQ_PUSH);
-    z_uptime_sender->bind("tcp://*:5564");
-
-    z_process_sender = new zmq::socket_t(*a_context, ZMQ_PUSH);
-    z_process_sender->bind("tcp://*:5565");
-
-    z_filesystem_sender = new zmq::socket_t(*a_context, ZMQ_PUSH);
-    z_filesystem_sender->bind("tcp://*:5566");
-
-    std::cout << "worker_uptime AFTER PUSH INIT" << std::endl;
-
-    z_message = new zmq::message_t(2);
+      z_message = new zmq::message_t(2);
 }
-
-
-Zworker_push::Zworker_push()
-{}
 
 
 Zworker_push::~Zworker_push()
 {}
 
 
-void Zworker_push::send_payload_load(bson::bo payload)
+void Zworker_push::push_payload(bson::bo payload)
 {
-    std::cout << "Zworker_push::send_payload_load slot" << std::endl;
+    std::cout << "Zworker_push::push_payload slot : " << payload << std::endl;
 
     /***************** PUSH ********************/
-    std::cout << "Zworker_push::send_payload_load Sending tasks to workers...\n" << std::endl;
+    std::cout << "Zworker_push::push_payload Sending tasks to workers...\n" << std::endl;
     //memcpy(message.data(), "0", 1);
     //sender.send(message, ZMQ_NOBLOCK);
 
 
     z_message->rebuild(payload.objsize());
     memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
-    z_load_sender->send(*z_message, ZMQ_NOBLOCK);
+    z_sender->send(*z_message, ZMQ_NOBLOCK);
 }
-
-
-void Zworker_push::send_payload_cpu(bson::bo payload)
-{
-    std::cout << "Zworker_push::send_payload_cpu slot" << std::endl;
-
-    /***************** PUSH ********************/
-    std::cout << "Zworker_push::send_payload_cpu Sending tasks to workers...\n" << std::endl;
-
-    std::cout << "PAYLOAD : " << payload << std::endl;
-
-
-    /*
-    z_message->rebuild(payload.objsize());
-    memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
-    z_cpu_sender->send(*z_message, ZMQ_NOBLOCK);*/
-}
-
-void Zworker_push::send_payload_network(bson::bo payload)
-{
-    std::cout << "Zworker_push::send_payload_network slot" << std::endl;
-
-    /***************** PUSH ********************/
-    std::cout << "Zworker_push::send_payload_network Sending tasks to workers...\n" << std::endl;
-
-    z_message->rebuild(payload.objsize());
-    memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
-    z_network_sender->send(*z_message, ZMQ_NOBLOCK);
-}
-
-void Zworker_push::send_payload_memory(bson::bo payload)
-{
-    std::cout << "Zworker_push::send_payload_memory slot" << std::endl;
-
-    /***************** PUSH ********************/
-    std::cout << "Zworker_push::send_payload_memory Sending tasks to workers...\n" << std::endl;
-
-    z_message->rebuild(payload.objsize());
-    memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
-    z_memory_sender->send(*z_message, ZMQ_NOBLOCK);
-}
-
-
-void Zworker_push::send_payload_uptime(bson::bo payload)
-{
-    std::cout << "Zworker_push::send_payload_uptime slot" << std::endl;
-
-    /***************** PUSH ********************/
-    std::cout << "Zworker_push::send_payload_uptime Sending tasks to workers...\n" << std::endl;
-
-    z_message->rebuild(payload.objsize());
-    memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
-    z_uptime_sender->send(*z_message, ZMQ_NOBLOCK);
-}
-
-
-void Zworker_push::send_payload_process(bson::bo payload)
-{
-    std::cout << "Zworker_push::send_payload_process slot" << std::endl;
-
-    /***************** PUSH ********************/
-    std::cout << "Zworker_push::send_payload_process Sending tasks to workers...\n" << std::endl;
-
-
-    //std::cout << "PROCESS BSON TO STRING : " << payload.toStdString() << std::endl;
-
-    z_message->rebuild(payload.objsize());
-    memcpy(z_message->data(), (char*)payload.objdata() , payload.objsize());
-    z_process_sender->send(*z_message, ZMQ_NOBLOCK);
-}
-
-
-void Zworker_push::send_payload_filesystem(bson::bo payload)
-{
-    std::cout << "Zworker_push::send_payload_filesystem slot" << std::endl;
-
-    /***************** PUSH ********************/
-    std::cout << "Zworker_push::send_payload_filesystem Sending tasks to workers...\n" << std::endl;
-
-
-    //std::cout << "PROCESS BSON TO STRING : " << payload.toStdString() << std::endl;
-
-    z_message->rebuild(payload.objsize());
-    memcpy(z_message->data(), (char*)payload.objdata() , payload.objsize());
-    z_filesystem_sender->send(*z_message, ZMQ_NOBLOCK);
-}
-
 
 
 
@@ -479,37 +369,5 @@ void Zeromq::init()
 
     ztracker->moveToThread(thread_tracker);
     thread_tracker->start();
-
-
-
-
-
-
-/*
-
-    QThread *thread_dispatch_http = new QThread;
-    dispatch_http = new Zdispatch(m_context, "http", http_mutex, xmpp_mutex);
-    connect(thread_dispatch_http, SIGNAL(started()), dispatch_http, SLOT(receive_payload()));
-
-    dispatch_http->moveToThread(thread_dispatch_http);
-    thread_dispatch_http->start();
-
-
-
-    QThread *thread_dispatch_xmpp = new QThread;
-    dispatch_xmpp = new Zdispatch(m_context, "xmpp", http_mutex, xmpp_mutex);
-    connect(thread_dispatch_xmpp, SIGNAL(started()), dispatch_xmpp, SLOT(receive_payload()));
-
-    dispatch_xmpp->moveToThread(thread_dispatch_xmpp);
-    thread_dispatch_xmpp->start();
-*/
-
-
-    QThread *thread_worker_push = new QThread;
-    worker_push = new Zworker_push(m_context);
-    //connect(thread_worker_load, SIGNAL(started()), worker_load, SLOT(send_payload()));
-
-    worker_push->moveToThread(thread_worker_push);
-    thread_worker_push->start();
 
 }

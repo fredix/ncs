@@ -50,11 +50,12 @@ public:
     bo Find(string a_document, const bo &datas);
     QBool Insert(QString a_document, bo a_datas);
     bo ExtractJSON(const be &gfs_id);
+    QBool ExtractBinary(const be &gfs_id, QString path, QString &filename);
     bo CreateHost(bo &payload, const bo &data, const be &user_id);
     bo CreateOsystem(bo &payload, const bo &data);
     bo CreateOsversion(bo &data);
     QBool Update(QString a_document, const bo &element_id, const bo &a_datas);
-    bo WriteFile(const string json);
+    bo WriteFile(const string filename, const char *data);
 
 
 protected:

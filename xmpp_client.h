@@ -25,12 +25,14 @@
 #include <QDebug>
 #include <QVariant>
 #include <QUuid>
+#include <QBuffer>
 #include <QxtJSON>
 
 #include "QXmppMessage.h"
 #include "QXmppLogger.h"
 #include "QXmppClient.h"
 #include "QXmppIncomingClient.h"
+#include <QXmppTransferManager.h>
 
 #include "nosql.h"
 #include "zeromq.h"
@@ -50,6 +52,8 @@ private:
     int m_xmpp_client_port;
     QXmppLogger m_logger;
     QXmppPresence subscribe;
+    QBuffer *m_buffer;
+    //QXmppTransferJob *m_job;
 
     //zmq::context_t *m_context;
     zmq::socket_t *z_push_api;
@@ -66,6 +70,12 @@ public slots:
     void connectedError();
     void messageReceived(const QXmppMessage&);
     void presenceReceived(const QXmppPresence& presence);
+
+private slots:
+    void job_finished();
+    void file_received(QXmppTransferJob *job);
+    void job_error(QXmppTransferJob::Error error);
+    void job_progress(qint64 done, qint64 total);
 };
 
 #endif // XMPP_CLIENT_H

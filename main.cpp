@@ -157,14 +157,14 @@ int main(int argc, char *argv[])
     //QObject::connect(dispatcher.zeromq->dispatch, SIGNAL(forward_payload(bson::bo)), dispatcher.payload, SLOT(s_job_receive(bson::bo)), Qt::BlockingQueuedConnection);
     //QObject::connect(dispatcher.zeromq->dispatch_xmpp, SIGNAL(forward_payload(bson::bo)), dispatcher.payload, SLOT(s_job_receive(bson::bo)), Qt::BlockingQueuedConnection);
 
-    QObject::connect(dispatcher.zeromq->dispatch, SIGNAL(payload_load(bson::bo)), dispatcher.zeromq->worker_push, SLOT(send_payload_load(bson::bo)), Qt::QueuedConnection);
+ /*   QObject::connect(dispatcher.zeromq->dispatch, SIGNAL(payload_load(bson::bo)), dispatcher.zeromq->worker_push, SLOT(send_payload_load(bson::bo)), Qt::QueuedConnection);
     QObject::connect(dispatcher.zeromq->dispatch, SIGNAL(payload_cpu(bson::bo)), dispatcher.zeromq->worker_push, SLOT(send_payload_cpu(bson::bo)), Qt::QueuedConnection);
     QObject::connect(dispatcher.zeromq->dispatch, SIGNAL(payload_network(bson::bo)), dispatcher.zeromq->worker_push, SLOT(send_payload_network(bson::bo)), Qt::QueuedConnection);
     QObject::connect(dispatcher.zeromq->dispatch, SIGNAL(payload_memory(bson::bo)), dispatcher.zeromq->worker_push, SLOT(send_payload_memory(bson::bo)), Qt::QueuedConnection);
     QObject::connect(dispatcher.zeromq->dispatch, SIGNAL(payload_uptime(bson::bo)), dispatcher.zeromq->worker_push, SLOT(send_payload_uptime(bson::bo)), Qt::QueuedConnection);
     QObject::connect(dispatcher.zeromq->dispatch, SIGNAL(payload_process(bson::bo)), dispatcher.zeromq->worker_push, SLOT(send_payload_process(bson::bo)), Qt::QueuedConnection);
     QObject::connect(dispatcher.zeromq->dispatch, SIGNAL(payload_filesystem(bson::bo)), dispatcher.zeromq->worker_push, SLOT(send_payload_filesystem(bson::bo)), Qt::QueuedConnection);
-
+*/
 
     qDebug() << "end";
 
