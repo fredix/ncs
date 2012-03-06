@@ -252,7 +252,7 @@ void Xmpp_client::messageReceived(const QXmppMessage& message)
      else
      {
 
-         bo gfs_file_struct = nosql_.WriteFile("filename.str()", payload["datas"].valuestr());
+         bo gfs_file_struct = nosql_.WriteFile("filename.str()", payload["datas"].valuestr(), payload["datas"].objsize() );
 
 
          if (gfs_file_struct.nFields() == 0)

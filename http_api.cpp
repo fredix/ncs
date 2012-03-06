@@ -115,7 +115,12 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
         //QByteArray requestContent = QByteArray::fromBase64(myContent->readAll());
         QByteArray requestContent = myContent->readAll();
 
-        bo gfs_file_struct = nosql_.WriteFile(payloadfilename.toStdString(), requestContent.data());
+        /*QFile zfile("/tmp/in.dat");
+        zfile.open(QIODevice::WriteOnly);
+        zfile.write(requestContent);
+        zfile.close();*/
+
+        bo gfs_file_struct = nosql_.WriteFile(payloadfilename.toStdString(), requestContent.constData (), requestContent.size ());
 
 
         if (gfs_file_struct.nFields() == 0)
@@ -202,7 +207,7 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action, QString uuid)
         //qDebug() << "Content: ";
         qDebug() << "RECEIVE PAYLOAD !!!!!  : " << requestContent.data();
 
-        bo gfs_file_struct = nosql_.WriteFile(payloadfilename.toStdString(), requestContent.data());
+        bo gfs_file_struct = nosql_.WriteFile(payloadfilename.toStdString(), requestContent.constData (), requestContent.size ());
 
         if (gfs_file_struct.nFields() == 0)
         {

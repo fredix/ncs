@@ -55,7 +55,7 @@ public:
     bo CreateOsystem(bo &payload, const bo &data);
     bo CreateOsversion(bo &data);
     QBool Update(QString a_document, const bo &element_id, const bo &a_datas);
-    bo WriteFile(const string filename, const char *data);
+    bo WriteFile(const string filename, const char *data, int size);
 
 
 protected:
