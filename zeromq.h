@@ -22,6 +22,7 @@
 #define ZEROMQ_H
 
 #include <QObject>
+#include <QDateTime>
 #include <QThread>
 #include <QDebug>
 #include <QMutex>
@@ -40,13 +41,13 @@ class Ztracker : public QObject
 {
     Q_OBJECT
 public:
-    Ztracker(Nosql &a, zmq::context_t *a_context);
+    Ztracker(zmq::context_t *a_context);
     ~Ztracker();
 
 private:
     zmq::context_t *m_context;
     zmq::socket_t *m_socket;
-    Nosql &nosql_;
+    Nosql *nosql_;
 
 public slots:
     void init();
@@ -81,14 +82,14 @@ class Zdispatch : public QObject
 {
     Q_OBJECT
 public:
-    Zdispatch(Nosql &a, zmq::context_t *a_context);
+    Zdispatch(zmq::context_t *a_context);
     ~Zdispatch();
 
 
 private:
     zmq::context_t *m_context;
     zmq::socket_t *m_socket;
-    Nosql &nosql_;
+    Nosql *nosql_;
     //typedef QSharedPointer<Zworker_push> Zworker_pushPtr; QHash<QString, Zworker_pushPtr> hash;
     QHash<QString, Zworker_push*> workers_push;
     //QList <Zworker_push*> workers_push;
@@ -133,7 +134,8 @@ class Zeromq : public QObject
 {    
     Q_OBJECT
 public:
-    Zeromq(Nosql &a, QString host, int port);
+    static Zeromq *getInstance();
+    Zeromq();
     ~Zeromq();
     void init();
 
@@ -147,9 +149,10 @@ public:
     Zworker_push *worker_push;
 
 private:
+    static Zeromq *_singleton;
     QMutex *m_http_mutex;
     QMutex *m_xmpp_mutex;
-    Nosql &nosql_;
+    Nosql *nosql_;
 
 
 signals:

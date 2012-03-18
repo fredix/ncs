@@ -32,7 +32,7 @@ INCLUDEPATH += /usr/include/
 INCLUDEPATH += /usr/include/qxt/
 INCLUDEPATH += /usr/include/qxt/QxtCore
 INCLUDEPATH += /usr/include/qxt/QxtWeb
-INCLUDEPATH += ./externals/mongodb-src-r2.0.1
+INCLUDEPATH += ./externals/mongodb-src-r2.0.3
 INCLUDEPATH += ./externals/qxmpp-0.3.0/src/
 
 HEADERS += main.h \

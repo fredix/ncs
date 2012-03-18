@@ -34,16 +34,12 @@ class Api : public QObject
 {
     Q_OBJECT
 public:
-    Api(Nosql &a, Zeromq &z, QObject *parent = 0);
+    Api(QObject *parent = 0);
     ~Api();
 
     void Http_init();
     void Xmpp_init(QString domain_name, int xmpp_client_port, int xmpp_server_port);
 
-
-protected:
-     Nosql &nosql_;
-     Zeromq &zeromq_;
 
 private:
     QxtHttpServerConnector m_connector;

@@ -123,7 +123,7 @@ class Xmpp_server : public QObject
 {    
     Q_OBJECT
 public:
-    Xmpp_server(Nosql &a, QString a_domain, int a_xmpp_client_port, int a_xmpp_server_port);
+    Xmpp_server(QString a_domain, int a_xmpp_client_port, int a_xmpp_server_port);
 
 
 private:

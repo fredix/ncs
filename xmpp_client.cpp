@@ -21,9 +21,13 @@
 
 #include "xmpp_client.h"
 
-Xmpp_client::Xmpp_client(Nosql& a, Zeromq &z, QString a_domain, int a_xmpp_client_port, QObject *parent) : QXmppClient(parent), nosql_(a), zeromq_(z), m_domain(a_domain), m_xmpp_client_port(a_xmpp_client_port)
+Xmpp_client::Xmpp_client(QString a_domain, int a_xmpp_client_port, QObject *parent) : QXmppClient(parent), m_domain(a_domain), m_xmpp_client_port(a_xmpp_client_port)
 {
     qDebug() << "Xmpp_client::Xmpp_client !!!";
+
+    nosql_ = Nosql::getInstance_front();
+    zeromq_ = Zeromq::getInstance ();
+
 
     QXmppTransferManager *manager = new QXmppTransferManager;
     this->addExtension (manager);
@@ -36,7 +40,7 @@ Xmpp_client::Xmpp_client(Nosql& a, Zeromq &z, QString a_domain, int a_xmpp_clien
 
     z_message = new zmq::message_t(2);
     //m_context = new zmq::context_t(1);
-    z_push_api = new zmq::socket_t(*zeromq_.m_context, ZMQ_PUSH);
+    z_push_api = new zmq::socket_t(*zeromq_->m_context, ZMQ_PUSH);
     //z_push_api = new zmq::socket_t(*m_context, ZMQ_PUSH);
     //z_push_api->bind("tcp://*:5556");
     z_push_api->bind("inproc://xmpp");
@@ -152,7 +156,7 @@ bool Xmpp_client::checkAuth(QString credentials, BSONObjBuilder &payload_builder
     bo auth = BSON("email" << email.toStdString() << "authentication_token" << key.toStdString());
 
 
-    bo user = nosql_.Find("users", auth);
+    bo user = nosql_->Find("users", auth);
     if (user.nFields() == 0)
     {
         qDebug() << "auth failed !";
@@ -252,7 +256,7 @@ void Xmpp_client::messageReceived(const QXmppMessage& message)
      else
      {
 
-         bo gfs_file_struct = nosql_.WriteFile("filename.str()", payload["datas"].valuestr(), payload["datas"].objsize() );
+         bo gfs_file_struct = nosql_->WriteFile("filename.str()", payload["datas"].valuestr(), payload["datas"].objsize() );
 
 
          if (gfs_file_struct.nFields() == 0)

@@ -20,7 +20,7 @@
 
 #include "api.h"
 
-Api::Api(Nosql& a, Zeromq& z, QObject *parent) : nosql_(a), zeromq_(z), QObject(parent)
+Api::Api(QObject *parent) : QObject(parent)
 {}
 
 Api::~Api()
@@ -34,7 +34,7 @@ void Api::Http_init()
 
     //Http_api s1(&session);
 
-    m_http_api = new Http_api(&m_session, nosql_, zeromq_);
+    m_http_api = new Http_api(&m_session);
 
     m_session.setStaticContentService(m_http_api);
     m_session.start();
@@ -46,6 +46,6 @@ void Api::Xmpp_init(QString domain_name, int xmpp_client_port, int xmpp_server_p
 {
     qRegisterMetaType<QXmppLogger::MessageType>("QXmppLogger::MessageType");
 
-    m_xmpp_server = new Xmpp_server(nosql_, domain_name, xmpp_client_port, xmpp_server_port);
-    m_xmpp_client = new Xmpp_client(nosql_, zeromq_, domain_name, xmpp_client_port);
+    m_xmpp_server = new Xmpp_server(domain_name, xmpp_client_port, xmpp_server_port);
+    m_xmpp_client = new Xmpp_client(domain_name, xmpp_client_port);
 }

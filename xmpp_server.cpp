@@ -21,12 +21,12 @@
 #include "xmpp_server.h"
 
 
-Xmpp_server::Xmpp_server(Nosql &a, QString a_domain, int a_xmpp_client_port, int a_xmpp_server_port) : m_domain(a_domain), m_xmpp_client_port(a_xmpp_client_port), m_xmpp_server_port(a_xmpp_server_port)
+Xmpp_server::Xmpp_server(QString a_domain, int a_xmpp_client_port, int a_xmpp_server_port) : m_domain(a_domain), m_xmpp_client_port(a_xmpp_client_port), m_xmpp_server_port(a_xmpp_server_port)
 {
     qDebug() << "Xmpp_server construct param";
 
 
-    m_checker.nosql_ = &a;
+    m_checker.nosql_ = Nosql::getInstance_front();
     m_checker.m_username = "ncs";
     m_checker.m_password = "scn";
 

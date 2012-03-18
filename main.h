@@ -38,7 +38,8 @@ public:
     Dispatcher(QString mongodb_ip, QString mongodb_base, QString domain_name, int xmpp_client_port, int xmpp_server_port);
     ~Dispatcher();
 
-    Nosql *nosql;
+    Nosql *nosql_front;
+    Nosql *nosql_back;
     Zeromq *zeromq;
     //Payload *payload;
     Api *api;

@@ -28,16 +28,13 @@ Dispatcher::Dispatcher(QString mongodb_ip, QString mongodb_base, QString domain_
 {
     qDebug() << "Dispatcher construct";
 
+    nosql_front = new Nosql("front", mongodb_ip, mongodb_base);
+    nosql_back = new Nosql("back", mongodb_ip, mongodb_base);
+    zeromq = new Zeromq();
 
-    nosql = new Nosql(mongodb_ip, mongodb_base);
-    zeromq = new Zeromq(*nosql, "127.0.0.1", 12345);
-
-
-    /*********** HTTP API *************/
-    api = new Api(*nosql, *zeromq);
+    api = new Api();
     api->Http_init();
     api->Xmpp_init(domain_name, xmpp_client_port, xmpp_server_port);
-
 
     zeromq->init();
 }

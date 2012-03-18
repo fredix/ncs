@@ -22,11 +22,14 @@
 #include "http_api.h"
 
 
-Http_api::Http_api(QxtAbstractWebSessionManager * sm, Nosql &a, Zeromq &z, QObject * parent): QxtWebSlotService(sm,parent), nosql_(a), zeromq_(z)
+Http_api::Http_api(QxtAbstractWebSessionManager * sm, QObject * parent): QxtWebSlotService(sm,parent)
 {
+    nosql_ = Nosql::getInstance_front();
+    zeromq_ = Zeromq::getInstance ();
+
     z_message = new zmq::message_t(2);
     //m_context = new zmq::context_t(1);
-    z_push_api = new zmq::socket_t(*zeromq_.m_context, ZMQ_PUSH);
+    z_push_api = new zmq::socket_t(*zeromq_->m_context, ZMQ_PUSH);
     //z_push_api->bind("tcp://*:5555");
     z_push_api->bind("inproc://http");
 }
@@ -36,7 +39,7 @@ Http_api::~Http_api()
 {}
 
 
-bool Http_api::checkAuth(QString header, BSONObjBuilder &payload_builder)
+QBool Http_api::checkAuth(QString header, BSONObjBuilder &payload_builder, bo &a_user)
 {
     QString b64 = header.section("Basic ", 1 ,1);
     qDebug() << "auth : " << b64;
@@ -53,53 +56,150 @@ bool Http_api::checkAuth(QString header, BSONObjBuilder &payload_builder)
     bo auth = BSON("email" << email.toStdString() << "authentication_token" << key.toStdString());
 
 
-    bo user = nosql_.Find("users", auth);
-    if (user.nFields() == 0)
+    bo l_user = nosql_->Find("users", auth);
+
+    if (l_user.nFields() == 0)
     {
         qDebug() << "auth failed !";
-        return false;
+        return QBool(false);
     }
 
-    be login = user.getField("login");
-    std::cout << "user : " << login << std::endl;
+   // be login = user.getField("login");
+    // std::cout << "user : " << login << std::endl;
 
     payload_builder.append("email", email.toStdString());
-    return true;
+    payload_builder.append("user_id", l_user.getField("_id").OID());
+
+    a_user = l_user;
+    return QBool(true);
 }
 
 
 
 
 
-/********** CREATE HOST ************/
-void Http_api::payload(QxtWebRequestEvent* event, QString action)
+/********** REGISTER NODE ************/
+void Http_api::node(QxtWebRequestEvent* event, QString action)
 {
-    qDebug() << "CREATE HOST : " << "action : " << action << " headers : " << event->headers;
+    qDebug() << "CREATE NODE : " << "action : " << action << " headers : " << event->headers;
     QString bodyMessage;
 
     //QString uuid = QUuid::createUuid().toString();
-
-    QUuid uuid = QUuid::createUuid();
-    QUuid pub_uuid = QUuid::createUuid();
-    QString str_uuid = uuid.toString().mid(1,36);
-    QString str_pub_uuid = pub_uuid.toString().mid(1,36);
-
     //QString uuid = QUuid::createUuid().toString().mid(1,36).toUpper();
+
+    QString nodename = event->headers.value("X-nodename");
+    if (nodename.length() == 0)
+    {
+        bodyMessage = buildResponse("error", "headers", "X-nodename");
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        return;
+    }
+
+    BSONObjBuilder payload_builder;
+    payload_builder.genOID();
+    payload_builder.append("nodename", nodename.toStdString());
+
+
+    //std::cout << "payload builder : " << payload_builder.obj() << std::cout;
+
+    bo user;
+    QBool res = checkAuth(event->headers.value("Authorization"), payload_builder, user);
+
+    if (!res)
+    {
+        bodyMessage = buildResponse("error", "auth");
+        bodyMessage = buildResponse("error", "auth");
+    }
+    else
+    {
+        QUuid uuid = QUuid::createUuid();
+        QString str_uuid = uuid.toString().mid(1,36);
+
+        payload_builder.append("uuid", str_uuid.toStdString());
+
+
+        be user_id = user.getField("_id");
+
+        //bo node_uuid = BSON("nodes" << BSON(GENOID << "uuid" << str_uuid.toStdString() <<  "nodename" << nodename.toStdString()));
+        //nosql_.Addtoarray("users", user_id.wrap(), node_uuid);
+
+        bo node = BSON("nodes" << payload_builder.obj());
+        nosql_->Addtoarray("users", user_id.wrap(), node);
+
+
+        /****** PUSH API PAYLOAD *******
+        std::cout << "NODE API PAYLOAD : " << payload << std::endl;
+        z_message->rebuild(payload.objsize());
+        memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
+        z_push_api->send(*z_message, ZMQ_NOBLOCK);
+        ************************/
+
+        bodyMessage = buildResponse("register", str_uuid);
+    }
+    qDebug() << bodyMessage;
+
+
+    postEvent(new QxtWebPageEvent(event->sessionID,
+                                 event->requestID,
+                                 bodyMessage.toUtf8()));
+}
+
+
+
+
+/********** CREATE PAYLOAD ************/
+void Http_api::payload(QxtWebRequestEvent* event, QString action)
+{
+    qDebug() << "CREATE PAYLOAD : " << "action : " << action << " headers : " << event->headers;
+    QString bodyMessage;
+
 
 
 
     QString payloadfilename = event->headers.value("X-payloadfilename");
-    qDebug() << "FILENAME : " << payloadfilename;
+    QString node_uuid = event->headers.value("X-uuid");
+    QString task = event->headers.value("X-task");
+    qDebug() << "FILENAME : " << payloadfilename << " length " << payloadfilename.length();
+    qDebug() << "UUID : " << node_uuid << " length " << node_uuid.length();
+
+
+    if (payloadfilename.length() == 0)
+    {
+        bodyMessage = buildResponse("error", "headers", "X-payloadfilename");
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        return;
+    }
+    if (node_uuid.length() == 0)
+    {
+        bodyMessage = buildResponse("error", "headers", "X-uuid");
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        return;
+    }
+    if (task.length() == 0)
+    {
+        bodyMessage = buildResponse("error", "headers", "X-task");
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        return;
+    }
 
 
     BSONObjBuilder payload_builder;
-    payload_builder.append("action", "dispatcher.create");
-    payload_builder.append("uuid", str_uuid.toStdString());
-    payload_builder.append("pub_uuid", str_pub_uuid.toStdString());
+    payload_builder.append("action", "payload.create");
+    payload_builder.append("node_uuid", node_uuid.toStdString());
+    payload_builder.append("task", task.toStdString());
+
 
     //std::cout << "payload builder : " << payload_builder.obj() << std::cout;
-
-    bool res = checkAuth(event->headers.value("Authorization"), payload_builder);
+    bo user;
+    QBool res = checkAuth(event->headers.value("Authorization"), payload_builder, user);
 
     if (!res)
     {
@@ -107,6 +207,54 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
     }
     else
     {
+        //bo node_search = BSON("_id" << user.getField("_id") <<  "nodes.uuid" << node_uuid.toStdString());
+        bo node_search = BSON("_id" << user.getField("_id"));
+
+        bo user_nodes = nosql_->Find("users", node_search);
+
+
+        if (user_nodes.nFields() == 0)
+        {
+            bodyMessage = buildResponse("error", "node", "unknown");
+            postEvent(new QxtWebPageEvent(event->sessionID,
+                                         event->requestID,
+                                         bodyMessage.toUtf8()));
+            return;
+        }
+
+
+
+        bo nodes = user_nodes.getField("nodes").Obj();
+
+        list<be> list_nodes;
+        nodes.elems(list_nodes);
+        list<be>::iterator i;
+
+        /********   Iterate over each user's nodes   *******/
+        /********  find node with uuid and set the node id to payload collection *******/
+        for(i = list_nodes.begin(); i != list_nodes.end(); ++i) {
+            bo l_node = (*i).embeddedObject ();
+            be node_id;
+            l_node.getObjectID (node_id);
+
+            //std::cout << "NODE1 => " << node_id.OID()   << std::endl;
+            //std::cout << "NODE2 => " << node_uuid.toStdString() << std::endl;
+
+            if (node_uuid.toStdString().compare(l_node.getField("uuid").str()) == 0)
+            {
+                payload_builder.append("node_id", node_id.OID());
+                break;
+            }
+        }
+
+
+
+
+
+        QUuid payload_uuid = QUuid::createUuid();
+        QString str_payload_uuid = payload_uuid.toString().mid(1,36);
+        payload_builder.append("uuid", str_payload_uuid.toStdString());
+
         QxtWebContent *myContent = event->content;
 
         qDebug() << "Bytes to read: " << myContent->unreadBytes();
@@ -120,7 +268,7 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
         zfile.write(requestContent);
         zfile.close();*/
 
-        bo gfs_file_struct = nosql_.WriteFile(payloadfilename.toStdString(), requestContent.constData (), requestContent.size ());
+        bo gfs_file_struct = nosql_->WriteFile(payloadfilename.toStdString(), requestContent.constData (), requestContent.size ());
 
 
         if (gfs_file_struct.nFields() == 0)
@@ -133,15 +281,24 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
             //std::cout << "writefile id : " << gfs_file_struct.getField("_id") << " date : " << gfs_file_struct.getField("uploadDate") << std::endl;
 
             be uploaded_at = gfs_file_struct.getField("uploadDate");
+            be filename = gfs_file_struct.getField("filename");
+            be length = gfs_file_struct.getField("length");
 
             std::cout << "uploaded : " << uploaded_at << std::endl;
 
 
             payload_builder.append("created_at", uploaded_at.date());
-            payload_builder.append(gfs_file_struct.getField("_id"));
+            payload_builder.append("filename", filename.str());
+            payload_builder.append("length", length.numberLong());
+            payload_builder.append("gfs_id", gfs_file_struct.getField("_id").OID());
 
 
             bo payload = payload_builder.obj();
+
+            nosql_->Insert("payload_track", payload);
+
+            qDebug() << "payload_track inserted";
+
 
             /****** PUSH API PAYLOAD *******/
             qDebug() << "PUSH API PAYLOAD";
@@ -150,7 +307,7 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
             z_push_api->send(*z_message, ZMQ_NOBLOCK);
             /************************/
         }
-        bodyMessage = buildResponse("create", str_uuid, str_pub_uuid);
+        bodyMessage = buildResponse("create", str_payload_uuid);
     }
     qDebug() << bodyMessage;
 
@@ -161,7 +318,7 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
 }
 
 
-/********** UPDATE HOST ************/
+/********** UPDATE PAYLOAD ************/
 void Http_api::payload(QxtWebRequestEvent* event, QString action, QString uuid)
 {
     qDebug()  << "UPDATE HOST : " << "action : " << action << " uuid : " << uuid << " headers : " << event->headers;
@@ -181,15 +338,28 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action, QString uuid)
 
 
     BSONObjBuilder payload_builder;
-    payload_builder.append("action", "dispatcher.update");
+    payload_builder.append("action", "payload.update");
     payload_builder.append("uuid", uuid.toStdString());
 
 
     QString payloadfilename = event->headers.value("X-payloadfilename");
     qDebug() << "FILENAME : " << payloadfilename;
 
+    if (payloadfilename.length() == 0)
+    {
+        bodyMessage = buildResponse("error", "payloadfilename");
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        return;
+    }  bo node = BSON("nodes" << payload_builder.obj());
+    //nosql_.Addtoarray("users", user_id.wrap(), node);
 
-    bool res = checkAuth(event->headers.value("Authorization"), payload_builder);
+
+
+
+    bo user;
+    QBool res = checkAuth(event->headers.value("Authorization"), payload_builder, user);
 
     if (!res)
     {
@@ -207,7 +377,7 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action, QString uuid)
         //qDebug() << "Content: ";
         qDebug() << "RECEIVE PAYLOAD !!!!!  : " << requestContent.data();
 
-        bo gfs_file_struct = nosql_.WriteFile(payloadfilename.toStdString(), requestContent.constData (), requestContent.size ());
+        bo gfs_file_struct = nosql_->WriteFile(payloadfilename.toStdString(), requestContent.constData (), requestContent.size ());
 
         if (gfs_file_struct.nFields() == 0)
         {
@@ -350,14 +520,18 @@ QString Http_api::buildResponse(QString action, QString data1, QString data2)
     {
         data.insert("uuid", data1);
     }
+    else if (action == "register")
+    {
+        data.insert("uuid", data1);
+    }
     else if (action == "create")
     {
         data.insert("uuid", data1);
-        data.insert("pub_uuid", data2);
     }
     else if (action == "error")
     {
         data.insert("error", data1);
+        data.insert("code", data2);
     }
     body = QxtJSON::stringify(data);
 

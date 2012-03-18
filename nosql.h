@@ -32,6 +32,7 @@
 #include <QFile>
 #include <QDebug>
 #include <QVariant>
+#include <QMutex>
 
 
 
@@ -43,25 +44,32 @@ typedef QVariantHash Hash;
 class Nosql : public QObject
 {
     Q_OBJECT
-public:
-    Nosql(QString a_server, QString a_database);
-    Nosql();
-    ~Nosql();
-    bo Find(string a_document, const bo &datas);
+public:    
+    Nosql(QString instance_type, QString a_server, QString a_database);
+    static Nosql *getInstance_front();
+    static Nosql *getInstance_back();
+    static void kill_front();
+
+    bo Find(string a_document, const bo a_datas);
     QBool Insert(QString a_document, bo a_datas);
     bo ExtractJSON(const be &gfs_id);
-    QBool ExtractBinary(const be &gfs_id, QString path, QString &filename);
+    QBool ExtractBinary(const be &gfs_id, string path, QString &filename);
     bo CreateHost(bo &payload, const bo &data, const be &user_id);
     bo CreateOsystem(bo &payload, const bo &data);
     bo CreateOsversion(bo &data);
     QBool Update(QString a_document, const bo &element_id, const bo &a_datas);
+    QBool Addtoarray(QString a_document, const bo &element_id, const bo &a_datas);
     bo WriteFile(const string filename, const char *data, int size);
 
 
 protected:
     QBool ReadFile(const be &gfs_id);
 
-private:
+private:   
+    static Nosql *_singleton_front;
+    static Nosql *_singleton_back;
+    ~Nosql();
+
     QString m_server;
     QString m_database;
     QString m_document;
@@ -71,6 +79,7 @@ private:
     mongo::GridFile *m_gf;
     bo m_grid_file;
     bo m_datas;
+    QMutex *m_mutex;
 };
 
 

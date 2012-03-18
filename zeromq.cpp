@@ -22,9 +22,12 @@
 
 
 
-Ztracker::Ztracker(Nosql& a, zmq::context_t *a_context) : nosql_(a), m_context(a_context)
+Ztracker::Ztracker(zmq::context_t *a_context) : m_context(a_context)
 {
     std::cout << "Ztracker::Ztracker construct" << std::endl;
+
+    nosql_ = Nosql::getInstance_back();
+
 
     m_socket = new zmq::socket_t (*m_context, ZMQ_REP);
     m_socket->bind("tcp://*:5569");
@@ -38,14 +41,14 @@ void Ztracker::init()
 
     // Wait for next request from client
     m_socket->recv (&request);
-    std::cout << "Received Hello : " << (char*) request.data() << std::endl;
+    std::cout << "Received : " << (char*) request.data() << std::endl;
 
     // Do some 'work'
     sleep (1);
 
     // Send reply back to client
     zmq::message_t reply (5);
-    memcpy ((void *) reply.data (), "World", 5);
+    memcpy ((void *) reply.data (), "ACK", 5);
     m_socket->send (reply);
     }
 }
@@ -105,9 +108,10 @@ Zreceive::~Zreceive()
 
 
 
-Zdispatch::Zdispatch(Nosql& a, zmq::context_t *a_context) : nosql_(a), m_context(a_context)
+Zdispatch::Zdispatch(zmq::context_t *a_context) : m_context(a_context)
 {        
     std::cout << "Zdispatch::Zdispatch constructeur" << std::endl;
+    nosql_ = Nosql::getInstance_back();
 }
 
 
@@ -145,18 +149,36 @@ void Zdispatch::receive_payload()
 
         //std::cout << "Zdispatch received request: [" << (char*) request.data() << "]" << std::endl;
         bo data = bo((char*)request.data());
-        be uuid = data.getFieldDotted("payload.uuid");
-        be qname = data.getFieldDotted("payload.action");
-        be gfs_id = data.getFieldDotted("payload._id");
+        be uuid = data.getFieldDotted("data.uuid");
+        be qname = data.getFieldDotted("data.action");
+        be gfs_id = data.getFieldDotted("data.gfs_id");
+        be timestamp = data.getField("timestamp");
+
 
         be action = data.getField("action");
+
+        /********** RECORD PAYLOAD STEP *********/
+        BSONObjBuilder step_builder;
+        step_builder.genOID();
+        step_builder.append("counter", 1);
+        step_builder.append("name", "dispatcher");
+        step_builder.append("action", action.str());
+        step_builder.append("timestamp", timestamp.str());
+
+
+        bo step = BSON("steps" << step_builder.obj());
+        nosql_->Addtoarray("payload_track", uuid.wrap(), step);
+        /*****************************************/
+
+
+
         be format = data.getField("format");
+        be path = data.getField("path");
 
-
-        be workers = data.getField("workers");        
+        bo workers = data.getField("workers").Obj();
 
         list<be> w_list;
-        workers.Obj().elems(w_list);
+        workers.elems(w_list);
 
 
         if (workers_push.size() == 0)
@@ -207,7 +229,7 @@ void Zdispatch::receive_payload()
 
         if (format.str() == "json" && action.str() == "split")
         {
-            bo l_json_datas = nosql_.ExtractJSON(gfs_id);
+            bo l_json_datas = nosql_->ExtractJSON(gfs_id);
 
             qDebug() << "SPLIT !!!!!!!!!!";
 
@@ -221,17 +243,18 @@ void Zdispatch::receive_payload()
 
                 //std::cout << "DATA : " << l_json_datas[w_name] << std::endl;
 
-                bo payload = BSON("headers" << data["payload"] << "worker" << w_name.toStdString() << "payload" << l_json_datas[w_name.toStdString()]);
+                bo payload = BSON("headers" << data["data"] << "worker" << w_name.toStdString() << "data" << l_json_datas[w_name.toStdString()]);
                 workers_push[w_name]->push_payload(payload);
             }
 
         }
         else if (format.str() == "binary" && action.str() == "copy")
         {
-            qDebug() << "BINARY && COPY";
+            std::cout << "BINARY && COPY : " << gfs_id << std::endl;
             QString filename;
-            if (nosql_.ExtractBinary(gfs_id, "/tmp/", filename))
+            if (nosql_->ExtractBinary(gfs_id, path.str(), filename))
             {
+                qDebug() << "AFTER EXTRACT BINARY";
                 for (int i = 0; i < worker_name.size(); ++i)
                 {
                     QString w_name = (QString) worker_name.at(i);
@@ -240,7 +263,7 @@ void Zdispatch::receive_payload()
 
                     //std::cout << "DATA : " << l_json_datas[w_name] << std::endl;
 
-                    bo payload = BSON("headers" << data["payload"] << "worker" << w_name.toStdString() << "payload" << "/tmp/" + filename.toStdString());
+                    bo payload = BSON("headers" << data["data"] << "worker" << w_name.toStdString() << "path" << path.str() << "data" << filename.toStdString());
                     workers_push[w_name]->push_payload(payload);
                 }
             }
@@ -295,11 +318,15 @@ void Zworker_push::push_payload(bson::bo payload)
 }
 
 
+Zeromq *Zeromq::_singleton = NULL;
 
 
-Zeromq::Zeromq(Nosql& a, QString host, int port) : nosql_(a)
+Zeromq::Zeromq()
 {
     qDebug() << "Zeromq::construct";
+
+    nosql_ = Nosql::getInstance_back();
+
 
     /******* QTHREAD ACCORDING TO
     http://developer.qt.nokia.com/doc/qt-4.7/qthread.html ->
@@ -316,6 +343,7 @@ Zeromq::Zeromq(Nosql& a, QString host, int port) : nosql_(a)
     m_context = new zmq::context_t(1);
 
 
+    _singleton = this;
 }
 
 
@@ -323,6 +351,19 @@ Zeromq::~Zeromq()
 {}
 
 
+
+Zeromq* Zeromq::getInstance() {
+    if (NULL == _singleton)
+        {
+          qDebug() << "creating singleton.";
+          _singleton =  new Zeromq();
+        }
+      else
+        {
+          qDebug() << "singleton already created!";
+        }
+      return _singleton;
+}
 
 
 
@@ -355,7 +396,7 @@ void Zeromq::init()
 
 
     QThread *thread_dispatch = new QThread;
-    dispatch = new Zdispatch(nosql_, m_context);
+    dispatch = new Zdispatch(m_context);
     connect(thread_dispatch, SIGNAL(started()), dispatch, SLOT(receive_payload()));
 
     dispatch->moveToThread(thread_dispatch);
@@ -364,7 +405,7 @@ void Zeromq::init()
 
 
     QThread *thread_tracker = new QThread;
-    ztracker = new Ztracker(nosql_, m_context);
+    ztracker = new Ztracker(m_context);
     connect(thread_tracker, SIGNAL(started()), ztracker, SLOT(init()));
 
     ztracker->moveToThread(thread_tracker);

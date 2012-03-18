@@ -44,7 +44,7 @@ class Xmpp_client : public QXmppClient
     Q_OBJECT
 
 public:
-    Xmpp_client(Nosql& a, Zeromq& z, QString a_domain, int a_xmpp_client_port, QObject *parent = 0);
+    Xmpp_client(QString a_domain, int a_xmpp_client_port, QObject *parent = 0);
     ~Xmpp_client();
 
 private:
@@ -59,8 +59,8 @@ private:
     zmq::socket_t *z_push_api;
     zmq::message_t *z_message;
 
-    Nosql &nosql_;
-    Zeromq &zeromq_;
+    Nosql *nosql_;
+    Zeromq *zeromq_;
     bool checkAuth(QString credentials, BSONObjBuilder &payload);
     QString buildResponse(QString action, QString data1, QString data2="");
 

@@ -39,7 +39,7 @@ class Http_api : public QxtWebSlotService
     Q_OBJECT
 
 public:
-    Http_api(QxtAbstractWebSessionManager *sm, Nosql& a, Zeromq& z, QObject * parent = 0);
+    Http_api(QxtAbstractWebSessionManager *sm, QObject * parent = 0);
     //Http_api(QxtAbstractWebSessionManager * sm, Nosql& a);    
     ~Http_api();
 
@@ -48,15 +48,16 @@ public slots:
     void admin(QxtWebRequestEvent* event, QString action);
     void payload(QxtWebRequestEvent* event, QString action, QString uuid);
     void payload(QxtWebRequestEvent* event, QString action);
+    void node(QxtWebRequestEvent* event, QString action);
 
 
 private:
     zmq::socket_t *z_push_api;
     zmq::message_t *z_message;
 
-    Nosql &nosql_;
-    Zeromq &zeromq_;
-    bool checkAuth(QString header, BSONObjBuilder &payload);
+    Nosql *nosql_;
+    Zeromq *zeromq_;
+    QBool checkAuth(QString header, BSONObjBuilder &payload, bo &a_user);
     QString buildResponse(QString action, QString data1, QString data2="");
 };
 
