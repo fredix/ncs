@@ -43,16 +43,20 @@ Xmpp_client::Xmpp_client(QString a_domain, int a_xmpp_client_port, QObject *pare
     z_push_api = new zmq::socket_t(*zeromq_->m_context, ZMQ_PUSH);
     //z_push_api = new zmq::socket_t(*m_context, ZMQ_PUSH);
     //z_push_api->bind("tcp://*:5556");
+
+    uint64_t hwm = 5000;
+    zmq_setsockopt (z_push_api, ZMQ_HWM, &hwm, sizeof (hwm));
+
     z_push_api->bind("inproc://xmpp");
 
 
 
-    bool check = connect(this, SIGNAL(messageReceived(const QXmppMessage&)),
+    bool check = connect(this, SIGNAL(QXmppClient::messageReceived(const QXmppMessage&)),
            SLOT(messageReceived(const QXmppMessage&)));
        Q_ASSERT(check);
        Q_UNUSED(check);
 
-    check = connect(this, SIGNAL(presenceReceived(const QXmppPresence&)),
+    check = connect(this, SIGNAL(QXmppClient::presenceReceived(const QXmppPresence&)),
                     SLOT(presenceReceived(const QXmppPresence&)));
 
 

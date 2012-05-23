@@ -30,7 +30,10 @@ Http_api::Http_api(QxtAbstractWebSessionManager * sm, QObject * parent): QxtWebS
     z_message = new zmq::message_t(2);
     //m_context = new zmq::context_t(1);
     z_push_api = new zmq::socket_t(*zeromq_->m_context, ZMQ_PUSH);
-    //z_push_api->bind("tcp://*:5555");
+
+    uint64_t hwm = 5000;
+    zmq_setsockopt (z_push_api, ZMQ_HWM, &hwm, sizeof (hwm));
+
     z_push_api->bind("inproc://http");
 }
 
@@ -78,7 +81,7 @@ QBool Http_api::checkAuth(QString header, BSONObjBuilder &payload_builder, bo &a
 
 
 
-/********** REGISTER NODE ************/
+/********** REGISTER API ************/
 void Http_api::node(QxtWebRequestEvent* event, QString action)
 {
     qDebug() << "CREATE NODE : " << "action : " << action << " headers : " << event->headers;
@@ -114,10 +117,15 @@ void Http_api::node(QxtWebRequestEvent* event, QString action)
     }
     else
     {
-        QUuid uuid = QUuid::createUuid();
-        QString str_uuid = uuid.toString().mid(1,36);
+        QUuid node_uuid = QUuid::createUuid();
+        QString str_node_uuid = node_uuid.toString().mid(1,36);
 
-        payload_builder.append("uuid", str_uuid.toStdString());
+        QUuid node_password = QUuid::createUuid();
+        QString str_node_password = node_password.toString().mid(1,36);
+
+
+        payload_builder.append("node_uuid", str_node_uuid.toStdString());
+        payload_builder.append("node_password", str_node_password.toStdString());
 
 
         be user_id = user.getField("_id");
@@ -125,8 +133,12 @@ void Http_api::node(QxtWebRequestEvent* event, QString action)
         //bo node_uuid = BSON("nodes" << BSON(GENOID << "uuid" << str_uuid.toStdString() <<  "nodename" << nodename.toStdString()));
         //nosql_.Addtoarray("users", user_id.wrap(), node_uuid);
 
-        bo node = BSON("nodes" << payload_builder.obj());
+        bo l_node = payload_builder.obj();
+
+        bo node = BSON("nodes" << l_node);
         nosql_->Addtoarray("users", user_id.wrap(), node);
+
+        nosql_->Insert("nodes", l_node);
 
 
         /****** PUSH API PAYLOAD *******
@@ -136,7 +148,7 @@ void Http_api::node(QxtWebRequestEvent* event, QString action)
         z_push_api->send(*z_message, ZMQ_NOBLOCK);
         ************************/
 
-        bodyMessage = buildResponse("register", str_uuid);
+        bodyMessage = buildResponse("register", str_node_uuid, str_node_password);
     }
     qDebug() << bodyMessage;
 
@@ -159,10 +171,12 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
 
 
     QString payloadfilename = event->headers.value("X-payloadfilename");
-    QString node_uuid = event->headers.value("X-uuid");
+    QString node_uuid = event->headers.value("X-node-uuid");
+    QString node_password = event->headers.value("X-node-password");
     QString task = event->headers.value("X-task");
     qDebug() << "FILENAME : " << payloadfilename << " length " << payloadfilename.length();
-    qDebug() << "UUID : " << node_uuid << " length " << node_uuid.length();
+    qDebug() << "NODE UUID : " << node_uuid << " length " << node_uuid.length();
+    qDebug() << "NODE PASSWORD : " << node_password << " length " << node_password.length();
 
 
     if (payloadfilename.length() == 0)
@@ -175,7 +189,16 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
     }
     if (node_uuid.length() == 0)
     {
-        bodyMessage = buildResponse("error", "headers", "X-uuid");
+        bodyMessage = buildResponse("error", "headers", "X-node-uuid");
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        return;
+    }
+
+    if (node_password.length() == 0)
+    {
+        bodyMessage = buildResponse("error", "headers", "X-node-password");
         postEvent(new QxtWebPageEvent(event->sessionID,
                                      event->requestID,
                                      bodyMessage.toUtf8()));
@@ -194,6 +217,7 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
     BSONObjBuilder payload_builder;
     payload_builder.append("action", "payload.create");
     payload_builder.append("node_uuid", node_uuid.toStdString());
+    payload_builder.append("node_password", node_password.toStdString());
     payload_builder.append("task", task.toStdString());
 
 
@@ -248,12 +272,12 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
         }
 
 
-
-
-
         QUuid payload_uuid = QUuid::createUuid();
         QString str_payload_uuid = payload_uuid.toString().mid(1,36);
         payload_builder.append("uuid", str_payload_uuid.toStdString());
+
+        int counter = nosql_->Count("payload_track");
+        payload_builder.append("counter", counter + 1);
 
         QxtWebContent *myContent = event->content;
 
@@ -483,7 +507,19 @@ void Http_api::admin(QxtWebRequestEvent* event, QString action)
         else
         {
             index["content"]="Ncs admin pages";
-            index["prot"]="PROT";
+
+
+            QString html;
+            html.append("<select>");
+
+            for (int i=0; i<5; i++)
+            {
+                html.append("<option value=\"volvo\">Volvo</option>");
+            }
+
+            html.append("</select>");
+
+            index["prot"]=html;
 
             page = new QxtWebPageEvent(event->sessionID,
                                        event->requestID,
@@ -522,7 +558,8 @@ QString Http_api::buildResponse(QString action, QString data1, QString data2)
     }
     else if (action == "register")
     {
-        data.insert("uuid", data1);
+        data.insert("node_uuid", data1);
+        data.insert("node_password", data2);
     }
     else if (action == "create")
     {

@@ -49,3 +49,11 @@ void Api::Xmpp_init(QString domain_name, int xmpp_client_port, int xmpp_server_p
     m_xmpp_server = new Xmpp_server(domain_name, xmpp_client_port, xmpp_server_port);
     m_xmpp_client = new Xmpp_client(domain_name, xmpp_client_port);
 }
+
+
+
+void Api::Zeromq_init()
+{
+
+    m_zeromq_api = new Zeromq_api();
+}

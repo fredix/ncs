@@ -17,12 +17,13 @@ SOURCES += main.cpp \
     xmpp_server.cpp \
     xmpp_client.cpp \
     api.cpp \
-    http_api.cpp
+    http_api.cpp \
+    alert.cpp \
+    zeromq_api.cpp
 LIBS += /usr/local/lib/libmongoclient.a \
         -lboost_system \
         -lboost_filesystem-mt \
         -lboost_thread-mt \
-        -lmemcached \
         -lQxtCore \
         -lQxtWeb \
         -lzmq \
@@ -32,8 +33,9 @@ INCLUDEPATH += /usr/include/
 INCLUDEPATH += /usr/include/qxt/
 INCLUDEPATH += /usr/include/qxt/QxtCore
 INCLUDEPATH += /usr/include/qxt/QxtWeb
-INCLUDEPATH += ./externals/mongodb-src-r2.0.3
-INCLUDEPATH += ./externals/qxmpp-0.3.0/src/
+INCLUDEPATH += ./externals/mongodb-src-r2.0.4
+INCLUDEPATH += /usr/local/include/qxmpp
+#INCLUDEPATH += ./externals/qxmpp-0.3.0/src/
 
 HEADERS += main.h \
     nosql.h \
@@ -41,4 +43,6 @@ HEADERS += main.h \
     xmpp_server.h \
     xmpp_client.h \
     api.h \
-    http_api.h
+    http_api.h \
+    alert.h \
+    zeromq_api.h

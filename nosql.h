@@ -51,6 +51,8 @@ public:
     static void kill_front();
 
     bo Find(string a_document, const bo a_datas);
+    list <bo> FindAll(string a_document, const bo datas);
+    int Count(QString a_document);
     QBool Insert(QString a_document, bo a_datas);
     bo ExtractJSON(const be &gfs_id);
     QBool ExtractBinary(const be &gfs_id, string path, QString &filename);

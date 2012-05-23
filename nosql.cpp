@@ -110,11 +110,26 @@ Nosql::Nosql(QString instance_type, QString a_server, QString a_database) : m_se
 
 }
 
+int Nosql::Count(QString a_document)
+{
+    m_mutex->lock();
+    qDebug() << "Nosql::Count";
+
+    QString tmp;
+    tmp.append(this->m_database).append(".").append(a_document);
+
+    int counter = this->m_mongo_connection.count(tmp.toStdString());
+
+    m_mutex->unlock();
+    return counter;
+}
+
+
 
 bo Nosql::Find(string a_document, const bo datas)
 {
-    qDebug() << "Nosql::Find";        
     m_mutex->lock();
+    qDebug() << "Nosql::Find";        
 
     QString tmp;
     tmp.append(this->m_database).append(".").append(a_document.data());
@@ -145,7 +160,6 @@ bo Nosql::Find(string a_document, const bo datas)
         }*/
 
         if ( !cursor->more() ) {
-                    cursor.release();
             m_mutex->unlock();
             return BSONObj();
         }
@@ -159,6 +173,41 @@ bo Nosql::Find(string a_document, const bo datas)
     }
 
 }
+
+
+
+list <bo> Nosql::FindAll(string a_document, const bo datas)
+{
+    m_mutex->lock();
+    qDebug() << "Nosql::FindAll";
+
+    QString tmp;
+    tmp.append(this->m_database).append(".").append(a_document.data());
+
+    qDebug() << "m_database.a_document" << tmp;
+    std::cout << "element : " << datas.jsonString(Strict) << std::endl;
+
+    list <bo> res;
+    try {
+        qDebug() << "before cursor created";
+        auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toAscii().data(), mongo::Query(datas));
+        qDebug() << "after cursor created";
+
+        while( cursor->more() ) {
+            res.push_front(cursor->next());
+        }
+        m_mutex->unlock();
+        return res;
+    }
+    catch(mongo::DBException &e ) {
+        std::cout << "caught on find into " << m_server.toAscii().data() << "." << a_document.data() << " : " << e.what() << std::endl;
+        m_mutex->unlock();
+        exit(1);
+    }
+
+}
+
+
 
 /*
  *
@@ -347,6 +396,8 @@ QBool Nosql::Update(QString a_document, const bo &element_id, const bo &a_datas)
     qDebug() << "Nosql::Update";
     QString tmp;
     bo data = BSON( "$set" << a_datas);
+
+    std::cout << "QUERY DATA : " << data << std::endl;
 
     tmp.append(m_database).append(".").append(a_document);
     qDebug() << "Nosql::Update tmp : " << tmp;

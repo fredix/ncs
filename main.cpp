@@ -35,6 +35,7 @@ Dispatcher::Dispatcher(QString mongodb_ip, QString mongodb_base, QString domain_
     api = new Api();
     api->Http_init();
     api->Xmpp_init(domain_name, xmpp_client_port, xmpp_server_port);
+    api->Zeromq_init();
 
     zeromq->init();
 }

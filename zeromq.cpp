@@ -26,32 +26,367 @@ Ztracker::Ztracker(zmq::context_t *a_context) : m_context(a_context)
 {
     std::cout << "Ztracker::Ztracker construct" << std::endl;
 
+    m_mutex = new QMutex();
+
+
     nosql_ = Nosql::getInstance_back();
 
-
+    m_message = new zmq::message_t(2);
     m_socket = new zmq::socket_t (*m_context, ZMQ_REP);
+
+    uint64_t hwm = 5000;
+    zmq_setsockopt (m_socket, ZMQ_HWM, &hwm, sizeof (hwm));
+
     m_socket->bind("tcp://*:5569");
+
+    worker_timer = new QTimer();
+    connect(worker_timer, SIGNAL(timeout()), this, SLOT(worker_update_ticker ()), Qt::DirectConnection);
+    worker_timer->start (5000);
+
+    service_timer = new QTimer();
+    connect(service_timer, SIGNAL(timeout()), this, SLOT(service_update_ticker ()), Qt::DirectConnection);
+    service_timer->start (5000);
 }
 
 
 void Ztracker::init()
-{
+{   
+    qDebug() << "Ztracker::init !!!!!!!!!";
+
     while (true) {
     zmq::message_t request;
 
     // Wait for next request from client
     m_socket->recv (&request);
-    std::cout << "Received : " << (char*) request.data() << std::endl;
 
-    // Do some 'work'
-    sleep (1);
+    bo l_payload = bo((char*)request.data());
 
-    // Send reply back to client
-    zmq::message_t reply (5);
-    memcpy ((void *) reply.data (), "ACK", 5);
-    m_socket->send (reply);
+    std::cout << "Ztracker Received payload : " << l_payload << std::endl;
+
+
+
+    if (l_payload.getFieldDotted("payload.type").str() == "worker")
+    {
+        if (l_payload.getFieldDotted("payload.action").str() == "register")
+        {
+            QUuid session_uuid = QUuid::createUuid();
+            QString str_session_uuid = session_uuid.toString().mid(1,36);
+
+            qDebug() << "REGISTER ID : " << str_session_uuid;
+            std::cout << "PAYLOAD : " << l_payload << std::endl;
+
+
+            // Send reply back to client
+            bo payload = BSON("uuid" << str_session_uuid.toStdString());
+
+            // worker_track_builder.append("name", l_payload.getFieldDotted("payload.worker"));
+
+
+            bob worker_track_builder;
+            worker_track_builder.genOID();
+            worker_track_builder.append(payload.getField("uuid"));
+            worker_track_builder.append(l_payload.getFieldDotted("payload.pid"));
+            worker_track_builder.append(l_payload.getFieldDotted("payload.timestamp"));
+            worker_track_builder.append("status", "up");
+
+
+            bo node = BSON("nodes" << worker_track_builder.obj());
+
+            be worker_name = l_payload.getFieldDotted("payload.name");
+            bo worker_track = nosql_->Find("worker_track", worker_name.wrap());
+
+            if (worker_track.nFields() == 0)
+            {
+                worker_track = BSON(GENOID << "name" << l_payload.getFieldDotted("payload.name"));
+                nosql_->Insert("worker_track", worker_track);
+            }
+
+            be worker_track_id = worker_track.getField("_id");
+
+            nosql_->Addtoarray("worker_track", worker_track_id.wrap(), node);
+
+
+
+            m_message->rebuild(payload.objsize());
+            memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
+        }
+        else if (l_payload.getFieldDotted("payload.action").str() == "watchdog")
+           {
+               be timestamp = l_payload.getFieldDotted("payload.timestamp");
+               be uuid = l_payload.getField("uuid");
+
+               bo bo_node_uuid = BSON("nodes.uuid" << uuid);
+               bo worker_track_node = BSON("nodes.$.timestamp" << timestamp);
+
+               qDebug() << "UPDATE NODE's TIMESTAMP";
+               nosql_->Update("worker_track", bo_node_uuid, worker_track_node);
+
+               bo payload = BSON("status" << "ACK");
+               m_message->rebuild(payload.objsize());
+               memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
+           }
+
+    }
+
+    else if (l_payload.getFieldDotted("payload.type").str() == "service")
+    {
+        if (l_payload.getFieldDotted("payload.action").str() == "register")
+        {
+            QUuid session_uuid = QUuid::createUuid();
+            QString str_session_uuid = session_uuid.toString().mid(1,36);
+
+            qDebug() << "REGISTER ID : " << str_session_uuid;
+            std::cout << "PAYLOAD : " << l_payload << std::endl;
+
+
+            // Send reply back to client
+            bo payload = BSON("uuid" << str_session_uuid.toStdString());
+
+            // worker_track_builder.append("name", l_payload.getFieldDotted("payload.worker"));
+
+
+            bob service_track_builder;
+            service_track_builder.genOID();
+            service_track_builder.append(payload.getField("uuid"));
+            service_track_builder.append(l_payload.getFieldDotted("payload.pid"));
+            service_track_builder.append(l_payload.getFieldDotted("payload.timestamp"));
+            service_track_builder.append("status", "up");
+
+
+            bo node = BSON("nodes" << service_track_builder.obj());
+
+            be service_name = l_payload.getFieldDotted("payload.name");
+            bo service_track = nosql_->Find("service_track", service_name.wrap());
+
+            if (service_track.nFields() == 0)
+            {
+                service_track = BSON(GENOID << "name" << l_payload.getFieldDotted("payload.name"));
+                nosql_->Insert("service_track", service_track);
+            }
+
+            be service_track_id = service_track.getField("_id");
+
+            nosql_->Addtoarray("service_track", service_track_id.wrap(), node);
+
+
+
+            m_message->rebuild(payload.objsize());
+            memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
+        }
+        else if (l_payload.getFieldDotted("payload.action").str() == "watchdog")
+           {
+               be timestamp = l_payload.getFieldDotted("payload.timestamp");
+               be child_pid = l_payload.getFieldDotted("payload.child_pid");
+
+               be uuid = l_payload.getField("uuid");
+
+               bo bo_node_uuid = BSON("nodes.uuid" << uuid);
+               bo service_track_node = BSON("nodes.$.timestamp" << timestamp << "nodes.$.child_pid" << child_pid);
+
+               qDebug() << "UPDATE NODE's TIMESTAMP";
+               nosql_->Update("service_track", bo_node_uuid, service_track_node);
+
+               bo payload = BSON("status" << "ACK");
+               m_message->rebuild(payload.objsize());
+               memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
+           }
+    }
+    else if (l_payload.getFieldDotted("payload.type").str() == "init")
+    {
+        qDebug() << "RECEIVE INIT SOCKET";
+        bo payload = BSON("status" << "pong");
+        m_message->rebuild(payload.objsize());
+        memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
+    }
+
+
+    m_socket->send(*m_message);
     }
 }
+
+
+void Ztracker::worker_update_ticker()
+{
+    //std::cout << "Ztracker::update_ticker" << std::endl;
+
+    m_mutex->lock();
+
+
+    QDateTime l_timestamp = QDateTime::currentDateTime();
+    qDebug() << l_timestamp.toTime_t ();
+
+    QDateTime t_timestamp;
+
+    bo empty;
+    list <bo> worker_track_list = nosql_->FindAll("worker_track", empty);
+    list<bo>::iterator i;
+
+    for(i = worker_track_list.begin(); i != worker_track_list.end(); ++i)
+    {
+        bo worker_track = *i;
+
+        //std::cout << "TICKER !!!  WORKER_TRACK : " << worker_track << std::endl;
+
+        bo nodes = worker_track.getField("nodes").Obj();
+
+
+        list<be> list_nodes;
+        nodes.elems(list_nodes);
+        list<be>::iterator i;
+
+        /********   Iterate over each worker's nodes   *******/
+        /********  find node with uuid and set the node id to payload collection *******/
+        for(i = list_nodes.begin(); i != list_nodes.end(); ++i) {
+            bo l_node = (*i).embeddedObject ();
+
+            //std::cout << "L_NODE : " << l_node << std::endl;
+
+            be node_id;
+            l_node.getObjectID (node_id);
+
+            be node_timestamp = l_node.getField("timestamp");
+            be status = l_node.getField("status");
+            be uuid = l_node.getField("uuid");
+
+            t_timestamp.setTime_t(node_timestamp.number());
+
+
+            qDebug() << "QT TIMESTAMP : " << t_timestamp.toString("dd MMMM yyyy hh:mm:ss");
+            qDebug() << "SECONDES DIFF : " << t_timestamp.secsTo(l_timestamp);
+            std::cout << "STATUS : " <<  status.str() << std::endl;
+
+
+            if (t_timestamp.secsTo(l_timestamp) > 30 && status.str() == "up")
+            {
+                qDebug() << "SEND ALERT !!!!!!!";
+
+                bo bo_node_id = BSON("nodes._id" << node_id.OID());
+                bo worker_track_status = BSON("nodes.$.status" << "down");
+                nosql_->Update("worker_track", bo_node_id, worker_track_status);
+
+
+                QString worker = "WORKER ";
+                worker.append(QString::fromStdString(worker_track.getField("name").str()));
+                worker.append (", uuid : ").append (uuid.valuestr()).append (", at : ").append (t_timestamp.toString("dd MMMM yyyy hh:mm:ss"));
+                qDebug() << "WORKER ALERT ! " << worker;
+                emit sendAlert(worker);
+            }
+
+            //mongo::Date_t ts = node_timestamp.timestampTime();
+
+
+            //std::cout << "MONGO TIMESTAMP : " << ts.toString() << std::endl;
+
+
+            //bo bo_node_id = BSON("nodes._id" << node_id.OID());
+
+            //std::cout << "NODE ID => " << bo_node_id << std::endl;
+            //std::cout << "NODE TIMESTAMP => " << node_timestamp << std::endl;
+
+            // payload_builder.append("node_id", node_id.OID());
+            //qDebug() << "REMOVE UPDATE NODE";
+
+            //nosql_->Update("worker_track", bo_node_id, worker_track_node);
+
+        }
+    }
+
+    m_mutex->unlock();
+}
+
+
+
+
+void Ztracker::service_update_ticker()
+{
+    //std::cout << "Ztracker::update_ticker" << std::endl;
+
+    m_mutex->lock();
+
+
+    QDateTime l_timestamp = QDateTime::currentDateTime();
+    qDebug() << l_timestamp.toTime_t ();
+
+    QDateTime t_timestamp;
+
+    bo empty;
+    list <bo> service_track_list = nosql_->FindAll("service_track", empty);
+    list<bo>::iterator i;
+
+    for(i = service_track_list.begin(); i != service_track_list.end(); ++i)
+    {
+        bo service_track = *i;
+
+        //std::cout << "TICKER !!!  WORKER_TRACK : " << worker_track << std::endl;
+
+        bo nodes = service_track.getField("nodes").Obj();
+
+
+        list<be> list_nodes;
+        nodes.elems(list_nodes);
+        list<be>::iterator i;
+
+        /********   Iterate over each worker's nodes   *******/
+        /********  find node with uuid and set the node id to payload collection *******/
+        for(i = list_nodes.begin(); i != list_nodes.end(); ++i) {
+            bo l_node = (*i).embeddedObject ();
+
+            //std::cout << "L_NODE : " << l_node << std::endl;
+
+            be node_id;
+            l_node.getObjectID (node_id);
+
+            be node_timestamp = l_node.getField("timestamp");
+            be status = l_node.getField("status");
+            be uuid = l_node.getField("uuid");
+
+            t_timestamp.setTime_t(node_timestamp.number());
+
+
+            qDebug() << "QT TIMESTAMP : " << t_timestamp.toString("dd MMMM yyyy hh:mm:ss");
+            qDebug() << "SECONDES DIFF : " << t_timestamp.secsTo(l_timestamp);
+            std::cout << "STATUS : " <<  status.str() << std::endl;
+
+
+            if (t_timestamp.secsTo(l_timestamp) > 30 && status.str() == "up")
+            {
+                qDebug() << "SEND ALERT !!!!!!!";
+
+                bo bo_node_id = BSON("nodes._id" << node_id.OID());
+                bo service_track_status = BSON("nodes.$.status" << "down");
+                nosql_->Update("service_track", bo_node_id, service_track_status);
+
+
+                QString service = "SERVICE ";
+                service.append(QString::fromStdString(service_track.getField("name").str()));
+                service.append (", uuid : ").append (uuid.valuestr()).append (", at : ").append (t_timestamp.toString("dd MMMM yyyy hh:mm:ss"));
+                qDebug() << "SERVICE ALERT ! " << service;
+                emit sendAlert(service);
+            }
+
+            //mongo::Date_t ts = node_timestamp.timestampTime();
+
+
+            //std::cout << "MONGO TIMESTAMP : " << ts.toString() << std::endl;
+
+
+            //bo bo_node_id = BSON("nodes._id" << node_id.OID());
+
+            //std::cout << "NODE ID => " << bo_node_id << std::endl;
+            //std::cout << "NODE TIMESTAMP => " << node_timestamp << std::endl;
+
+            // payload_builder.append("node_id", node_id.OID());
+            //qDebug() << "REMOVE UPDATE NODE";
+
+            //nosql_->Update("worker_track", bo_node_id, worker_track_node);
+
+        }
+    }
+
+    m_mutex->unlock();
+}
+
+
 
 Ztracker::~Ztracker()
 {}
@@ -72,6 +407,11 @@ Zreceive::Zreceive(zmq::context_t *a_context, QString a_port, QString a_inproc) 
     // sender.bind("tcp://*:5555");
 
     z_workers = new zmq::socket_t (*m_context, ZMQ_PUSH);
+
+
+    uint64_t hwm = 50000;
+    zmq_setsockopt (z_workers, ZMQ_HWM, &hwm, sizeof (hwm));
+
     z_workers->bind("tcp://*:" + m_port.toAscii());
 }
 
@@ -85,6 +425,10 @@ void Zreceive::init_payload()
     qDebug() << "PORT : " << m_port << " INPROC : " << m_inproc;
     //z_sender->connect("tcp://*:" + m_port.toAscii());
     //sleep(1);
+
+    uint64_t hwm = 5000;
+    zmq_setsockopt (z_sender, ZMQ_HWM, &hwm, sizeof (hwm));
+
     z_sender->connect("inproc://" + m_inproc.toAscii());
 
 
@@ -390,7 +734,18 @@ void Zeromq::init()
     receive_xmpp->moveToThread(thread_xmpp_receive);
     thread_xmpp_receive->start();
 
+
+
+    /**** PULL DATA ON ZEROMQ API ****/
+    QThread *thread_zeromq_receive = new QThread;
+    receive_zeromq = new Zreceive(m_context, "5558", "zeromq");
+    connect(thread_zeromq_receive, SIGNAL(started()), receive_zeromq, SLOT(init_payload()));
+    receive_zeromq->moveToThread(thread_zeromq_receive);
+    thread_zeromq_receive->start();
+
     std::cout << "Zeromq::Zeromq AFTER thread_receive" << std::endl;
+
+
 
 
 
@@ -404,11 +759,20 @@ void Zeromq::init()
 
 
 
+    QThread *thread_alert = new QThread;
+    alert = new Alert();
+    //connect(thread_alert, SIGNAL(started()), alert, SLOT(sendEmail(QString)));
+    alert->moveToThread(thread_alert);
+    thread_alert->start();
+
+
     QThread *thread_tracker = new QThread;
     ztracker = new Ztracker(m_context);
     connect(thread_tracker, SIGNAL(started()), ztracker, SLOT(init()));
-
     ztracker->moveToThread(thread_tracker);
     thread_tracker->start();
+
+
+    connect(ztracker, SIGNAL(sendAlert(QString)), alert, SLOT(sendEmail(QString)));
 
 }

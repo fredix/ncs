@@ -26,11 +26,14 @@
 #include <QThread>
 #include <QDebug>
 #include <QMutex>
+#include <QTimer>
+#include <QUuid>
 #include <QxtCore/QxtCommandOptions>
 
 #include <zmq.hpp>
 #include "client/gridfs.h"
 #include "nosql.h"
+#include "alert.h"
 
 using namespace mongo;
 using namespace bson;
@@ -43,14 +46,24 @@ class Ztracker : public QObject
 public:
     Ztracker(zmq::context_t *a_context);
     ~Ztracker();
+    QTimer *worker_timer;
+    QTimer *service_timer;
 
 private:
     zmq::context_t *m_context;
     zmq::socket_t *m_socket;
-    Nosql *nosql_;
+    zmq::message_t *m_message;
+    Nosql *nosql_;     
+    QMutex *m_mutex;
+
+
+signals:
+    void sendAlert(QString worker);
 
 public slots:
     void init();
+    void worker_update_ticker();
+    void service_update_ticker();
 };
 
 
@@ -143,9 +156,11 @@ public:
 
     Zdispatch *dispatch;
     Ztracker *ztracker;
+    Alert *alert;
 
     Zreceive *receive_http;
     Zreceive *receive_xmpp;
+    Zreceive *receive_zeromq;
     Zworker_push *worker_push;
 
 private:
