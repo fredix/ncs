@@ -4,3 +4,6 @@
 [submodule "externals/qxmpp"]
 	path = externals/qxmpp
 	url = git://github.com/nodecast/qxmpp.git
+[submodule "externals/mongodb"]
+	path = externals/mongodb
+	url = git://github.com/nodecast/mongodb.git
