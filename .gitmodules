@@ -1,0 +1,6 @@
+[submodule "externals/libqxt"]
+	path = externals/libqxt
+	url = git://github.com/nodecast/libqxt.git
+[submodule "externals/qxmpp"]
+	path = externals/qxmpp
+	url = git://github.com/nodecast/qxmpp.git
