@@ -3,10 +3,8 @@ ncs is the nodecast server
 
 INSTALL 
 
-first, make some links in the externals directory :
-cd externals
-ln -s mongodb-src-r2.0.3 mongodb
-ln -s qxmpp-0.3.0 qxmpp
+first, get submodule libraries :
+git submodule update --init
 
 If you prefer to use your system's libraries, you should modify the ncs.pro
 
@@ -14,14 +12,16 @@ If you prefer to use your system's libraries, you should modify the ncs.pro
 second, make the mongodb client :
 cd externals/mongodb
 scons mongoclient
+sudo cp libmongoclient.a /usr/local/lib
 
 third, make the qxmpp client :
 cd externals/qxmpp
 qmake
 make
+make install
 
-four, install the libqxt library 
-cd externals/libqxt-v0.6.1
+four, make the libqxt library 
+cd externals/libqxt
 qmake
 make
 make install
