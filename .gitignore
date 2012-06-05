@@ -4,5 +4,3 @@ moc*
 core*
 ncs.pro.user
 Makefile
-externals/libqxt
-externals/qxmpp
