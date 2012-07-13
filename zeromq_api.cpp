@@ -1,3 +1,23 @@
+/****************************************************************************
+**   ncs is the backend's server of nodecast
+**   Copyright (C) 2010-2012  Frédéric Logier <frederic@logier.org>
+**
+**   https://github.com/nodecast/ncs
+**
+**   This program is free software: you can redistribute it and/or modify
+**   it under the terms of the GNU Affero General Public License as
+**   published by the Free Software Foundation, either version 3 of the
+**   License, or (at your option) any later version.
+**
+**   This program is distributed in the hope that it will be useful,
+**   but WITHOUT ANY WARRANTY; without even the implied warranty of
+**   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**   GNU Affero General Public License for more details.
+**
+**   You should have received a copy of the GNU Affero General Public License
+**   along with this program.  If not, see <http://www.gnu.org/licenses/>.
+****************************************************************************/
+
 #include "zeromq_api.h"
 
 Zeromq_api::Zeromq_api()
@@ -40,7 +60,8 @@ void Zeromq_api::push_payload(bson::bo payload)
     qDebug() << "PUSH API PAYLOAD";
     z_message->rebuild(payload.objsize());
     memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
-    z_push_api->send(*z_message, ZMQ_NOBLOCK);
+    //z_push_api->send(*z_message, ZMQ_NOBLOCK);
+    z_push_api->send(*z_message);
     /************************/
 }
 

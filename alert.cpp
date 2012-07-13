@@ -22,7 +22,7 @@
 #include "alert.h"
 #include <iostream>
 
-Alert::Alert()
+Alert::Alert(QString a_host, QString a_username, QString a_password, QString a_sender, QString a_recipient) : m_host(a_host), m_username(a_username), m_password(a_password), m_sender(a_sender), m_recipient(a_recipient)
 {
     qDebug() << "ALERT:ALERT CONSTRUCT";
     m_mutex = new QMutex();
@@ -35,9 +35,9 @@ Alert::Alert()
 
 void Alert::sendEmail(QString worker)
 {
+    m_mutex->lock();
     qDebug() << "!!!!!! Alert::sendEmail  : " << worker;
 
-    m_mutex->lock();
 
     if (m_smtp) delete(m_smtp);
     if (m_message) delete(m_message);
@@ -54,22 +54,21 @@ void Alert::sendEmail(QString worker)
 
     m_message = new QxtMailMessage();
 
-    m_message->setSender("frederic.logier@ubicmedia.com");
+    m_message->setSender(m_sender.toAscii());
     m_message->setSubject("ncs alert : worker down");
     m_message->setBody(worker + " DOWN");
-    m_message->addRecipient("frederic.logier@ubicmedia.com");
-    //m_message->addRecipient("alert@pumit.com");
+    m_message->addRecipient(m_recipient.toAscii());
 
     QHash<QString,QString> headers;
     headers.insert("MIME-Version","1.0");
     headers.insert("Content-type","text/html; charset=utf-8");
-    headers.insert("from","frederic.logier@ubicmedia.com");
+    headers.insert("from", m_sender.toAscii());
     m_message->setExtraHeaders(headers);
 
-    m_smtp->connectToSecureHost("mail.gandi.net");
+    m_smtp->connectToSecureHost(m_host.toAscii());
     m_smtp->setStartTlsDisabled(true);
-    m_smtp->setUsername("frederic.logier@ubicmedia.com");
-    m_smtp->setPassword("4307n554e");
+    m_smtp->setUsername(m_username.toAscii());
+    m_smtp->setPassword(m_password.toAscii());
 
 
     m_smtp->send(*m_message);

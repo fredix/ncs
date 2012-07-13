@@ -1,6 +1,6 @@
 /****************************************************************************
 **   ncs is the backend's server of nodecast
-**   Copyright (C) 2010-2011  Frédéric Logier <frederic@logier.org>
+**   Copyright (C) 2010-2012  Frédéric Logier <frederic@logier.org>
 **
 **   https://github.com/nodecast/ncs
 **
@@ -51,12 +51,12 @@ Xmpp_client::Xmpp_client(QString a_domain, int a_xmpp_client_port, QObject *pare
 
 
 
-    bool check = connect(this, SIGNAL(QXmppClient::messageReceived(const QXmppMessage&)),
+    bool check = connect(this, SIGNAL(messageReceived(const QXmppMessage&)),
            SLOT(messageReceived(const QXmppMessage&)));
        Q_ASSERT(check);
        Q_UNUSED(check);
 
-    check = connect(this, SIGNAL(QXmppClient::presenceReceived(const QXmppPresence&)),
+    check = connect(this, SIGNAL(presenceReceived(const QXmppPresence&)),
                     SLOT(presenceReceived(const QXmppPresence&)));
 
 
@@ -73,9 +73,9 @@ Xmpp_client::Xmpp_client(QString a_domain, int a_xmpp_client_port, QObject *pare
                              SLOT(file_received(QXmppTransferJob*)));
 
 
-    check = connect(manager, SIGNAL(jobFinished(QXmppTransferJob*)),
+    /*check = connect(manager, SIGNAL(jobFinished(QXmppTransferJob*)),
                              SLOT(job_finished(QXmppTransferJob*)));
-
+*/
 
     //this->logger()->setLoggingType(QXmppLogger::StdoutLogging);
 
@@ -288,7 +288,8 @@ void Xmpp_client::messageReceived(const QXmppMessage& message)
             qDebug() << "PUSH XMPP PAYLOAD";
             z_message->rebuild(b_payload.objsize());
             memcpy(z_message->data(), (char*)b_payload.objdata(), b_payload.objsize());
-            z_push_api->send(*z_message, ZMQ_NOBLOCK);
+            //z_push_api->send(*z_message, ZMQ_NOBLOCK);
+            z_push_api->send(*z_message);
             /************************/
          }
      }

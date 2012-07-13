@@ -49,6 +49,7 @@ public slots:
     void payload(QxtWebRequestEvent* event, QString action, QString uuid);
     void payload(QxtWebRequestEvent* event, QString action);
     void node(QxtWebRequestEvent* event, QString action);
+    void workflow(QxtWebRequestEvent* event, QString action);
 
 
 private:

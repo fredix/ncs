@@ -33,41 +33,9 @@
 #include <zmq.hpp>
 #include "client/gridfs.h"
 #include "nosql.h"
-#include "alert.h"
 
 using namespace mongo;
 using namespace bson;
-
-
-
-class Ztracker : public QObject
-{
-    Q_OBJECT
-public:
-    Ztracker(zmq::context_t *a_context);
-    ~Ztracker();
-    QTimer *worker_timer;
-    QTimer *service_timer;
-
-private:
-    zmq::context_t *m_context;
-    zmq::socket_t *m_socket;
-    zmq::message_t *m_message;
-    Nosql *nosql_;     
-    QMutex *m_mutex;
-
-
-signals:
-    void sendAlert(QString worker);
-
-public slots:
-    void init();
-    void worker_update_ticker();
-    void service_update_ticker();
-};
-
-
-
 
 
 class Zworker_push : public QObject
@@ -86,10 +54,52 @@ private:
     zmq::message_t *z_message;
 
     QString m_host;
+
     //int m_port;
 };
 
 
+
+class Ztracker : public QObject
+{
+    Q_OBJECT
+public:
+    Ztracker(zmq::context_t *a_context);
+    ~Ztracker();
+    QTimer *worker_timer;
+    QTimer *service_timer;
+
+private:        
+    zmq::context_t *m_context;
+    QHash<QString, Zworker_push*> workers_push;
+    int get_available_port();
+    zmq::socket_t *m_socket;
+    zmq::message_t *m_message;
+
+    zmq::socket_t *m_data_socket;
+    zmq::message_t *m_data_message;
+
+    Nosql *nosql_;     
+    QMutex *m_mutex;
+
+    zmq::socket_t *z_workers;
+    zmq::socket_t *z_sender;
+
+signals:
+    void sendAlert(QString worker);   
+    void create_server(QString name, QString port);
+
+public slots:
+    void init();
+    void worker_update_ticker();
+    void service_update_ticker();
+};
+
+
+
+
+
+typedef QSharedPointer<Zworker_push> Zworker_pushPtr;
 
 class Zdispatch : public QObject
 {
@@ -103,14 +113,16 @@ private:
     zmq::context_t *m_context;
     zmq::socket_t *m_socket;
     Nosql *nosql_;
-    //typedef QSharedPointer<Zworker_push> Zworker_pushPtr; QHash<QString, Zworker_pushPtr> hash;
-    QHash<QString, Zworker_push*> workers_push;
-    //QList <Zworker_push*> workers_push;
-    QList <QString> worker_name;
-    //QList <QThread*> l_workers_push;
+    //QHash<QString, Zworker_push*> workers_push;
+    QHash<QString, Zworker_pushPtr> workers_push;
+    QList <QString> worker_name;    
+    QList <BSONObj> workflow_list;
+    QList <BSONObj> worker_list;
+    QMutex *m_mutex;
 
 public slots:
     void receive_payload();
+    void bind_server(QString name, QString port);
 };
 
 
@@ -119,17 +131,15 @@ class Zreceive : public QObject
 {
     Q_OBJECT
 public:
-    Zreceive(zmq::context_t *a_context, QString a_port, QString inproc);
+    Zreceive(zmq::context_t *a_context, zmq::socket_t *a_workers, QString inproc);
     ~Zreceive();
-    zmq::context_t *m_context;
 
 private:
+    zmq::context_t *m_context;
     QMutex *m_mutex;
     QString m_inproc;
-    QString m_port;
     zmq::socket_t *z_workers;
     zmq::socket_t *z_sender;
-    QString m_host;
 
 
 signals:
@@ -156,7 +166,6 @@ public:
 
     Zdispatch *dispatch;
     Ztracker *ztracker;
-    Alert *alert;
 
     Zreceive *receive_http;
     Zreceive *receive_xmpp;
@@ -168,6 +177,9 @@ private:
     QMutex *m_http_mutex;
     QMutex *m_xmpp_mutex;
     Nosql *nosql_;
+    QString m_smtp_hostname;
+    QString m_smtp_username;
+    QString m_smtp_password;
 
 
 signals:

@@ -1,6 +1,6 @@
 /****************************************************************************
 **   ncs is the backend's server of nodecast
-**   Copyright (C) 2010-2011  Frédéric Logier <frederic@logier.org>
+**   Copyright (C) 2010-2012  Frédéric Logier <frederic@logier.org>
 **
 **   https://github.com/nodecast/ncs
 **
@@ -113,7 +113,7 @@ void Http_api::node(QxtWebRequestEvent* event, QString action)
     if (!res)
     {
         bodyMessage = buildResponse("error", "auth");
-        bodyMessage = buildResponse("error", "auth");
+        //bodyMessage = buildResponse("error", "auth");
     }
     else
     {
@@ -161,22 +161,145 @@ void Http_api::node(QxtWebRequestEvent* event, QString action)
 
 
 
-/********** CREATE PAYLOAD ************/
-void Http_api::payload(QxtWebRequestEvent* event, QString action)
+
+
+
+
+/********** CREATE WORKFLOW ************/
+void Http_api::workflow(QxtWebRequestEvent* event, QString action)
 {
-    qDebug() << "CREATE PAYLOAD : " << "action : " << action << " headers : " << event->headers;
+    qDebug() << "CREATE WORKFLOW : " << "action : " << action << " headers : " << event->headers;
     QString bodyMessage;
 
 
 
 
+    QString workflow = event->headers.value("X-workflow");
+    qDebug() << "workflow : " << workflow << " length " << workflow.length();
+
+
+    if (workflow.length() == 0)
+    {
+        bodyMessage = buildResponse("error", "headers", "X-workflow");
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        return;
+    }
+
+
+    BSONObjBuilder workflow_builder;
+    workflow_builder.genOID();
+    workflow_builder.append("workflow", workflow.toStdString());
+
+
+    //std::cout << "payload builder : " << payload_builder.obj() << std::cout;
+    bo user;
+    QBool res = checkAuth(event->headers.value("Authorization"), workflow_builder, user);
+
+    if (!res)
+    {
+        bodyMessage = buildResponse("error", "auth");
+    }
+    else
+    {
+
+        QxtWebContent *myContent = event->content;
+
+        qDebug() << "Bytes to read: " << myContent->unreadBytes();
+        myContent->waitForAllContent();
+
+        //QByteArray requestContent = QByteArray::fromBase64(myContent->readAll());
+        QByteArray requestContent = myContent->readAll();
+
+        QString content = requestContent;
+
+        qDebug() << "requestCONTENT : " << content.toAscii();
+
+
+
+        BSONObj b_workflow;
+        try {
+            b_workflow = mongo::fromjson(content.toAscii());
+
+            std::cout << "b_workflow : " << b_workflow << std::endl;
+
+
+            be user_id = user.getField("_id");
+
+
+            QUuid workflow_uuid = QUuid::createUuid();
+            QString str_workflow_uuid = workflow_uuid.toString().mid(1,36);
+            workflow_builder.append("uuid", str_workflow_uuid.toStdString());
+            workflow_builder.append("workers", b_workflow);
+            workflow_builder.append("user_id", user_id.str());
+            workflow_builder.append("payload_counter", 0);
+
+            BSONObj l_workflow = workflow_builder.obj();
+
+            BSONObj workflow = BSON("workflows" << l_workflow);
+
+            nosql_->Addtoarray("users", user_id.wrap(), workflow);
+            nosql_->Insert("workflows", l_workflow);
+
+
+            bodyMessage = buildResponse("create", str_workflow_uuid);
+
+        }
+        catch (mongo::MsgAssertionException &e)
+        {
+            std::cout << "error on parsing JSON : " << e.what() << std::endl;
+            bodyMessage = buildResponse("error", "error on parsing JSON");
+        }
+
+
+    }
+    qDebug() << bodyMessage;
+
+
+    postEvent(new QxtWebPageEvent(event->sessionID,
+                                 event->requestID,
+                                 bodyMessage.toUtf8()));
+}
+
+
+
+
+
+
+
+
+
+
+
+
+/********** CREATE PAYLOAD ************/
+void Http_api::payload(QxtWebRequestEvent* event, QString action)
+{
+    qDebug() << "CREATE PAYLOAD : " << "action : " << action << " headers : " << event->headers;
+
+    QString bodyMessage;
+    QDateTime timestamp = QDateTime::currentDateTime();
+
+
     QString payloadfilename = event->headers.value("X-payloadfilename");
     QString node_uuid = event->headers.value("X-node-uuid");
     QString node_password = event->headers.value("X-node-password");
-    QString task = event->headers.value("X-task");
+    QString workflow_uuid = event->headers.value("X-workflow-uuid");
     qDebug() << "FILENAME : " << payloadfilename << " length " << payloadfilename.length();
     qDebug() << "NODE UUID : " << node_uuid << " length " << node_uuid.length();
     qDebug() << "NODE PASSWORD : " << node_password << " length " << node_password.length();
+    qDebug() << "workflow_uuid : " << workflow_uuid << " length " << workflow_uuid.length();
+
+
+    if (event->content.isNull())
+    {
+        bodyMessage = buildResponse("error", "data", "empty payload");
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        return;
+    }
 
 
     if (payloadfilename.length() == 0)
@@ -204,9 +327,20 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
                                      bodyMessage.toUtf8()));
         return;
     }
-    if (task.length() == 0)
+    if (workflow_uuid.length() == 0)
     {
-        bodyMessage = buildResponse("error", "headers", "X-task");
+        bodyMessage = buildResponse("error", "headers", "X-workflow-uuid");
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        return;
+    }
+
+    BSONObj workflow_search = BSON("uuid" <<  workflow_uuid.toStdString());
+    BSONObj workflow = nosql_->Find("workflows", workflow_search);
+    if (workflow.nFields() == 0)
+    {
+        bodyMessage = buildResponse("error", "workflow unknown");
         postEvent(new QxtWebPageEvent(event->sessionID,
                                      event->requestID,
                                      bodyMessage.toUtf8()));
@@ -214,125 +348,157 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
     }
 
 
+    BSONObj auth = BSON("node_uuid" << node_uuid.toStdString() << "node_password" << node_password.toStdString());
+    BSONObj res = nosql_->Find("nodes", auth);
+    if (res.nFields() == 0)
+    {
+        bodyMessage = buildResponse("error", "node unknown");
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        return;
+    }
+
+
+
+    QxtWebContent *myContent = event->content;
+    qDebug() << "Bytes to read: " << myContent->unreadBytes();
+    myContent->waitForAllContent();
+
+    //QByteArray requestContent = QByteArray::fromBase64(myContent->readAll());
+    QByteArray requestContent = myContent->readAll();
+
+
+
+
+
     BSONObjBuilder payload_builder;
-    payload_builder.append("action", "payload.create");
+    payload_builder.genOID();
+    payload_builder.append("action", "create");
+    payload_builder.append("timestamp", timestamp.toTime_t());
     payload_builder.append("node_uuid", node_uuid.toStdString());
     payload_builder.append("node_password", node_password.toStdString());
-    payload_builder.append("task", task.toStdString());
+    payload_builder.append("workflow_uuid", workflow_uuid.toStdString());
 
 
     //std::cout << "payload builder : " << payload_builder.obj() << std::cout;
-    bo user;
-    QBool res = checkAuth(event->headers.value("Authorization"), payload_builder, user);
+    //bo user;
+    //QBool res = checkAuth(event->headers.value("Authorization"), payload_builder, user);
 
-    if (!res)
+
+
+
+
+//bo node_search = BSON("_id" << user.getField("_id") <<  "nodes.uuid" << node_uuid.toStdString());
+    BSONObj user_search = BSON("_id" << res.getField("user_id"));
+    BSONObj user_nodes = nosql_->Find("users", user_search);
+
+
+    if (user_nodes.nFields() == 0)
     {
-        bodyMessage = buildResponse("error", "auth");
+        bodyMessage = buildResponse("error", "node", "unknown");
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        return;
+    }
+
+
+
+    BSONObj nodes = user_nodes.getField("nodes").Obj();
+
+    list<be> list_nodes;
+    nodes.elems(list_nodes);
+    list<be>::iterator i;
+
+    /********   Iterate over each user's nodes   *******/
+    /********  find node with uuid and set the node id to payload collection *******/
+    for(i = list_nodes.begin(); i != list_nodes.end(); ++i) {
+        BSONObj l_node = (*i).embeddedObject ();
+        be node_id;
+        l_node.getObjectID (node_id);
+
+        //std::cout << "NODE1 => " << node_id.OID()   << std::endl;
+        //std::cout << "NODE2 => " << node_uuid.toStdString() << std::endl;
+
+        if (node_uuid.toStdString().compare(l_node.getField("uuid").str()) == 0)
+        {
+            payload_builder.append("node_id", node_id.OID());
+            break;
+        }
+    }
+
+
+    QUuid payload_uuid = QUuid::createUuid();
+    QString str_payload_uuid = payload_uuid.toString().mid(1,36);
+    payload_builder.append("payload_uuid", str_payload_uuid.toStdString());
+
+    int counter = nosql_->Count("payloads");
+    payload_builder.append("counter", counter + 1);
+
+
+    /*QFile zfile("/tmp/in.dat");
+    zfile.open(QIODevice::WriteOnly);
+    zfile.write(requestContent);
+    zfile.close();*/
+
+    BSONObj gfs_file_struct = nosql_->WriteFile(payloadfilename.toStdString(), requestContent.constData (), requestContent.size ());
+
+    QUuid session_uuid = QUuid::createUuid();
+    QString str_session_uuid = session_uuid.toString().mid(1,36);
+
+
+    if (gfs_file_struct.nFields() == 0)
+    {
+        qDebug() << "write on gridFS failed !";
     }
     else
     {
-        //bo node_search = BSON("_id" << user.getField("_id") <<  "nodes.uuid" << node_uuid.toStdString());
-        bo node_search = BSON("_id" << user.getField("_id"));
+        std::cout << "writefile : " << gfs_file_struct << std::endl;
+        //std::cout << "writefile id : " << gfs_file_struct.getField("_id") << " date : " << gfs_file_struct.getField("uploadDate") << std::endl;
 
-        bo user_nodes = nosql_->Find("users", node_search);
+        be uploaded_at = gfs_file_struct.getField("uploadDate");
+        be filename = gfs_file_struct.getField("filename");
+        be length = gfs_file_struct.getField("length");
 
-
-        if (user_nodes.nFields() == 0)
-        {
-            bodyMessage = buildResponse("error", "node", "unknown");
-            postEvent(new QxtWebPageEvent(event->sessionID,
-                                         event->requestID,
-                                         bodyMessage.toUtf8()));
-            return;
-        }
+        std::cout << "uploaded : " << uploaded_at << std::endl;
 
 
+        payload_builder.append("created_at", uploaded_at.date());
+        payload_builder.append("filename", filename.str());
+        payload_builder.append("length", length.numberLong());
+        payload_builder.append("gfs_id", gfs_file_struct.getField("_id").OID());
+        BSONObj payload = payload_builder.obj();
 
-        bo nodes = user_nodes.getField("nodes").Obj();
+        nosql_->Insert("payloads", payload);
 
-        list<be> list_nodes;
-        nodes.elems(list_nodes);
-        list<be>::iterator i;
+        std::cout << "payload inserted" << payload << std::endl;
 
-        /********   Iterate over each user's nodes   *******/
-        /********  find node with uuid and set the node id to payload collection *******/
-        for(i = list_nodes.begin(); i != list_nodes.end(); ++i) {
-            bo l_node = (*i).embeddedObject ();
-            be node_id;
-            l_node.getObjectID (node_id);
+        /********* CREATE SESSION **********/
 
-            //std::cout << "NODE1 => " << node_id.OID()   << std::endl;
-            //std::cout << "NODE2 => " << node_uuid.toStdString() << std::endl;
+        BSONObjBuilder session_builder;
+        session_builder.genOID();
+        session_builder.append("uuid", str_session_uuid.toStdString());
+        session_builder.append("payload_id", payload.getField("_id").OID());
+        session_builder.append("workflow_id", workflow.getField("_id").OID());
+        session_builder.append("start_timestamp", timestamp.toTime_t());
+        BSONObj session = session_builder.obj();
+        nosql_->Insert("sessions", session);
+        /***********************************/
+        std::cout << "session inserted : " << session << std::endl;
 
-            if (node_uuid.toStdString().compare(l_node.getField("uuid").str()) == 0)
-            {
-                payload_builder.append("node_id", node_id.OID());
-                break;
-            }
-        }
+        BSONObj l_payload = BSON("action" << "create" << "session_uuid" << str_session_uuid.toStdString());
 
-
-        QUuid payload_uuid = QUuid::createUuid();
-        QString str_payload_uuid = payload_uuid.toString().mid(1,36);
-        payload_builder.append("uuid", str_payload_uuid.toStdString());
-
-        int counter = nosql_->Count("payload_track");
-        payload_builder.append("counter", counter + 1);
-
-        QxtWebContent *myContent = event->content;
-
-        qDebug() << "Bytes to read: " << myContent->unreadBytes();
-        myContent->waitForAllContent();
-
-        //QByteArray requestContent = QByteArray::fromBase64(myContent->readAll());
-        QByteArray requestContent = myContent->readAll();
-
-        /*QFile zfile("/tmp/in.dat");
-        zfile.open(QIODevice::WriteOnly);
-        zfile.write(requestContent);
-        zfile.close();*/
-
-        bo gfs_file_struct = nosql_->WriteFile(payloadfilename.toStdString(), requestContent.constData (), requestContent.size ());
-
-
-        if (gfs_file_struct.nFields() == 0)
-        {
-            qDebug() << "write on gridFS failed !";
-        }
-        else
-        {
-            std::cout << "writefile : " << gfs_file_struct << std::endl;
-            //std::cout << "writefile id : " << gfs_file_struct.getField("_id") << " date : " << gfs_file_struct.getField("uploadDate") << std::endl;
-
-            be uploaded_at = gfs_file_struct.getField("uploadDate");
-            be filename = gfs_file_struct.getField("filename");
-            be length = gfs_file_struct.getField("length");
-
-            std::cout << "uploaded : " << uploaded_at << std::endl;
-
-
-            payload_builder.append("created_at", uploaded_at.date());
-            payload_builder.append("filename", filename.str());
-            payload_builder.append("length", length.numberLong());
-            payload_builder.append("gfs_id", gfs_file_struct.getField("_id").OID());
-
-
-            bo payload = payload_builder.obj();
-
-            nosql_->Insert("payload_track", payload);
-
-            qDebug() << "payload_track inserted";
-
-
-            /****** PUSH API PAYLOAD *******/
-            qDebug() << "PUSH API PAYLOAD";
-            z_message->rebuild(payload.objsize());
-            memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
-            z_push_api->send(*z_message, ZMQ_NOBLOCK);
-            /************************/
-        }
-        bodyMessage = buildResponse("create", str_payload_uuid);
+        /****** PUSH API PAYLOAD *******/
+        qDebug() << "PUSH API PAYLOAD";
+        z_message->rebuild(l_payload.objsize());
+        memcpy(z_message->data(), (char*)l_payload.objdata(), l_payload.objsize());
+        //z_push_api->send(*z_message, ZMQ_NOBLOCK);
+        z_push_api->send(*z_message);
+        /************************/
     }
+    bodyMessage = buildResponse("create", str_session_uuid);
+
     qDebug() << bodyMessage;
 
 
@@ -423,7 +589,8 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action, QString uuid)
             qDebug() << "PUSH HTTP PAYLOAD";
             z_message->rebuild(payload.objsize());
             memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
-            z_push_api->send(*z_message, ZMQ_NOBLOCK);
+            //z_push_api->send(*z_message, ZMQ_NOBLOCK);
+            z_push_api->send(*z_message);
             /************************/
         }
         bodyMessage = buildResponse("update", str_session_uuid);
@@ -537,10 +704,6 @@ void Http_api::admin(QxtWebRequestEvent* event, QString action)
 
         */
 }
-
-
-
-
 
 
 

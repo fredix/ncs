@@ -1,6 +1,6 @@
 /****************************************************************************
 **   ncs is the backend's server of nodecast
-**   Copyright (C) 2010-2011  Frédéric Logier <frederic@logier.org>
+**   Copyright (C) 2010-2012  Frédéric Logier <frederic@logier.org>
 **
 **   https://github.com/nodecast/ncs
 **
@@ -70,11 +70,7 @@ Nosql::Nosql(QString instance_type, QString a_server, QString a_database) : m_se
 {
     qDebug() << "Nosql construct param";
 
-    //m_server = server;
-    //m_database = database;
 
-    //this->gfs = new GridFS(this->mongo_connection, this->database.toAscii().data());
-    //return this->gfs;
 
     //mongo::ScopedDbConnection con (this->m_server.toAscii().data());
 
@@ -82,13 +78,21 @@ Nosql::Nosql(QString instance_type, QString a_server, QString a_database) : m_se
 
 
     try {
-        if (!this->m_mongo_connection.connect(this->m_server.toAscii().data(), m_errmsg))
+        if (!this->m_mongo_connection.connect(this->m_server.toStdString(), m_errmsg))
         {
             std::cout << "couldn't connect : " << m_errmsg << std::endl;
             exit(1);
         }
 
-        std::cout << "connected to mongoDB : " << this->m_server.toAscii().data() << std::endl;
+        std::cout << "connected to mongoDB : " << this->m_server.toStdString() << std::endl;
+
+        /************ SAFE WRITE ************/
+        BSONObj const database_options = BSON("getlasterror" << 1 << "j" << true);
+        string const database = this->m_database.toStdString();
+        BSONObj info;
+        m_mongo_connection.runCommand(database, database_options, info);
+        std::cout << "MONGODB OPTIONS : " << info << std::endl;
+        /************************************/
 
         m_gfs = new GridFS(m_mongo_connection, m_database.toAscii().data());
         std::cout << "init GridFS" << std::endl;
@@ -117,16 +121,14 @@ int Nosql::Count(QString a_document)
 
     QString tmp;
     tmp.append(this->m_database).append(".").append(a_document);
-
     int counter = this->m_mongo_connection.count(tmp.toStdString());
-
     m_mutex->unlock();
     return counter;
 }
 
 
 
-bo Nosql::Find(string a_document, const bo datas)
+BSONObj Nosql::Find(string a_document, const bo a_query)
 {
     m_mutex->lock();
     qDebug() << "Nosql::Find";        
@@ -136,20 +138,12 @@ bo Nosql::Find(string a_document, const bo datas)
 
     qDebug() << "m_database.a_document" << tmp;
 
-    //std::cout << "element : " << datas.jsonString(TenGen) << std::endl;
+    std::cout << "element : " << a_query.jsonString(Strict) << std::endl;
 
-    std::cout << "element : " << datas.jsonString(Strict) << std::endl;
-
-
-    //Query req = Query("{" + datas.jsonString(TenGen) + "}" );
-
-    //Query req = datas;
-
-    //Query req = Query("{" + element.jsonString(TenGen) + "}, { _id : 1}" );
 
     try {        
         qDebug() << "before cursor created";
-        auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toAscii().data(), mongo::Query(datas));
+        auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toStdString(), mongo::Query(a_query));
         qDebug() << "after cursor created";
 /*
         while( cursor->more() ) {
@@ -176,7 +170,44 @@ bo Nosql::Find(string a_document, const bo datas)
 
 
 
-list <bo> Nosql::FindAll(string a_document, const bo datas)
+BSONObj Nosql::Find(string a_document, const BSONObj a_query, BSONObj *a_fields)
+{
+    m_mutex->lock();
+    qDebug() << "Nosql::Find with field's filter";
+
+    QString tmp;
+    tmp.append(this->m_database).append(".").append(a_document.data());
+
+    qDebug() << "m_database.a_document" << tmp;
+
+    //std::cout << "element : " << datas.jsonString(TenGen) << std::endl;
+
+    std::cout << "element : " << a_query.jsonString(Strict) << std::endl;
+
+
+    try {
+        qDebug() << "before cursor created";
+        auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toStdString(), mongo::Query(a_query), 0, 0, a_fields);
+        qDebug() << "after cursor created";
+
+        if ( !cursor->more() ) {
+            m_mutex->unlock();
+            return BSONObj();
+        }
+        m_mutex->unlock();
+        return cursor->nextSafe().copy();
+    }
+    catch(mongo::DBException &e ) {
+        std::cout << "caught on find into " << m_server.toAscii().data() << "." << a_document.data() << " : " << e.what() << std::endl;
+        m_mutex->unlock();
+        exit(1);
+    }
+
+}
+
+
+
+QList <BSONObj> Nosql::FindAll(string a_document, const bo datas)
 {
     m_mutex->lock();
     qDebug() << "Nosql::FindAll";
@@ -187,14 +218,14 @@ list <bo> Nosql::FindAll(string a_document, const bo datas)
     qDebug() << "m_database.a_document" << tmp;
     std::cout << "element : " << datas.jsonString(Strict) << std::endl;
 
-    list <bo> res;
+    QList <BSONObj> res;
     try {
         qDebug() << "before cursor created";
         auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toAscii().data(), mongo::Query(datas));
         qDebug() << "after cursor created";
 
         while( cursor->more() ) {
-            res.push_front(cursor->next());
+            res << cursor->nextSafe().copy();
         }
         m_mutex->unlock();
         return res;
@@ -208,18 +239,6 @@ list <bo> Nosql::FindAll(string a_document, const bo datas)
 }
 
 
-
-/*
- *
- Struct of the job :
-  job = {
-    :email => @current_user.email,
-    :uuid => params[:id], (Private host's uuid)
-    :created_at => Time.now.utc,
-    :_id => file_id (ID of the XML (GridFS id) sent from nodecastGUI)
-  }
- *
- */
 
 bo Nosql::ExtractJSON(const be &gfs_id)
 {        
@@ -290,9 +309,6 @@ QBool Nosql::ExtractBinary(const be &gfs_id, string path, QString &filename)
 
     cout << "gfs_id : " << gfsid.firstElement() << endl;
 
-    //Query req = Query("{" + uuid.jsonString(TenGen) + "}");
-
-
 
     if (ReadFile(gfsid.firstElement()))
     {
@@ -347,7 +363,6 @@ bo Nosql::WriteFile(const string filename, const char *data, int size)
     m_mutex->lock();
 
     bo struct_file;        
-    //m_write_mutex->lock();
     try {
         struct_file = this->m_gfs->storeFile(data, size, filename, "application/octet-stream");
     }
@@ -389,13 +404,13 @@ QBool Nosql::Insert(QString a_document, bo a_datas)
 
 
 
-QBool Nosql::Update(QString a_document, const bo &element_id, const bo &a_datas)
+QBool Nosql::Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas)
 {        
     m_mutex->lock();
 
     qDebug() << "Nosql::Update";
     QString tmp;
-    bo data = BSON( "$set" << a_datas);
+    BSONObj data = BSON( "$set" << a_datas);
 
     std::cout << "QUERY DATA : " << data << std::endl;
 
@@ -417,15 +432,43 @@ QBool Nosql::Update(QString a_document, const bo &element_id, const bo &a_datas)
 
 
 
+QBool Nosql::Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas, BSONObj a_options)
+{
+    m_mutex->lock();
+
+    qDebug() << "Nosql::Update with options";
+    QString tmp;
+    BSONObjBuilder b_data;
+    b_data << "$set" << a_datas;
+    b_data.appendElements(a_options);
+    BSONObj data = b_data.obj();
+
+    std::cout << "QUERY DATA : " << data << std::endl;
+
+    tmp.append(m_database).append(".").append(a_document);
+    qDebug() << "Nosql::Update tmp : " << tmp;
+
+ try {
+        this->m_mongo_connection.update(tmp.toAscii().data(), mongo::Query(element_id), data);
+        qDebug() << m_server + "." + a_document + " updated";
+        m_mutex->unlock();
+        return QBool(true);
+    }
+    catch(mongo::DBException &e ) {
+        std::cout << "caught on update into " << m_server.toAscii().data() << "." << a_document.toAscii().data() << " : " << e.what() << std::endl;
+            m_mutex->unlock();
+        return QBool(false);
+    }
+}
 
 
-QBool Nosql::Addtoarray(QString a_document, const bo &element_id, const bo &a_datas)
+QBool Nosql::Addtoarray(QString a_document, const BSONObj &element_id, const BSONObj &a_datas)
 {
     m_mutex->lock();
 
     qDebug() << "Nosql::Addtoarray";
     QString tmp;
-    bo data = BSON( "$addToSet" << a_datas);
+    BSONObj data = BSON( "$addToSet" << a_datas);
 
     tmp.append(m_database).append(".").append(a_document);
     qDebug() << "Nosql::Addtoarray tmp : " << tmp;

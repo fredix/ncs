@@ -31,21 +31,32 @@ qmake
 make
 
 
-USE
-ncs --mongodb-ip=127.0.0.1 --mongodb-base=nodecast_prod --domain-name=(localhost|external IP|your-domain-name.tld) --xmpp-client-port 6222  --xmpp-server-port 6269
+Launch NCS
+ncs --mongodb-ip=127.0.0.1 --mongodb-base=nodecast_prod --domain-name=localhost --xmpp-client-port=6222 --xmpp-server-port=6269 --smtp-hostname="your.server.mail" --smtp-username="your-user-account" --smtp-password="your-password" --smtp-sender="your-email-sender" --smtp-recipient="your-email-recipient"
+
+
+Launch a worker
+./ncw --ncs-ip=127.0.0.1 --ncs-port=5569 --worker-type=process --worker-name="ls" --exec="ls"
+
 
 MONGODB
 create user collection
-doc = { login : 'user', email : 'user@email.com', authentication_token : 'k5f2PheX'}
+doc = { login : 'user', email : 'user@email.com', authentication_token : 'token'}
 db.users.insert(doc);
 
 
 API USE
-1. register server
+1. create a node
 curl -H "X-nodename: your-node-name" --user "email:token" http://127.0.0.1:4567/node/create
+return node auth : {"node_password":"e6cc13a3-1236-46cb-b40f-a66650ab5eef","node_uuid":"2d0a7780-e8fe-4e0a-89c6-a5a2737b095a"} 
 
-2. push data
-curl -H "X-task: taskname" -H "X-uuid: your-node-uuid" -H "X-payloadfilename: filename" -X POST --data-binary @filename --user "email:token" http://127.0.0.1:4567/payload/create
+2. create a workflow
+curl -H "X-workflow: test" -d '{ "worker1": 1: "worker2": 2 }" --user "user@email.com:token" http://127.0.0.1:4567/workflow/create
+return a workflow : {"uuid":"0ebcdab6-0263-42d3-be7d-9602fa15f68c"}
+
+3. push data
+curl -H "X-node-uuid: 2d0a7780-e8fe-4e0a-89c6-a5a2737b095a" -H "X-node-password: 2d0a7780-e8fe-4e0a-89c6-a5a2737b095a" -H "X-workflow-uuid: 0ebcdab6-0263-42d3-be7d-9602fa15f68c" -H "X-payloadfilename: filename" -X POST --data-binary @filename http://127.0.0.1:4567/payload/create
+return a session uuid : {"uuid":"7b32b9d0-3ea9-4663-9577-4b34192055bf"}
 
 
 contact : fredix at nodecast dot net

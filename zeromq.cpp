@@ -1,6 +1,6 @@
 /****************************************************************************
 **   ncs is the backend's server of nodecast
-**   Copyright (C) 2010-2011  Frédéric Logier <frederic@logier.org>
+**   Copyright (C) 2010-2012  Frédéric Logier <frederic@logier.org>
 **
 **   https://github.com/nodecast/ncs
 **
@@ -31,13 +31,22 @@ Ztracker::Ztracker(zmq::context_t *a_context) : m_context(a_context)
 
     nosql_ = Nosql::getInstance_back();
 
+    /***************** SERVICE SOCKET *************/
     m_message = new zmq::message_t(2);
     m_socket = new zmq::socket_t (*m_context, ZMQ_REP);
 
-    uint64_t hwm = 5000;
+    uint64_t hwm = 50000;
     zmq_setsockopt (m_socket, ZMQ_HWM, &hwm, sizeof (hwm));
 
     m_socket->bind("tcp://*:5569");
+    /**********************************************/
+
+    /**************** DATA SOCKET *****************/
+    m_data_message = new zmq::message_t(2);
+    m_data_socket = new zmq::socket_t(*m_context, ZMQ_PUSH);
+    zmq_setsockopt (m_data_socket, ZMQ_HWM, &hwm, sizeof (hwm));
+    m_data_socket->bind("inproc://workers");
+    /**********************************************/
 
     worker_timer = new QTimer();
     connect(worker_timer, SIGNAL(timeout()), this, SLOT(worker_update_ticker ()), Qt::DirectConnection);
@@ -47,6 +56,25 @@ Ztracker::Ztracker(zmq::context_t *a_context) : m_context(a_context)
     connect(service_timer, SIGNAL(timeout()), this, SLOT(service_update_ticker ()), Qt::DirectConnection);
     service_timer->start (5000);
 }
+
+int Ztracker::get_available_port()
+{
+    bo empty;
+    QList <BSONObj> workers_list = nosql_->FindAll("workers", empty);
+
+    int port_counter = 5559;
+
+    foreach (BSONObj worker, workers_list)
+    {
+        std::cout << "worker : " << worker.getField("port").numberInt() << std::endl;
+
+        port_counter = worker.getField("port").numberInt();
+    }
+
+    port_counter++;
+    return port_counter;
+}
+
 
 
 void Ztracker::init()
@@ -59,7 +87,7 @@ void Ztracker::init()
     // Wait for next request from client
     m_socket->recv (&request);
 
-    bo l_payload = bo((char*)request.data());
+    BSONObj l_payload = bo((char*)request.data());
 
     std::cout << "Ztracker Received payload : " << l_payload << std::endl;
 
@@ -76,35 +104,45 @@ void Ztracker::init()
             std::cout << "PAYLOAD : " << l_payload << std::endl;
 
 
-            // Send reply back to client
-            bo payload = BSON("uuid" << str_session_uuid.toStdString());
-
-            // worker_track_builder.append("name", l_payload.getFieldDotted("payload.worker"));
-
-
-            bob worker_track_builder;
-            worker_track_builder.genOID();
-            worker_track_builder.append(payload.getField("uuid"));
-            worker_track_builder.append(l_payload.getFieldDotted("payload.pid"));
-            worker_track_builder.append(l_payload.getFieldDotted("payload.timestamp"));
-            worker_track_builder.append("status", "up");
-
-
-            bo node = BSON("nodes" << worker_track_builder.obj());
-
             be worker_name = l_payload.getFieldDotted("payload.name");
-            bo worker_track = nosql_->Find("worker_track", worker_name.wrap());
+            bo worker = nosql_->Find("workers", worker_name.wrap());
 
-            if (worker_track.nFields() == 0)
+            int worker_port;
+            if (worker.nFields() == 0)
             {
-                worker_track = BSON(GENOID << "name" << l_payload.getFieldDotted("payload.name"));
-                nosql_->Insert("worker_track", worker_track);
+                worker_port = get_available_port();
+
+                worker = BSON(GENOID << "name" << l_payload.getFieldDotted("payload.name") << "port" << worker_port);
+                nosql_->Insert("workers", worker);
+            }
+            else
+            {
+                worker_port = worker.getField("port").numberInt();
             }
 
-            be worker_track_id = worker_track.getField("_id");
+            // create server
+            qDebug() << "BEFORE EMIT CREATE SERVER";
+            emit create_server(QString::fromStdString(worker_name.str()), QString::number(worker_port));
+            qDebug() << "AFTER EMIT CREATE SERVER";
 
-            nosql_->Addtoarray("worker_track", worker_track_id.wrap(), node);
 
+
+            // Send reply back to client
+            BSONObj payload = BSON("uuid" << str_session_uuid.toStdString() << "port" << worker_port);
+
+
+            bob worker_builder;
+            worker_builder.genOID();
+            worker_builder.append(payload.getField("uuid"));
+            worker_builder.append(l_payload.getFieldDotted("payload.pid"));
+            worker_builder.append(l_payload.getFieldDotted("payload.timestamp"));
+            worker_builder.append("status", "up");
+
+
+            BSONObj node = BSON("nodes" << worker_builder.obj());
+
+            be worker_id = worker.getField("_id");
+            nosql_->Addtoarray("workers", worker_id.wrap(), node);
 
 
             m_message->rebuild(payload.objsize());
@@ -115,15 +153,28 @@ void Ztracker::init()
                be timestamp = l_payload.getFieldDotted("payload.timestamp");
                be uuid = l_payload.getField("uuid");
 
-               bo bo_node_uuid = BSON("nodes.uuid" << uuid);
-               bo worker_track_node = BSON("nodes.$.timestamp" << timestamp);
+               BSONObj bo_node_uuid = BSON("nodes.uuid" << uuid);
+               BSONObj workers_node = BSON("nodes.$.timestamp" << timestamp);
 
                qDebug() << "UPDATE NODE's TIMESTAMP";
-               nosql_->Update("worker_track", bo_node_uuid, worker_track_node);
+               nosql_->Update("workers", bo_node_uuid, workers_node);
 
-               bo payload = BSON("status" << "ACK");
+               BSONObj payload = BSON("status" << "ACK");
                m_message->rebuild(payload.objsize());
                memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
+           }
+        else if (l_payload.getFieldDotted("payload.action").str() == "terminate")
+        {
+            qDebug() << "RECEIVE TERMINATE !!!!";
+            BSONObj payload = l_payload.getField("payload").Obj();
+
+
+            /****** PUSH API PAYLOAD *******/
+            qDebug() << "FORWARD NEXT PAYLOAD";
+            m_data_message->rebuild(payload.objsize());
+            memcpy(m_data_message->data(), (char*)payload.objdata(), payload.objsize());
+            m_data_socket->send(*m_data_message);
+            /************************/
            }
 
     }
@@ -142,31 +193,31 @@ void Ztracker::init()
             // Send reply back to client
             bo payload = BSON("uuid" << str_session_uuid.toStdString());
 
-            // worker_track_builder.append("name", l_payload.getFieldDotted("payload.worker"));
+            // workers_builder.append("name", l_payload.getFieldDotted("payload.worker"));
 
 
-            bob service_track_builder;
-            service_track_builder.genOID();
-            service_track_builder.append(payload.getField("uuid"));
-            service_track_builder.append(l_payload.getFieldDotted("payload.pid"));
-            service_track_builder.append(l_payload.getFieldDotted("payload.timestamp"));
-            service_track_builder.append("status", "up");
+            bob services_builder;
+            services_builder.genOID();
+            services_builder.append(payload.getField("uuid"));
+            services_builder.append(l_payload.getFieldDotted("payload.pid"));
+            services_builder.append(l_payload.getFieldDotted("payload.timestamp"));
+            services_builder.append("status", "up");
 
 
-            bo node = BSON("nodes" << service_track_builder.obj());
+            BSONObj node = BSON("nodes" << services_builder.obj());
 
             be service_name = l_payload.getFieldDotted("payload.name");
-            bo service_track = nosql_->Find("service_track", service_name.wrap());
+            BSONObj service = nosql_->Find("services", service_name.wrap());
 
-            if (service_track.nFields() == 0)
+            if (service.nFields() == 0)
             {
-                service_track = BSON(GENOID << "name" << l_payload.getFieldDotted("payload.name"));
-                nosql_->Insert("service_track", service_track);
+                service = BSON(GENOID << "name" << l_payload.getFieldDotted("payload.name"));
+                nosql_->Insert("services", service);
             }
 
-            be service_track_id = service_track.getField("_id");
+            be service_id = service.getField("_id");
 
-            nosql_->Addtoarray("service_track", service_track_id.wrap(), node);
+            nosql_->Addtoarray("services", service_id.wrap(), node);
 
 
 
@@ -181,12 +232,12 @@ void Ztracker::init()
                be uuid = l_payload.getField("uuid");
 
                bo bo_node_uuid = BSON("nodes.uuid" << uuid);
-               bo service_track_node = BSON("nodes.$.timestamp" << timestamp << "nodes.$.child_pid" << child_pid);
+               bo service_node = BSON("nodes.$.timestamp" << timestamp << "nodes.$.child_pid" << child_pid);
 
                qDebug() << "UPDATE NODE's TIMESTAMP";
-               nosql_->Update("service_track", bo_node_uuid, service_track_node);
+               nosql_->Update("services", bo_node_uuid, service_node);
 
-               bo payload = BSON("status" << "ACK");
+               BSONObj payload = BSON("status" << "ACK");
                m_message->rebuild(payload.objsize());
                memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
            }
@@ -194,7 +245,7 @@ void Ztracker::init()
     else if (l_payload.getFieldDotted("payload.type").str() == "init")
     {
         qDebug() << "RECEIVE INIT SOCKET";
-        bo payload = BSON("status" << "pong");
+        BSONObj payload = BSON("status" << "pong");
         m_message->rebuild(payload.objsize());
         memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
     }
@@ -207,7 +258,7 @@ void Ztracker::init()
 
 void Ztracker::worker_update_ticker()
 {
-    //std::cout << "Ztracker::update_ticker" << std::endl;
+    std::cout << "Ztracker::update_ticker" << std::endl;
 
     m_mutex->lock();
 
@@ -217,17 +268,14 @@ void Ztracker::worker_update_ticker()
 
     QDateTime t_timestamp;
 
-    bo empty;
-    list <bo> worker_track_list = nosql_->FindAll("worker_track", empty);
-    list<bo>::iterator i;
+    BSONObj empty;
+    QList <BSONObj> workers_list = nosql_->FindAll("workers", empty);
 
-    for(i = worker_track_list.begin(); i != worker_track_list.end(); ++i)
+    foreach (BSONObj worker, workers_list)
     {
-        bo worker_track = *i;
+        //std::cout << "TICKER !!!  workers : " << workers << std::endl;
 
-        //std::cout << "TICKER !!!  WORKER_TRACK : " << worker_track << std::endl;
-
-        bo nodes = worker_track.getField("nodes").Obj();
+        BSONObj nodes = worker.getField("nodes").Obj();
 
 
         list<be> list_nodes;
@@ -237,7 +285,7 @@ void Ztracker::worker_update_ticker()
         /********   Iterate over each worker's nodes   *******/
         /********  find node with uuid and set the node id to payload collection *******/
         for(i = list_nodes.begin(); i != list_nodes.end(); ++i) {
-            bo l_node = (*i).embeddedObject ();
+            BSONObj l_node = (*i).embeddedObject ();
 
             //std::cout << "L_NODE : " << l_node << std::endl;
 
@@ -251,43 +299,26 @@ void Ztracker::worker_update_ticker()
             t_timestamp.setTime_t(node_timestamp.number());
 
 
-            qDebug() << "QT TIMESTAMP : " << t_timestamp.toString("dd MMMM yyyy hh:mm:ss");
-            qDebug() << "SECONDES DIFF : " << t_timestamp.secsTo(l_timestamp);
-            std::cout << "STATUS : " <<  status.str() << std::endl;
+            //qDebug() << "QT TIMESTAMP : " << t_timestamp.toString("dd MMMM yyyy hh:mm:ss");
+            //qDebug() << "SECONDES DIFF : " << t_timestamp.secsTo(l_timestamp);
+            //std::cout << "STATUS : " <<  status.str() << std::endl;
 
 
             if (t_timestamp.secsTo(l_timestamp) > 30 && status.str() == "up")
             {
                 qDebug() << "SEND ALERT !!!!!!!";
 
-                bo bo_node_id = BSON("nodes._id" << node_id.OID());
-                bo worker_track_status = BSON("nodes.$.status" << "down");
-                nosql_->Update("worker_track", bo_node_id, worker_track_status);
+                BSONObj bo_node_id = BSON("nodes._id" << node_id.OID());
+                BSONObj worker_status = BSON("nodes.$.status" << "down");
+                nosql_->Update("workers", bo_node_id, worker_status);
 
 
-                QString worker = "WORKER ";
-                worker.append(QString::fromStdString(worker_track.getField("name").str()));
-                worker.append (", uuid : ").append (uuid.valuestr()).append (", at : ").append (t_timestamp.toString("dd MMMM yyyy hh:mm:ss"));
-                qDebug() << "WORKER ALERT ! " << worker;
-                emit sendAlert(worker);
+                QString l_worker = "WORKER ";
+                l_worker.append(QString::fromStdString(worker.getField("name").str()));
+                l_worker.append (", uuid : ").append (uuid.valuestr()).append (", at : ").append (t_timestamp.toString("dd MMMM yyyy hh:mm:ss"));
+                qDebug() << "WORKER ALERT ! " << l_worker;
+                emit sendAlert(l_worker);
             }
-
-            //mongo::Date_t ts = node_timestamp.timestampTime();
-
-
-            //std::cout << "MONGO TIMESTAMP : " << ts.toString() << std::endl;
-
-
-            //bo bo_node_id = BSON("nodes._id" << node_id.OID());
-
-            //std::cout << "NODE ID => " << bo_node_id << std::endl;
-            //std::cout << "NODE TIMESTAMP => " << node_timestamp << std::endl;
-
-            // payload_builder.append("node_id", node_id.OID());
-            //qDebug() << "REMOVE UPDATE NODE";
-
-            //nosql_->Update("worker_track", bo_node_id, worker_track_node);
-
         }
     }
 
@@ -299,27 +330,25 @@ void Ztracker::worker_update_ticker()
 
 void Ztracker::service_update_ticker()
 {
-    //std::cout << "Ztracker::update_ticker" << std::endl;
+    std::cout << "Ztracker::update_ticker" << std::endl;
 
     m_mutex->lock();
-
 
     QDateTime l_timestamp = QDateTime::currentDateTime();
     qDebug() << l_timestamp.toTime_t ();
 
     QDateTime t_timestamp;
 
-    bo empty;
-    list <bo> service_track_list = nosql_->FindAll("service_track", empty);
-    list<bo>::iterator i;
+    BSONObj empty;
+    QList <BSONObj> services_list = nosql_->FindAll("services", empty);
+    QList<BSONObj>::iterator i;
 
-    for(i = service_track_list.begin(); i != service_track_list.end(); ++i)
-    {
-        bo service_track = *i;
 
-        //std::cout << "TICKER !!!  WORKER_TRACK : " << worker_track << std::endl;
+    foreach (BSONObj service, services_list)
+    {    
+        //std::cout << "TICKER !!!  workers : " << workers << std::endl;
 
-        bo nodes = service_track.getField("nodes").Obj();
+        BSONObj nodes = service.getField("nodes").Obj();
 
 
         list<be> list_nodes;
@@ -329,7 +358,7 @@ void Ztracker::service_update_ticker()
         /********   Iterate over each worker's nodes   *******/
         /********  find node with uuid and set the node id to payload collection *******/
         for(i = list_nodes.begin(); i != list_nodes.end(); ++i) {
-            bo l_node = (*i).embeddedObject ();
+            BSONObj l_node = (*i).embeddedObject ();
 
             //std::cout << "L_NODE : " << l_node << std::endl;
 
@@ -352,34 +381,17 @@ void Ztracker::service_update_ticker()
             {
                 qDebug() << "SEND ALERT !!!!!!!";
 
-                bo bo_node_id = BSON("nodes._id" << node_id.OID());
-                bo service_track_status = BSON("nodes.$.status" << "down");
-                nosql_->Update("service_track", bo_node_id, service_track_status);
+                BSONObj bo_node_id = BSON("nodes._id" << node_id.OID());
+                BSONObj service_status = BSON("nodes.$.status" << "down");
+                nosql_->Update("services", bo_node_id, service_status);
 
 
-                QString service = "SERVICE ";
-                service.append(QString::fromStdString(service_track.getField("name").str()));
-                service.append (", uuid : ").append (uuid.valuestr()).append (", at : ").append (t_timestamp.toString("dd MMMM yyyy hh:mm:ss"));
-                qDebug() << "SERVICE ALERT ! " << service;
-                emit sendAlert(service);
+                QString l_service = "SERVICE ";
+                l_service.append(QString::fromStdString(service.getField("name").str()));
+                l_service.append (", uuid : ").append (uuid.valuestr()).append (", at : ").append (t_timestamp.toString("dd MMMM yyyy hh:mm:ss"));
+                qDebug() << "SERVICE ALERT ! " << l_service;
+                emit sendAlert(l_service);
             }
-
-            //mongo::Date_t ts = node_timestamp.timestampTime();
-
-
-            //std::cout << "MONGO TIMESTAMP : " << ts.toString() << std::endl;
-
-
-            //bo bo_node_id = BSON("nodes._id" << node_id.OID());
-
-            //std::cout << "NODE ID => " << bo_node_id << std::endl;
-            //std::cout << "NODE TIMESTAMP => " << node_timestamp << std::endl;
-
-            // payload_builder.append("node_id", node_id.OID());
-            //qDebug() << "REMOVE UPDATE NODE";
-
-            //nosql_->Update("worker_track", bo_node_id, worker_track_node);
-
         }
     }
 
@@ -394,50 +406,22 @@ Ztracker::~Ztracker()
 
 
 
-Zreceive::Zreceive(zmq::context_t *a_context, QString a_port, QString a_inproc) : m_context(a_context), m_port(a_port), m_inproc(a_inproc)
+Zreceive::Zreceive(zmq::context_t *a_context, zmq::socket_t *a_workers, QString a_inproc) : m_context(a_context), z_workers(a_workers), m_inproc(a_inproc)
 {
     qDebug() << "Zreceive::construct";
-
-//    m_context = a_context;
-
-    //m_context = new zmq::context_t(1);
-    //zmq::context_t context (1);
-
-    // zmq::socket_t sender (*z_context, ZMQ_XREP);
-    // sender.bind("tcp://*:5555");
-
-    z_workers = new zmq::socket_t (*m_context, ZMQ_PUSH);
-
-
-    uint64_t hwm = 50000;
-    zmq_setsockopt (z_workers, ZMQ_HWM, &hwm, sizeof (hwm));
-
-    z_workers->bind("tcp://*:" + m_port.toAscii());
 }
 
 
 void Zreceive::init_payload()
 {
-    //m_mutex->lock();
-    qDebug() << "Zreceive::init_payload, proc ; " << m_inproc <<" , port : " << m_port;
+    qDebug() << "Zreceive::init_payload, proc ; " << m_inproc;
     z_sender = new zmq::socket_t(*m_context, ZMQ_PULL);
-    //z_sender->connect("tcp://*:5555");
-    qDebug() << "PORT : " << m_port << " INPROC : " << m_inproc;
-    //z_sender->connect("tcp://*:" + m_port.toAscii());
-    //sleep(1);
+    qDebug() << " INPROC : " << m_inproc;
 
     uint64_t hwm = 5000;
     zmq_setsockopt (z_sender, ZMQ_HWM, &hwm, sizeof (hwm));
 
     z_sender->connect("inproc://" + m_inproc.toAscii());
-
-
-    ///////!!!!!!!!!!!!!zmq::socket_t z_workers (*m_context, ZMQ_PUSH);
-    //z_workers.bind ("inproc://" + m_inproc.toAscii());
-    //!!!!!!!!z_workers.bind("tcp://*:" + m_port.toAscii());
-    //z_workers.bind("tcp://*:5596");
-
-    //m_mutex->unlock();
 
     //  Connect work threads to client threads via a queue
     std::cout << "Zreceive::init_payload BEFORE ZMQ_STREAMER" << std::endl;
@@ -454,32 +438,62 @@ Zreceive::~Zreceive()
 
 Zdispatch::Zdispatch(zmq::context_t *a_context) : m_context(a_context)
 {        
+    m_mutex = new QMutex();
+
     std::cout << "Zdispatch::Zdispatch constructeur" << std::endl;
-    nosql_ = Nosql::getInstance_back();
+    //nosql_ = Nosql::getInstance_back();
+    nosql_ = Nosql::getInstance_front();
+
+
+    BSONObj empty;
+    workflow_list = nosql_->FindAll("workflows", empty);
+    worker_list = nosql_->FindAll("workers", empty);
+
+    // read workers collection and instance workers's server
+    foreach (BSONObj worker, worker_list)
+    {
+        std::cout << "LIST SIZE : " << worker_list.size() << std::endl;
+
+        for (int i = 0; i < worker_list.size(); ++i) {
+            std::cout << "LIST WORKERS : " << worker_list.at(i) << std::endl;
+         }
+
+        std::cout << "WORKER : " << worker << std::endl;
+
+        int port = worker.getField("port").number();
+        std::cout << "INT worker port : " << port << std::endl;
+
+        QString w_name = QString::fromStdString(worker.getField("name").str());
+        QString w_port = QString::number(worker.getField("port").Int());
+        std::cout << "worker name : " << w_name.toStdString() << std::endl;
+        std::cout << "worker port : " << w_port.toStdString() << std::endl;
+
+        bind_server(w_name, w_port);
+    }
 }
 
 
 Zdispatch::~Zdispatch()
 {}
 
+void Zdispatch::bind_server(QString name, QString port)
+{
+    qDebug() << "BIND SERVER SLOT !";
+    workers_push[name] =  QSharedPointer<Zworker_push> (new Zworker_push(m_context, name.toStdString(), port.toStdString()));
+}
+
+
 
 
 void Zdispatch::receive_payload()
 {
-/*    m_http_mutex->lock();
-    m_xmpp_mutex->lock();
-*/
     std::cout << "Zdispatch::receive_payload" << std::endl;
-    //zmq::socket_t socket (*m_context, ZMQ_PULL);
     m_socket = new zmq::socket_t (*m_context, ZMQ_PULL);
-    //m_socket->connect("inproc://" + m_inproc.toAscii());
-    m_socket->bind("tcp://*:5559");
 
+    uint64_t hwm = 50000;
+    zmq_setsockopt (m_socket, ZMQ_HWM, &hwm, sizeof (hwm));
 
-
-  /*  m_http_mutex->unlock();
-    m_xmpp_mutex->unlock();
-*/
+    m_socket->connect("inproc://payload");
 
     std::cout << "Zdispatch::receive_payload AFTER inproc" << std::endl;
 
@@ -490,134 +504,293 @@ void Zdispatch::receive_payload()
         m_socket->recv (&request);
 
         std::cout << "Zdispatch::receive_payload WHILE TRUE" << std::endl;
-
         //std::cout << "Zdispatch received request: [" << (char*) request.data() << "]" << std::endl;
-        bo data = bo((char*)request.data());
-        be uuid = data.getFieldDotted("data.uuid");
-        be qname = data.getFieldDotted("data.action");
-        be gfs_id = data.getFieldDotted("data.gfs_id");
-        be timestamp = data.getField("timestamp");
+
+        BSONObj data = BSONObj((char*)request.data());
+
+        std::cout << "Zdispatch received data : " << data << std::endl;
 
 
-        be action = data.getField("action");
+        //BSONElement session_uuid = data.getField("session_uuid");
+        BSONObj session_uuid = BSON("uuid" << data.getField("session_uuid").str());
 
-        /********** RECORD PAYLOAD STEP *********/
-        BSONObjBuilder step_builder;
-        step_builder.genOID();
-        step_builder.append("counter", 1);
-        step_builder.append("name", "dispatcher");
-        step_builder.append("action", action.str());
-        step_builder.append("timestamp", timestamp.str());
+        BSONElement b_session_uuid = session_uuid.getField("uuid");
+
+        std::cout << "session_uuid : " << session_uuid << std::endl;
+        std::cout << "b_session_uuid : " << b_session_uuid << std::endl;
+
+        BSONObj session = nosql_->Find("sessions", session_uuid);
+
+        std::cout << "!!!!! session !!!!!! : " << session << std::endl;
+
+        BSONObj session_id = BSON("_id" << session.getField("_id").OID());
+        std::cout << "session_id : " << session_id << std::endl;
+
+        BSONObj payload_id = BSON("_id" << session.getField("payload_id").OID());
+        //session.getField("payload_id").Obj().getObjectID(payload_id);
+
+        std::cout << "payload_id : " << payload_id << std::endl;
+
+        BSONObj payload = nosql_->Find("payloads", payload_id);
+        BSONElement l_payload_id = payload.getField("_id");
+
+        //std::cout << "payload : " << payload << std::endl;
+        std::cout << "l_payload_id : " << l_payload_id << std::endl;
+
+        BSONObj payload_steps;
+        if (payload.hasField("steps")) payload_steps = payload.getField("steps").Obj();
 
 
-        bo step = BSON("steps" << step_builder.obj());
-        nosql_->Addtoarray("payload_track", uuid.wrap(), step);
-        /*****************************************/
+        BSONObj workflow_id = BSON("_id" << session.getField("workflow_id").OID());
+        BSONObj workflow = nosql_->Find("workflows", workflow_id);
+        std::cout << "FIND WORKER'S WORKFLOW : " << workflow << std::endl;
+
+        BSONObj w_workers = workflow.getField("workers").Obj();
+        std::cout << "WORKER'S WORKFLOW : " << w_workers << std::endl;
+
+
+        list <BSONElement> list_w_workers;
+        w_workers.elems(list_w_workers);
+        int workers_number = (int) list_w_workers.size();
+
+        std::cout << "WORKER NUMBER : " << workers_number << std::endl;
 
 
 
-        be format = data.getField("format");
-        be path = data.getField("path");
 
-        bo workers = data.getField("workers").Obj();
+        BSONElement timestamp = session.getField("start_timestamp");
+        string action = data.getField("action").valuestr();
 
-        list<be> w_list;
-        workers.elems(w_list);
+        std::cout << "ACTION : " << action << std::endl;
+
+        BSONElement gfs_id = payload.getField("gfs_id");
 
 
-        if (workers_push.size() == 0)
+        BSONElement datas;
+        if (data.hasField("datas")) datas = data.getField("datas");
+
+
+        if (action.compare("create") == 0 && w_workers.nFields() !=0)
         {
-            list<be>::iterator i;
-            for(i = w_list.begin(); i != w_list.end(); ++i) {
-                QString w_name = (*i).fieldName();
-
-                worker_name.push_front(w_name);
-                string worker_port = (*i).str();
-
-                //std::cout << "worker : " << worker_name << "port : " << worker_port << " " << std::endl;
-
-                workers_push[w_name] = new Zworker_push(m_context, w_name.toStdString(), worker_port);
-
-    /*
-                QThread *thread_worker_push = new QThread;
-                Zworker_push *worker_push = new Zworker_push(m_context, worker_name, worker_port);
-                //connect(thread_worker_load, SIGNAL(started()), worker_load, SLOT(send_payload()));
-
-                worker_push->moveToThread(thread_worker_push);
-                thread_worker_push->start();
-
-                l_workers_push.push_front(thread_worker_push);
-    */
-
-            }
-
-        }
-
-        std::cout << "workers : " << workers << std::endl;
-
-        std::cout << "uuid : " << uuid.toString() << std::endl;
-        std::cout << "action : " << qname.toString() << std::endl;
+            // create step
+            QString worker_name;
+            QString worker_port;
 
 
+            std::cout << "Zdispatch::receive_payload : ACTION CREATE : " << action << std::endl;
 
-        /***************** PUSH ********************/
-        std::cout << "Zdispatch BEFORE emit forward_payload" << std::endl;
-
-
-        std::cout << "DATA : " <<  data << std::endl;
-
-
-        std::cout << "GFS ID : " << gfs_id << std::endl;
-
-
-
-        if (format.str() == "json" && action.str() == "split")
-        {
-            bo l_json_datas = nosql_->ExtractJSON(gfs_id);
-
-            qDebug() << "SPLIT !!!!!!!!!!";
-
-
-
-            for (int i = 0; i < worker_name.size(); ++i)
+            for (BSONObj::iterator i = w_workers.begin(); i.more();)
             {
-                QString w_name = (QString) worker_name.at(i);
-                qDebug() << "WNAME : " << w_name;
+                BSONElement w_worker = i.next();
+
+                std::cout << "W_WORKER : " << w_worker.Number() << std::endl;
 
 
-                //std::cout << "DATA : " << l_json_datas[w_name] << std::endl;
-
-                bo payload = BSON("headers" << data["data"] << "worker" << w_name.toStdString() << "data" << l_json_datas[w_name.toStdString()]);
-                workers_push[w_name]->push_payload(payload);
-            }
-
-        }
-        else if (format.str() == "binary" && action.str() == "copy")
-        {
-            std::cout << "BINARY && COPY : " << gfs_id << std::endl;
-            QString filename;
-            if (nosql_->ExtractBinary(gfs_id, path.str(), filename))
-            {
-                qDebug() << "AFTER EXTRACT BINARY";
-                for (int i = 0; i < worker_name.size(); ++i)
+                if (w_worker.Number() == 1)
                 {
-                    QString w_name = (QString) worker_name.at(i);
-                    qDebug() << "WNAME : " << w_name;
+                    worker_name = QString::fromStdString(w_worker.fieldName());
 
+                    qDebug() << "worker_name : " << worker_name;
 
-                    //std::cout << "DATA : " << l_json_datas[w_name] << std::endl;
+                    // find worker                        
+                    foreach (BSONObj worker, worker_list)
+                    {                        
 
-                    bo payload = BSON("headers" << data["data"] << "worker" << w_name.toStdString() << "path" << path.str() << "data" << filename.toStdString());
-                    workers_push[w_name]->push_payload(payload);
+                        std::cout << "worker name : " << worker.getField("name").str() << std::endl;
+                        std::cout << "worker port : " << worker.getField("port").numberInt() << std::endl;
+
+                        if (worker_name.contains(QString::fromStdString(worker.getField("name").str())))
+                        {
+                            worker_port = QString::number(worker.getField("port").numberInt());
+                            qDebug() << "worker_port : " << worker_port;
+
+                            break;
+                        }
+                    }
                 }
             }
 
+            /* EXTRACT PAYLOAD */
+            QString path = "/tmp/";
+
+
+            std::cout << "BINARY && COPY : " << gfs_id << std::endl;
+            QString filename;
+
+            if (nosql_->ExtractBinary(gfs_id, path.toStdString(), filename))
+            {
+                qDebug() << "EXTRACT PAYLOAD, FILENAME : " << filename;
+
+                /********** RECORD PAYLOAD STEP *********/
+                BSONObjBuilder step_builder;
+                step_builder.genOID();
+                step_builder.append("name", worker_name.toStdString());
+                step_builder.append("action", "create");
+                step_builder.append("order", 1);
+                step_builder.append("payload", path.append(filename).toStdString());
+                step_builder.append("send_timestamp", timestamp.Number());
+
+                BSONObj step = BSON("steps" << step_builder.obj());
+
+                nosql_->Addtoarray("payloads", l_payload_id.wrap(), step);
+                /*****************************************/
+
+                /********* UPDATE SESSION **********/
+                BSONObjBuilder session_builder;
+                session_builder.append("step_id", step.getField("steps").Obj().getField("_id").OID());
+                session_builder.append("counter", workers_number -1);
+                session_builder.append("last_worker", worker_name.toStdString());
+                BSONObj l_session = session_builder.obj();
+
+                std::cout << "SESSION !!! " << l_session << std::endl;
+
+                nosql_->Update("sessions", session_id, l_session);
+                /***********************************/
+
+                //be step_id;
+                //step.getField("steps").Obj().getObjectID(step_id);
+
+                /**** SEND PAYLOAD ****/
+                //BSONObj payload = BSON("datas" << path.toStdString() << "workflow_uuid" << workflow_uuid.str() << "payload_uuid" << payload_uuid.str() << "step_id" << step.getField("steps").Obj().getField("_id"));
+                BSONObj payload = BSON("datas" << path.toStdString() << "session_uuid" << b_session_uuid.str());
+                workers_push[worker_name]->push_payload(payload);
+            }
+        }
+        else if (action.compare("terminate") == 0)
+        {            
+            std::cout << "Zdispatch::receive_payload : ACTION TERMINATE : " << action << std::endl;
+            // add step                                    
+            //be payload_step_id = session.getField("step_id");
+            //data.getObjectID (payload_step_id);
+
+            //BSONObj payload_id = BSON("_id" << session.getField("payload_id").OID());
+
+
+            BSONObj search = BSON("steps._id" << session.getField("step_id").OID());
+
+            std::cout << "search : " << search << std::endl;
+
+            BSONObj field = BSON("_id" << 0 << "steps.order" << 1);
+
+            //BSONObj old_step = nosql_->Find("payloads", search);
+
+            BSONObj step_order = nosql_->Find("payloads", search, &field);
+
+
+            std::cout << "step_order: " << step_order << std::endl;
+
+
+            /* Gruik ........................... !!*/
+            BSONElement order = step_order.getField("steps").embeddedObject().getFieldDotted("0.order");
+            /**************************************/
+
+            int workflow_order = order.numberInt() + 1;
+            std::cout << "ORDER YO : " << workflow_order << std::endl;
+
+
+            std::cout << "search : " << search << "STEP ORDER : " << step_order << std::endl;
+            std::cout << "STEP ORDER : " << order.Number() << std::endl;
+
+
+            be worker_name = data.getField("name");
+            be exitcode = data.getField("exitcode");
+            be exitstatus = data.getField("exitstatus");
+            be datas = data.getField("datas");            
+
+
+            /********** RECORD PAYLOAD STEP *********/
+            BSONObjBuilder step_builder;
+            BSONObj step_id = BSON("steps._id" << session.getField("step_id").OID());
+
+            std::cout << "STEP ID " << step_id << std::endl;
+
+            step_builder << "steps.$.name" << worker_name.str();
+            step_builder << "steps.$.action" << "terminate";
+            step_builder << "steps.$.datas" << datas.str();
+            step_builder << "steps.$.exitcode" << exitcode;
+            step_builder << "steps.$.exitstatus" << exitstatus;
+            step_builder << "steps.$.terminate_timestamp" << timestamp.Number();
+
+            BSONObj step = step_builder.obj();
+
+            std::cout << "UPDATE PAYLOAD STEP !!!" << step << std::endl;
+
+
+            nosql_->Update("payloads", step_id, step);
+            /*****************************************/                       
+
+
+            payload = nosql_->Find("payloads", payload.getField("_id").wrap());
+            payload_steps = payload.getField("steps").Obj();
+
+
+            // Parse workflow to forward payload to the next worker
+            for (BSONObj::iterator i = w_workers.begin(); i.more();)
+            {
+                BSONElement w_worker = i.next();
+
+                if (w_worker.numberInt() == workflow_order && session.getField("counter").numberInt() > 0)
+                {
+                    QString w_name = QString::fromStdString(w_worker.fieldName());
+
+                    std::cout << "W NAME WORKER : " << w_name.toStdString() << std::endl;
+
+                    QString w_port;
+
+                    QList<BSONObj>::iterator o;
+                    for (o = worker_list.begin(); o != worker_list.end(); ++o)
+                    {
+                        BSONObj worker = *o;
+
+                        if (worker.getField("name").str() == w_worker.str())
+                        {                            
+                            std::cout << "WORKER ENGAGE !!!! : " << worker << std::endl;
+                            w_port = QString::fromStdString(worker.getField("port").str());
+                            break;
+                        }
+                    }
+
+
+                    std::cout << "worker name : " << w_name.toStdString() << std::endl;
+                    std::cout << "worker port : " << w_port.toStdString() << std::endl;
+
+
+                    /********** RECORD PAYLOAD STEP *********/
+                    BSONObjBuilder step_builder;
+                    step_builder.genOID();
+                    step_builder.append("name", w_name.toStdString());
+                    step_builder.append("action", "next");
+                    step_builder.append("order", workflow_order);
+                    step_builder.append("send_timestamp", timestamp.Number());
+
+                    BSONObj step = BSON("steps" << step_builder.obj());
+                    nosql_->Addtoarray("payloads", payload.getField("_id").wrap(), step);
+                    /*****************************************/
+
+                    /********* UPDATE SESSION **********/
+                    BSONObjBuilder session_builder;
+                    session_builder.append("step_id", step.getField("steps").Obj().getField("_id").OID());
+                    session_builder.append("last_worker", w_name.toStdString());
+                    BSONObj session_options = BSON("$inc" << BSON( "counter" << -1));
+
+                    qDebug() << "!!!!!!!!!!!!!!!!!  COUNTER -1 !!!!!!!!!!!!!!!!!!!";
+
+                    BSONObj l_session = session_builder.obj();
+                    nosql_->Update("sessions", session.getField("_id").wrap(), l_session, session_options);
+                    /***********************************/
+
+                    /**** SEND PAYLOAD ****/
+                    BSONObj payload = BSON("datas" << datas.str() << "session_uuid" << b_session_uuid.str());
+                    workers_push[w_name]->push_payload(payload);
+                    break;
+                }
+
+            }
+
         }
 
 
-        std::cout << "Zdispatch AFTER emit forward_payload" << std::endl;
-
-        //sleep (1);              //  Give 0MQ time to deliver
+        std::cout << "!!!!!!! PAYLOAD SEND !!!!" << std::endl;
     }    
 }
 
@@ -628,17 +801,21 @@ void Zdispatch::receive_payload()
 
 Zworker_push::Zworker_push(zmq::context_t *a_context, string a_worker, string a_port) : m_context(a_context), m_worker(a_worker), m_port(a_port)
 {
+
     std::cout << "Zworker_push::Zworker_push constructeur" << std::endl;
 
-      z_sender = new zmq::socket_t(*m_context, ZMQ_PUSH);
+    std::cout << "m context : " << *m_context << std::endl;
 
-      string addr = "tcp://*:" + m_port;
+    z_sender = new zmq::socket_t(*m_context, ZMQ_PUSH);
+    uint64_t hwm = 50000;
+    zmq_setsockopt (z_sender, ZMQ_HWM, &hwm, sizeof (hwm));
 
-      std::cout << "ADDR : " << addr << std::endl;
 
-      z_sender->bind(addr.data());
+    string addr = "tcp://*:" + m_port;
+    std::cout << "ADDR : " << addr << std::endl;
 
-      z_message = new zmq::message_t(2);
+    z_sender->bind(addr.data());
+    z_message = new zmq::message_t(2);
 }
 
 
@@ -652,13 +829,11 @@ void Zworker_push::push_payload(bson::bo payload)
 
     /***************** PUSH ********************/
     std::cout << "Zworker_push::push_payload Sending tasks to workers...\n" << std::endl;
-    //memcpy(message.data(), "0", 1);
-    //sender.send(message, ZMQ_NOBLOCK);
-
 
     z_message->rebuild(payload.objsize());
     memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
-    z_sender->send(*z_message, ZMQ_NOBLOCK);
+    //z_sender->send(*z_message, ZMQ_NOBLOCK);
+    z_sender->send(*z_message);
 }
 
 
@@ -681,11 +856,7 @@ Zeromq::Zeromq()
     m_http_mutex = new QMutex();
     m_xmpp_mutex = new QMutex();
 
-//    m_http_mutex->lock();
-//    m_xmpp_mutex->lock();
-
     m_context = new zmq::context_t(1);
-
 
     _singleton = this;
 }
@@ -713,41 +884,14 @@ Zeromq* Zeromq::getInstance() {
 
 void Zeromq::init()
 {
+    qDebug() << "Zeromq::init";
 
-    //zmq::socket_t *z_workers = new zmq::socket_t(*m_context, ZMQ_PUSH);
-    //z_workers->bind("tcp://*:5556");
+    zmq::socket_t *z_workers = new zmq::socket_t (*m_context, ZMQ_PUSH);
 
-    /**** PULL DATA ON HTTP API ****/
-    QThread *thread_http_receive = new QThread;
-    receive_http = new Zreceive(m_context, "5556", "http");
-    connect(thread_http_receive, SIGNAL(started()), receive_http, SLOT(init_payload()));
-    receive_http->moveToThread(thread_http_receive);
-    thread_http_receive->start();
-//    QMetaObject::invokeMethod(receive, "init_payload", Qt::QueuedConnection);
+    uint64_t hwm = 50000;
+    zmq_setsockopt (z_workers, ZMQ_HWM, &hwm, sizeof (hwm));
 
-
-
-    /**** PULL DATA ON XMPP API ****/
-    QThread *thread_xmpp_receive = new QThread;
-    receive_xmpp = new Zreceive(m_context, "5557", "xmpp");
-    connect(thread_xmpp_receive, SIGNAL(started()), receive_xmpp, SLOT(init_payload()));
-    receive_xmpp->moveToThread(thread_xmpp_receive);
-    thread_xmpp_receive->start();
-
-
-
-    /**** PULL DATA ON ZEROMQ API ****/
-    QThread *thread_zeromq_receive = new QThread;
-    receive_zeromq = new Zreceive(m_context, "5558", "zeromq");
-    connect(thread_zeromq_receive, SIGNAL(started()), receive_zeromq, SLOT(init_payload()));
-    receive_zeromq->moveToThread(thread_zeromq_receive);
-    thread_zeromq_receive->start();
-
-    std::cout << "Zeromq::Zeromq AFTER thread_receive" << std::endl;
-
-
-
-
+    z_workers->bind("inproc://payload");
 
 
     QThread *thread_dispatch = new QThread;
@@ -758,12 +902,13 @@ void Zeromq::init()
     thread_dispatch->start();
 
 
-
+/*
     QThread *thread_alert = new QThread;
-    alert = new Alert();
+    alert = new Alert(m_smtp_hostname, m_smtp_username, m_smtp_password);
     //connect(thread_alert, SIGNAL(started()), alert, SLOT(sendEmail(QString)));
     alert->moveToThread(thread_alert);
     thread_alert->start();
+*/
 
 
     QThread *thread_tracker = new QThread;
@@ -771,8 +916,37 @@ void Zeromq::init()
     connect(thread_tracker, SIGNAL(started()), ztracker, SLOT(init()));
     ztracker->moveToThread(thread_tracker);
     thread_tracker->start();
+//    connect(ztracker, SIGNAL(sendAlert(QString)), alert, SLOT(sendEmail(QString)));
 
 
-    connect(ztracker, SIGNAL(sendAlert(QString)), alert, SLOT(sendEmail(QString)));
+
+
+    /**** PULL DATA ON HTTP API ****/
+    QThread *thread_http_receive = new QThread;
+    receive_http = new Zreceive(m_context, z_workers, "http");
+    connect(thread_http_receive, SIGNAL(started()), receive_http, SLOT(init_payload()));
+    receive_http->moveToThread(thread_http_receive);
+    thread_http_receive->start();
+//    QMetaObject::invokeMethod(receive, "init_payload", Qt::QueuedConnection);
+
+
+
+    /**** PULL DATA ON XMPP API ****/
+    QThread *thread_xmpp_receive = new QThread;
+    receive_xmpp = new Zreceive(m_context, z_workers, "xmpp");
+    connect(thread_xmpp_receive, SIGNAL(started()), receive_xmpp, SLOT(init_payload()));
+    receive_xmpp->moveToThread(thread_xmpp_receive);
+    thread_xmpp_receive->start();
+
+
+
+    /**** PULL DATA FROM WORKERS ****/
+    QThread *thread_zeromq_receive = new QThread;
+    receive_zeromq = new Zreceive(m_context, z_workers, "workers");
+    connect(thread_zeromq_receive, SIGNAL(started()), receive_zeromq, SLOT(init_payload()));
+    receive_zeromq->moveToThread(thread_zeromq_receive);
+    thread_zeromq_receive->start();
+
+    std::cout << "Zeromq::Zeromq AFTER thread_receive" << std::endl;
 
 }

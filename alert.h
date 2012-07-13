@@ -32,10 +32,15 @@ class Alert : public QObject
 {
     Q_OBJECT
 public:
-    Alert();
+    Alert(QString a_host, QString a_username, QString a_password, QString a_sender, QString a_recipient);
     ~Alert();
 
 private:
+    QString m_host;
+    QString m_username;
+    QString m_password;
+    QString m_sender;
+    QString m_recipient;
     QMutex *m_mutex;
     QxtSmtp *m_smtp;
     QxtMailMessage *m_message;

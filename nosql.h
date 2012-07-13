@@ -50,18 +50,17 @@ public:
     static Nosql *getInstance_back();
     static void kill_front();
 
-    bo Find(string a_document, const bo a_datas);
-    list <bo> FindAll(string a_document, const bo datas);
+    BSONObj Find(string a_document, const BSONObj a_datas);        
+    BSONObj Find(string a_document, const BSONObj a_query, BSONObj *a_fields);
+    QList <BSONObj> FindAll(string a_document, const BSONObj datas);
     int Count(QString a_document);
-    QBool Insert(QString a_document, bo a_datas);
-    bo ExtractJSON(const be &gfs_id);
+    QBool Insert(QString a_document, BSONObj a_datas);
+    BSONObj ExtractJSON(const be &gfs_id);
     QBool ExtractBinary(const be &gfs_id, string path, QString &filename);
-    bo CreateHost(bo &payload, const bo &data, const be &user_id);
-    bo CreateOsystem(bo &payload, const bo &data);
-    bo CreateOsversion(bo &data);
-    QBool Update(QString a_document, const bo &element_id, const bo &a_datas);
-    QBool Addtoarray(QString a_document, const bo &element_id, const bo &a_datas);
-    bo WriteFile(const string filename, const char *data, int size);
+    QBool Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas);
+    QBool Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas, BSONObj a_options);
+    QBool Addtoarray(QString a_document, const BSONObj &element_id, const BSONObj &a_datas);
+    BSONObj WriteFile(const string filename, const char *data, int size);
 
 
 protected:
@@ -79,8 +78,8 @@ private:
     string m_errmsg;
     mongo::GridFS *m_gfs;
     mongo::GridFile *m_gf;
-    bo m_grid_file;
-    bo m_datas;
+    BSONObj m_grid_file;
+    BSONObj m_datas;
     QMutex *m_mutex;
 };
 

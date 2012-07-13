@@ -22,27 +22,41 @@
 #define MAIN_H
 
 #include <syslog.h>
-//#include <iostream>
 #include <QDebug>
 #include <QDomDocument>
 
 #include "nosql.h"
 #include "zeromq.h"
 #include "api.h"
+#include "alert.h"
 
+
+struct params {
+    QString mongodb_ip;
+    QString mongodb_base;
+    QString domain_name;
+    int xmpp_client_port;
+    int xmpp_server_port;
+    QString smtp_hostname;
+    QString smtp_username;
+    QString smtp_password;
+    QString smtp_sender;
+    QString smtp_recipient;
+};
 
 class Dispatcher : public QObject
 {
     Q_OBJECT
 public:
-    Dispatcher(QString mongodb_ip, QString mongodb_base, QString domain_name, int xmpp_client_port, int xmpp_server_port);
+    //Dispatcher(QString mongodb_ip, QString mongodb_base, QString domain_name, int xmpp_client_port, int xmpp_server_port);
+    Dispatcher(params ncs_params);
     ~Dispatcher();
 
     Nosql *nosql_front;
     Nosql *nosql_back;
     Zeromq *zeromq;
-    //Payload *payload;
     Api *api;
+    Alert *alert;
 };
 
 

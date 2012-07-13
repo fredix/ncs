@@ -30,12 +30,13 @@ LIBS += /usr/local/lib/libmongoclient.a \
         -lqxmpp
 
 INCLUDEPATH += /usr/include/
-INCLUDEPATH += /usr/include/qxt/
-INCLUDEPATH += /usr/include/qxt/QxtCore
-INCLUDEPATH += /usr/include/qxt/QxtWeb
-INCLUDEPATH += ./externals/mongodb-src-r2.0.4
-INCLUDEPATH += /usr/local/include/qxmpp
-#INCLUDEPATH += ./externals/qxmpp-0.3.0/src/
+INCLUDEPATH += ./externals/libqxt/
+INCLUDEPATH += ./externals/libqxt/core
+INCLUDEPATH += ./externals/libqxt/web
+INCLUDEPATH += ./externals/mongodb
+INCLUDEPATH += ./externals/qxmpp/src/base
+INCLUDEPATH += ./externals/qxmpp/src/client
+INCLUDEPATH += ./externals/qxmpp/src/server
 
 HEADERS += main.h \
     nosql.h \
