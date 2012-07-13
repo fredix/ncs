@@ -47,8 +47,7 @@ struct params {
 class Dispatcher : public QObject
 {
     Q_OBJECT
-public:
-    //Dispatcher(QString mongodb_ip, QString mongodb_base, QString domain_name, int xmpp_client_port, int xmpp_server_port);
+public:    
     Dispatcher(params ncs_params);
     ~Dispatcher();
 

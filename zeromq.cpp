@@ -54,12 +54,12 @@ Ztracker::Ztracker(zmq::context_t *a_context) : m_context(a_context)
 
     service_timer = new QTimer();
     connect(service_timer, SIGNAL(timeout()), this, SLOT(service_update_ticker ()), Qt::DirectConnection);
-    service_timer->start (5000);
+    service_timer->start (5000);    
 }
 
 int Ztracker::get_available_port()
 {
-    bo empty;
+    BSONObj empty;
     QList <BSONObj> workers_list = nosql_->FindAll("workers", empty);
 
     int port_counter = 5559;
@@ -114,17 +114,16 @@ void Ztracker::init()
 
                 worker = BSON(GENOID << "name" << l_payload.getFieldDotted("payload.name") << "port" << worker_port);
                 nosql_->Insert("workers", worker);
+
+                // create server
+                qDebug() << "BEFORE EMIT CREATE SERVER";
+                emit create_server(QString::fromStdString(worker_name.str()), QString::number(worker_port));
+                qDebug() << "AFTER EMIT CREATE SERVER";
             }
             else
             {
                 worker_port = worker.getField("port").numberInt();
             }
-
-            // create server
-            qDebug() << "BEFORE EMIT CREATE SERVER";
-            emit create_server(QString::fromStdString(worker_name.str()), QString::number(worker_port));
-            qDebug() << "AFTER EMIT CREATE SERVER";
-
 
 
             // Send reply back to client
@@ -579,6 +578,8 @@ void Zdispatch::receive_payload()
 
             std::cout << "Zdispatch::receive_payload : ACTION CREATE : " << action << std::endl;
 
+            bool worker_never_connected = true;
+
             for (BSONObj::iterator i = w_workers.begin(); i.more();)
             {
                 BSONElement w_worker = i.next();
@@ -592,6 +593,7 @@ void Zdispatch::receive_payload()
 
                     qDebug() << "worker_name : " << worker_name;
 
+
                     // find worker                        
                     foreach (BSONObj worker, worker_list)
                     {                        
@@ -603,12 +605,19 @@ void Zdispatch::receive_payload()
                         {
                             worker_port = QString::number(worker.getField("port").numberInt());
                             qDebug() << "worker_port : " << worker_port;
-
+                            worker_never_connected = false;
                             break;
                         }
                     }
                 }
             }
+
+            if (worker_never_connected)
+            {
+                qDebug() << "WORKER NERVER CONNECTED !!!";
+                return;
+            }
+
 
             /* EXTRACT PAYLOAD */
             QString path = "/tmp/";
@@ -897,18 +906,8 @@ void Zeromq::init()
     QThread *thread_dispatch = new QThread;
     dispatch = new Zdispatch(m_context);
     connect(thread_dispatch, SIGNAL(started()), dispatch, SLOT(receive_payload()));
-
     dispatch->moveToThread(thread_dispatch);
     thread_dispatch->start();
-
-
-/*
-    QThread *thread_alert = new QThread;
-    alert = new Alert(m_smtp_hostname, m_smtp_username, m_smtp_password);
-    //connect(thread_alert, SIGNAL(started()), alert, SLOT(sendEmail(QString)));
-    alert->moveToThread(thread_alert);
-    thread_alert->start();
-*/
 
 
     QThread *thread_tracker = new QThread;
@@ -916,8 +915,8 @@ void Zeromq::init()
     connect(thread_tracker, SIGNAL(started()), ztracker, SLOT(init()));
     ztracker->moveToThread(thread_tracker);
     thread_tracker->start();
-//    connect(ztracker, SIGNAL(sendAlert(QString)), alert, SLOT(sendEmail(QString)));
 
+    connect(ztracker, SIGNAL(create_server(QString,QString)), dispatch, SLOT(bind_server(QString,QString)), Qt::DirectConnection);
 
 
 
