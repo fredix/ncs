@@ -36,16 +36,30 @@ Ztracker::Ztracker(zmq::context_t *a_context) : m_context(a_context)
     m_socket = new zmq::socket_t (*m_context, ZMQ_REP);
 
     uint64_t hwm = 50000;
-    zmq_setsockopt (m_socket, ZMQ_HWM, &hwm, sizeof (hwm));
-
+    m_socket->setsockopt(ZMQ_HWM, &hwm, sizeof (hwm));
     m_socket->bind("tcp://*:5569");
     /**********************************************/
+
+
+
+    int socket_tracker_fd;
+    size_t socket_size;
+    m_socket->getsockopt(ZMQ_FD, &socket_tracker_fd, &socket_size);
+
+    qDebug() << "RES getsockopt : " << "res" <<  " FD : " << socket_tracker_fd << " errno : " << zmq_strerror (errno);
+
+    check_tracker = new QSocketNotifier(socket_tracker_fd, QSocketNotifier::Read, this);
+    connect(check_tracker, SIGNAL(activated(int)), this, SLOT(receive_payload()), Qt::DirectConnection);
+
+
+
 
     /**************** DATA SOCKET *****************/
     m_data_message = new zmq::message_t(2);
     m_data_socket = new zmq::socket_t(*m_context, ZMQ_PUSH);
-    zmq_setsockopt (m_data_socket, ZMQ_HWM, &hwm, sizeof (hwm));
-    m_data_socket->bind("inproc://workers");
+    m_data_socket->setsockopt(ZMQ_HWM, &hwm, sizeof (hwm));
+    //m_data_socket->bind("inproc://workers");
+    m_data_socket->bind("ipc:///tmp/nodecast/workers");
     /**********************************************/
 
     worker_timer = new QTimer();
@@ -54,7 +68,7 @@ Ztracker::Ztracker(zmq::context_t *a_context) : m_context(a_context)
 
     service_timer = new QTimer();
     connect(service_timer, SIGNAL(timeout()), this, SLOT(service_update_ticker ()), Qt::DirectConnection);
-    service_timer->start (5000);    
+    service_timer->start (5000);
 }
 
 int Ztracker::get_available_port()
@@ -77,182 +91,222 @@ int Ztracker::get_available_port()
 
 
 
-void Ztracker::init()
+void Ztracker::receive_payload()
 {   
-    qDebug() << "Ztracker::init !!!!!!!!!";
+    check_tracker->setEnabled(false);
 
-    while (true) {
-    zmq::message_t request;
-
-    // Wait for next request from client
-    m_socket->recv (&request);
-
-    BSONObj l_payload = bo((char*)request.data());
-
-    std::cout << "Ztracker Received payload : " << l_payload << std::endl;
+    qDebug() << "Ztracker::receive_payload !!!!!!!!!";
 
 
+    qint32 events = 0;
+    std::size_t eventsSize = sizeof(events);
 
-    if (l_payload.getFieldDotted("payload.type").str() == "worker")
+    m_socket->getsockopt(ZMQ_EVENTS, &events, &eventsSize);
+
+
+    std::cout << "ZMQ_EVENTS : " <<  events << std::endl;
+
+
+    if (events & ZMQ_POLLIN)
     {
-        if (l_payload.getFieldDotted("payload.action").str() == "register")
-        {
-            QUuid session_uuid = QUuid::createUuid();
-            QString str_session_uuid = session_uuid.toString().mid(1,36);
-
-            qDebug() << "REGISTER ID : " << str_session_uuid;
-            std::cout << "PAYLOAD : " << l_payload << std::endl;
+        std::cout << "Ztracker::receive_payload ZMQ_POLLIN" <<  std::endl;
 
 
-            be worker_name = l_payload.getFieldDotted("payload.name");
-            bo worker = nosql_->Find("workers", worker_name.wrap());
+        while (true) {
+            zmq::message_t request;
 
-            int worker_port;
-            if (worker.nFields() == 0)
-            {
-                worker_port = get_available_port();
+            // Wait for next request from client
+            bool res = m_socket->recv (&request, ZMQ_NOBLOCK);
+            if (!res && zmq_errno () == EAGAIN) break;
 
-                worker = BSON(GENOID << "name" << l_payload.getFieldDotted("payload.name") << "port" << worker_port);
-                nosql_->Insert("workers", worker);
 
-                // create server
-                qDebug() << "BEFORE EMIT CREATE SERVER";
-                emit create_server(QString::fromStdString(worker_name.str()), QString::number(worker_port));
-                qDebug() << "AFTER EMIT CREATE SERVER";
-            }
-            else
-            {
-                worker_port = worker.getField("port").numberInt();
+            std::cout << "Ztracker::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
+
+            char *plop = (char*) request.data();
+            if (strlen(plop) == 0) {
+                std::cout << "Zpull::worker_response STRLEN received request 0" << std::endl;
+                break;
             }
 
 
-            // Send reply back to client
-            BSONObj payload = BSON("uuid" << str_session_uuid.toStdString() << "port" << worker_port);
 
 
-            bob worker_builder;
-            worker_builder.genOID();
-            worker_builder.append(payload.getField("uuid"));
-            worker_builder.append(l_payload.getFieldDotted("payload.pid"));
-            worker_builder.append(l_payload.getFieldDotted("payload.timestamp"));
-            worker_builder.append("status", "up");
+            BSONObj l_payload;
+            try {
+                l_payload = bo((char*)request.data());
+                std::cout << "Ztracker Received payload : " << l_payload << std::endl;
+            }
+            catch (mongo::MsgAssertionException &e)
+            {
+                std::cout << "error on data : " << l_payload << std::endl;
+                std::cout << "error on data BSON : " << e.what() << std::endl;
+                break;
+            }
 
 
-            BSONObj node = BSON("nodes" << worker_builder.obj());
+            if (l_payload.getFieldDotted("payload.type").str() == "worker")
+            {
+                if (l_payload.getFieldDotted("payload.action").str() == "register")
+                {
+                    QUuid session_uuid = QUuid::createUuid();
+                    QString str_session_uuid = session_uuid.toString().mid(1,36);
 
-            be worker_id = worker.getField("_id");
-            nosql_->Addtoarray("workers", worker_id.wrap(), node);
+                    qDebug() << "REGISTER ID : " << str_session_uuid;
+                    std::cout << "PAYLOAD : " << l_payload << std::endl;
 
 
-            m_message->rebuild(payload.objsize());
-            memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
+                    be worker_name = l_payload.getFieldDotted("payload.name");
+                    bo worker = nosql_->Find("workers", worker_name.wrap());
+
+                    int worker_port;
+                    if (worker.nFields() == 0)
+                    {
+                        worker_port = get_available_port();
+
+                        worker = BSON(GENOID << "name" << l_payload.getFieldDotted("payload.name") << "port" << worker_port);
+                        nosql_->Insert("workers", worker);
+
+                        // create server
+                        qDebug() << "BEFORE EMIT CREATE SERVER";
+                        emit create_server(QString::fromStdString(worker_name.str()), QString::number(worker_port));
+                        qDebug() << "AFTER EMIT CREATE SERVER";
+                    }
+                    else
+                    {
+                        worker_port = worker.getField("port").numberInt();
+                    }
+
+
+                    // Send reply back to client
+                    BSONObj payload = BSON("uuid" << str_session_uuid.toStdString() << "port" << worker_port);
+
+
+                    bob worker_builder;
+                    worker_builder.genOID();
+                    worker_builder.append(payload.getField("uuid"));
+                    worker_builder.append(l_payload.getFieldDotted("payload.pid"));
+                    worker_builder.append(l_payload.getFieldDotted("payload.timestamp"));
+                    worker_builder.append("status", "up");
+
+
+                    BSONObj node = BSON("nodes" << worker_builder.obj());
+
+                    be worker_id = worker.getField("_id");
+                    nosql_->Addtoarray("workers", worker_id.wrap(), node);
+
+
+                    m_message->rebuild(payload.objsize());
+                    memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
+                }
+                else if (l_payload.getFieldDotted("payload.action").str() == "watchdog")
+                   {
+                       be timestamp = l_payload.getFieldDotted("payload.timestamp");
+                       be uuid = l_payload.getField("uuid");
+
+                       BSONObj bo_node_uuid = BSON("nodes.uuid" << uuid);
+                       BSONObj workers_node = BSON("nodes.$.timestamp" << timestamp);
+
+                       qDebug() << "UPDATE NODE's TIMESTAMP";
+                       nosql_->Update("workers", bo_node_uuid, workers_node);
+
+                       BSONObj payload = BSON("status" << "ACK");
+                       m_message->rebuild(payload.objsize());
+                       memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
+                   }
+                else if (l_payload.getFieldDotted("payload.action").str() == "terminate")
+                {
+                    qDebug() << "RECEIVE TERMINATE !!!!";
+                    BSONObj payload = l_payload.getField("payload").Obj();
+
+
+                    /****** PUSH API PAYLOAD *******/
+                    qDebug() << "FORWARD NEXT PAYLOAD";
+                    m_data_message->rebuild(payload.objsize());
+                    memcpy(m_data_message->data(), (char*)payload.objdata(), payload.objsize());
+                    m_data_socket->send(*m_data_message);
+                    /************************/
+                   }
+
+            }
+
+            else if (l_payload.getFieldDotted("payload.type").str() == "service")
+            {
+                if (l_payload.getFieldDotted("payload.action").str() == "register")
+                {
+                    QUuid session_uuid = QUuid::createUuid();
+                    QString str_session_uuid = session_uuid.toString().mid(1,36);
+
+                    qDebug() << "REGISTER ID : " << str_session_uuid;
+                    std::cout << "PAYLOAD : " << l_payload << std::endl;
+
+
+                    // Send reply back to client
+                    bo payload = BSON("uuid" << str_session_uuid.toStdString());
+
+                    // workers_builder.append("name", l_payload.getFieldDotted("payload.worker"));
+
+
+                    bob services_builder;
+                    services_builder.genOID();
+                    services_builder.append(payload.getField("uuid"));
+                    services_builder.append(l_payload.getFieldDotted("payload.pid"));
+                    services_builder.append(l_payload.getFieldDotted("payload.timestamp"));
+                    services_builder.append("status", "up");
+
+
+                    BSONObj node = BSON("nodes" << services_builder.obj());
+
+                    be service_name = l_payload.getFieldDotted("payload.name");
+                    BSONObj service = nosql_->Find("services", service_name.wrap());
+
+                    if (service.nFields() == 0)
+                    {
+                        service = BSON(GENOID << "name" << l_payload.getFieldDotted("payload.name"));
+                        nosql_->Insert("services", service);
+                    }
+
+                    be service_id = service.getField("_id");
+
+                    nosql_->Addtoarray("services", service_id.wrap(), node);
+
+
+
+                    m_message->rebuild(payload.objsize());
+                    memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
+                }
+                else if (l_payload.getFieldDotted("payload.action").str() == "watchdog")
+                   {
+                       be timestamp = l_payload.getFieldDotted("payload.timestamp");
+                      // be child_pid = l_payload.getFieldDotted("payload.child_pid");
+
+                       be uuid = l_payload.getField("uuid");
+
+                       bo bo_node_uuid = BSON("nodes.uuid" << uuid);
+                       //bo service_node = BSON("nodes.$.timestamp" << timestamp << "nodes.$.child_pid" << child_pid);
+                       bo service_node = BSON("nodes.$.timestamp" << timestamp);
+
+                       qDebug() << "UPDATE NODE's TIMESTAMP";
+                       nosql_->Update("services", bo_node_uuid, service_node);
+
+                       BSONObj payload = BSON("status" << "ACK");
+                       m_message->rebuild(payload.objsize());
+                       memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
+                   }
+            }
+            else if (l_payload.getFieldDotted("payload.type").str() == "init")
+            {
+                qDebug() << "RECEIVE INIT SOCKET";
+                BSONObj payload = BSON("status" << "pong");
+                m_message->rebuild(payload.objsize());
+                memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
+            }
+
+            m_socket->send(*m_message);
         }
-        else if (l_payload.getFieldDotted("payload.action").str() == "watchdog")
-           {
-               be timestamp = l_payload.getFieldDotted("payload.timestamp");
-               be uuid = l_payload.getField("uuid");
-
-               BSONObj bo_node_uuid = BSON("nodes.uuid" << uuid);
-               BSONObj workers_node = BSON("nodes.$.timestamp" << timestamp);
-
-               qDebug() << "UPDATE NODE's TIMESTAMP";
-               nosql_->Update("workers", bo_node_uuid, workers_node);
-
-               BSONObj payload = BSON("status" << "ACK");
-               m_message->rebuild(payload.objsize());
-               memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
-           }
-        else if (l_payload.getFieldDotted("payload.action").str() == "terminate")
-        {
-            qDebug() << "RECEIVE TERMINATE !!!!";
-            BSONObj payload = l_payload.getField("payload").Obj();
-
-
-            /****** PUSH API PAYLOAD *******/
-            qDebug() << "FORWARD NEXT PAYLOAD";
-            m_data_message->rebuild(payload.objsize());
-            memcpy(m_data_message->data(), (char*)payload.objdata(), payload.objsize());
-            m_data_socket->send(*m_data_message);
-            /************************/
-           }
-
     }
-
-    else if (l_payload.getFieldDotted("payload.type").str() == "service")
-    {
-        if (l_payload.getFieldDotted("payload.action").str() == "register")
-        {
-            QUuid session_uuid = QUuid::createUuid();
-            QString str_session_uuid = session_uuid.toString().mid(1,36);
-
-            qDebug() << "REGISTER ID : " << str_session_uuid;
-            std::cout << "PAYLOAD : " << l_payload << std::endl;
-
-
-            // Send reply back to client
-            bo payload = BSON("uuid" << str_session_uuid.toStdString());
-
-            // workers_builder.append("name", l_payload.getFieldDotted("payload.worker"));
-
-
-            bob services_builder;
-            services_builder.genOID();
-            services_builder.append(payload.getField("uuid"));
-            services_builder.append(l_payload.getFieldDotted("payload.pid"));
-            services_builder.append(l_payload.getFieldDotted("payload.timestamp"));
-            services_builder.append("status", "up");
-
-
-            BSONObj node = BSON("nodes" << services_builder.obj());
-
-            be service_name = l_payload.getFieldDotted("payload.name");
-            BSONObj service = nosql_->Find("services", service_name.wrap());
-
-            if (service.nFields() == 0)
-            {
-                service = BSON(GENOID << "name" << l_payload.getFieldDotted("payload.name"));
-                nosql_->Insert("services", service);
-            }
-
-            be service_id = service.getField("_id");
-
-            nosql_->Addtoarray("services", service_id.wrap(), node);
-
-
-
-            m_message->rebuild(payload.objsize());
-            memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
-        }
-        else if (l_payload.getFieldDotted("payload.action").str() == "watchdog")
-           {
-               be timestamp = l_payload.getFieldDotted("payload.timestamp");
-               be child_pid = l_payload.getFieldDotted("payload.child_pid");
-
-               be uuid = l_payload.getField("uuid");
-
-               bo bo_node_uuid = BSON("nodes.uuid" << uuid);
-               bo service_node = BSON("nodes.$.timestamp" << timestamp << "nodes.$.child_pid" << child_pid);
-
-               qDebug() << "UPDATE NODE's TIMESTAMP";
-               nosql_->Update("services", bo_node_uuid, service_node);
-
-               BSONObj payload = BSON("status" << "ACK");
-               m_message->rebuild(payload.objsize());
-               memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
-           }
-    }
-    else if (l_payload.getFieldDotted("payload.type").str() == "init")
-    {
-        qDebug() << "RECEIVE INIT SOCKET";
-        BSONObj payload = BSON("status" << "pong");
-        m_message->rebuild(payload.objsize());
-        memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
-    }
-
-
-    m_socket->send(*m_message);
-    }
+    check_tracker->setEnabled(true);
 }
+
 
 
 void Ztracker::worker_update_ticker()
@@ -417,7 +471,7 @@ void Zreceive::init_payload()
     z_sender = new zmq::socket_t(*m_context, ZMQ_PULL);
     qDebug() << " INPROC : " << m_inproc;
 
-    uint64_t hwm = 5000;
+    uint64_t hwm = 50000;
     zmq_setsockopt (z_sender, ZMQ_HWM, &hwm, sizeof (hwm));
 
     z_sender->connect("inproc://" + m_inproc.toAscii());
@@ -435,8 +489,226 @@ Zreceive::~Zreceive()
 
 
 
-Zdispatch::Zdispatch(zmq::context_t *a_context) : m_context(a_context)
+Zpull::Zpull(zmq::context_t *a_context) : m_context(a_context)
 {        
+    std::cout << "Zpull::Zpull constructeur" << std::endl;
+
+    m_socket_http = new zmq::socket_t (*m_context, ZMQ_PULL);
+    uint64_t hwm = 50000;
+    m_socket_http->setsockopt(ZMQ_HWM, &hwm, sizeof (hwm));
+    m_socket_http->connect("ipc:///tmp/nodecast/http");
+
+    m_socket_workers = new zmq::socket_t (*m_context, ZMQ_PULL);
+    m_socket_workers->setsockopt(ZMQ_HWM, &hwm, sizeof (hwm));
+    m_socket_workers->connect("ipc:///tmp/nodecast/workers");
+
+
+
+    int http_socket_fd;
+    size_t socket_size;
+    m_socket_http->getsockopt(ZMQ_FD, &http_socket_fd, &socket_size);
+
+    qDebug() << "RES getsockopt : " << "res" <<  " FD : " << http_socket_fd << " errno : " << zmq_strerror (errno);
+
+    check_http_data = new QSocketNotifier(http_socket_fd, QSocketNotifier::Read, this);
+    connect(check_http_data, SIGNAL(activated(int)), this, SLOT(receive_payload()));
+
+
+
+    int worker_socket_fd;
+    size_t worker_socket_size;
+    m_socket_workers->getsockopt(ZMQ_FD, &worker_socket_fd, &worker_socket_size);
+
+    qDebug() << "RES getsockopt : " << "res" <<  " FD : " << worker_socket_fd << " errno : " << zmq_strerror (errno);
+
+    check_worker_response = new QSocketNotifier(worker_socket_fd, QSocketNotifier::Read, this);
+    connect(check_worker_response, SIGNAL(activated(int)), this, SLOT(worker_response()));
+}
+
+
+Zpull::~Zpull()
+{}
+
+
+
+void Zpull::receive_payload()
+{
+    check_http_data->setEnabled(false);
+
+    std::cout << "Zpull::receive_payload" << std::endl;
+
+    qint32 events = 0;
+    std::size_t eventsSize = sizeof(events);
+
+    m_socket_http->getsockopt(ZMQ_EVENTS, &events, &eventsSize);
+
+
+    std::cout << "Zpull::receive_payload ZMQ_EVENTS : " <<  events << std::endl;
+
+
+    if (events & ZMQ_POLLIN)
+    {
+        std::cout << "Zpull::receive_payload ZMQ_POLLIN" <<  std::endl;
+
+
+        while (true)
+        {
+
+
+    //  Initialize poll set
+//    zmq::pollitem_t items = { *m_socket, 0, ZMQ_POLLIN, 0 };
+
+
+    //while (true) {
+        //  Wait for next request from client
+        zmq::message_t request;
+
+  //      zmq::poll (&items, 1, 5000);
+
+
+    //    if (items.revents & ZMQ_POLLIN)
+//        {
+            bool res = m_socket_http->recv(&request, ZMQ_NOBLOCK);
+            if (!res && zmq_errno () == EAGAIN) break;
+
+            std::cout << "Zpull::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
+
+            char *plop = (char*) request.data();
+            if (strlen(plop) == 0) {
+                std::cout << "Zpull::worker_response STRLEN received request 0" << std::endl;
+                break;
+            }
+
+
+        //m_socket->recv (&request, ZMQ_NOBLOCK);
+
+
+            BSONObj data;
+
+            try {
+                data = BSONObj((char*)request.data());
+
+
+                if (data.isValid() && !data.isEmpty())
+                {
+                    std::cout << "Zpull received : " << res << " data : " << data  << std::endl;
+
+                    std::cout << "!!!!!!! BEFORE FORWARD PAYLOAD !!!!" << std::endl;
+                    emit forward_payload(data);
+                    std::cout << "!!!!!!! AFTER FORWARD PAYLOAD !!!!" << std::endl;
+                }
+                else
+                {
+                    std::cout << "DATA NO VALID !" << std::endl;
+                }
+
+            }
+            catch (mongo::MsgAssertionException &e)
+            {
+                std::cout << "error on data : " << data << std::endl;
+                std::cout << "error on data BSON : " << e.what() << std::endl;                                    
+                break;
+            }
+        }
+
+    }
+    check_http_data->setEnabled(true);
+}
+
+
+
+
+
+void Zpull::worker_response()
+{
+    check_worker_response->setEnabled(false);
+
+    std::cout << "Zpull::worker_response" << std::endl;
+
+    qint32 events = 0;
+    std::size_t eventsSize = sizeof(events);
+
+    m_socket_workers->getsockopt(ZMQ_EVENTS, &events, &eventsSize);
+
+
+    std::cout << "Zpull::worker_response ZMQ_EVENTS : " <<  events << std::endl;
+
+
+    if (events & ZMQ_POLLIN)
+    {
+
+        std::cout << "Zpull::worker_response ZMQ_POLLIN" <<  std::endl;
+
+
+        while (true)
+        {
+
+
+    //  Initialize poll set
+//    zmq::pollitem_t items = { *m_socket, 0, ZMQ_POLLIN, 0 };
+
+
+    //while (true) {
+        //  Wait for next request from client
+        zmq::message_t request;
+
+  //      zmq::poll (&items, 1, 5000);
+
+
+    //    if (items.revents & ZMQ_POLLIN)
+//        {
+            int res = m_socket_workers->recv(&request, ZMQ_NOBLOCK);
+            if (res == -1 && zmq_errno () == EAGAIN) break;
+
+            std::cout << "Zpull::worker_response received request: [" << (char*) request.data() << "]" << std::endl;
+
+            char * plop = (char*) request.data();
+            if (strlen(plop) == 0) {
+                std::cout << "Zpull::worker_response STRLEN received request 0" << std::endl;
+                break;
+            }
+
+
+        //m_socket->recv (&request, ZMQ_NOBLOCK);
+
+        //std::cout << "Zdispatch received request: [" << (char*) request.data() << "]" << std::endl;
+
+
+            BSONObj data;
+            try {
+                data = BSONObj((char*)request.data());
+
+                if (data.isValid() && !data.isEmpty())
+                {
+                    std::cout << "Zpull received : " << res << " data : " << data  << std::endl;
+
+                    std::cout << "!!!!!!! BEFORE FORWARD PAYLOAD !!!!" << std::endl;
+                    emit forward_payload(data);
+                    std::cout << "!!!!!!! AFTER FORWARD PAYLOAD !!!!" << std::endl;
+                }
+                else
+                {
+                    std::cout << "DATA NO VALID !" << std::endl;
+                }
+
+            }
+            catch (mongo::MsgAssertionException &e)
+            {
+                std::cout << "error on data : " << data << std::endl;
+                std::cout << "error on data BSON : " << e.what() << std::endl;
+                break;
+            }
+
+        }
+    }
+    check_worker_response->setEnabled(true);
+}
+
+
+
+
+Zdispatch::Zdispatch(zmq::context_t *a_context) : m_context(a_context)
+{
     m_mutex = new QMutex();
 
     std::cout << "Zdispatch::Zdispatch constructeur" << std::endl;
@@ -477,46 +749,35 @@ Zdispatch::~Zdispatch()
 
 void Zdispatch::bind_server(QString name, QString port)
 {
-    qDebug() << "BIND SERVER SLOT !";
+    qDebug() << "BEFORE BIND SERVER SLOT !";
     workers_push[name] =  QSharedPointer<Zworker_push> (new Zworker_push(m_context, name.toStdString(), port.toStdString()));
+
+    qDebug() << "AFTER BIND SERVER SLOT !";
+
+    BSONObj empty;
+    worker_list.clear();
+    worker_list = nosql_->FindAll("workers", empty);
 }
 
 
 
 
-void Zdispatch::receive_payload()
+void Zdispatch::push_payload(BSONObj data)
 {
-    std::cout << "Zdispatch::receive_payload" << std::endl;
-    m_socket = new zmq::socket_t (*m_context, ZMQ_PULL);
-
-    uint64_t hwm = 50000;
-    zmq_setsockopt (m_socket, ZMQ_HWM, &hwm, sizeof (hwm));
-
-    m_socket->connect("inproc://payload");
-
-    std::cout << "Zdispatch::receive_payload AFTER inproc" << std::endl;
-
-
-    while (true) {
-        //  Wait for next request from client
-        zmq::message_t request;
-        m_socket->recv (&request);
-
-        std::cout << "Zdispatch::receive_payload WHILE TRUE" << std::endl;
-        //std::cout << "Zdispatch received request: [" << (char*) request.data() << "]" << std::endl;
-
-        BSONObj data = BSONObj((char*)request.data());
-
         std::cout << "Zdispatch received data : " << data << std::endl;
 
 
         //BSONElement session_uuid = data.getField("session_uuid");
         BSONObj session_uuid = BSON("uuid" << data.getField("session_uuid").str());
-
         BSONElement b_session_uuid = session_uuid.getField("uuid");
+
+        BSONElement b_action = data.getField("action");
+
 
         std::cout << "session_uuid : " << session_uuid << std::endl;
         std::cout << "b_session_uuid : " << b_session_uuid << std::endl;
+        std::cout << "b_action : " << b_action << std::endl;
+
 
         BSONObj session = nosql_->Find("sessions", session_uuid);
 
@@ -558,7 +819,13 @@ void Zdispatch::receive_payload()
 
 
         BSONElement timestamp = session.getField("start_timestamp");
-        string action = data.getField("action").valuestr();
+
+        //std::cout << "ACTION : " << data.getField("action") << std::endl;
+        std::cout << "start_timestamp : " << timestamp << std::endl;
+
+
+        //string action = data.getField("action").valuestr();
+        string action = b_action.valuestr();
 
         std::cout << "ACTION : " << action << std::endl;
 
@@ -582,6 +849,8 @@ void Zdispatch::receive_payload()
 
             for (BSONObj::iterator i = w_workers.begin(); i.more();)
             {
+                if (!worker_never_connected) break;
+
                 BSONElement w_worker = i.next();
 
                 std::cout << "W_WORKER : " << w_worker.Number() << std::endl;
@@ -591,12 +860,12 @@ void Zdispatch::receive_payload()
                 {
                     worker_name = QString::fromStdString(w_worker.fieldName());
 
-                    qDebug() << "worker_name : " << worker_name;
+                    qDebug() << "worker_name : " << worker_name << " WORKER LIST SIZE : " << worker_list.size();
 
 
-                    // find worker                        
+                    // find worker
                     foreach (BSONObj worker, worker_list)
-                    {                        
+                    {
 
                         std::cout << "worker name : " << worker.getField("name").str() << std::endl;
                         std::cout << "worker port : " << worker.getField("port").numberInt() << std::endl;
@@ -612,63 +881,75 @@ void Zdispatch::receive_payload()
                 }
             }
 
-            if (worker_never_connected)
+            if (!worker_never_connected)
             {
-                qDebug() << "WORKER NERVER CONNECTED !!!";
-                return;
+
+
+                /* EXTRACT PAYLOAD */
+                QString path = "/tmp/";
+
+
+                std::cout << "BINARY && COPY : " << gfs_id << std::endl;
+                QString filename;
+
+                if (nosql_->ExtractBinary(gfs_id, path.toStdString(), filename))
+                {
+                    qDebug() << "EXTRACT PAYLOAD, FILENAME : " << filename;
+
+                    /********** RECORD PAYLOAD STEP *********/
+                    BSONObjBuilder step_builder;
+                    step_builder.genOID();
+                    step_builder.append("name", worker_name.toStdString());
+                    step_builder.append("action", "create");
+                    step_builder.append("order", 1);
+                    step_builder.append("payload", path.append(filename).toStdString());
+                    step_builder.append("send_timestamp", timestamp.Number());
+
+                    BSONObj step = BSON("steps" << step_builder.obj());
+
+                    nosql_->Addtoarray("payloads", l_payload_id.wrap(), step);
+                    /*****************************************/
+
+                    /********* UPDATE SESSION **********/
+                    BSONObjBuilder session_builder;
+                    session_builder.append("step_id", step.getField("steps").Obj().getField("_id").OID());
+                    session_builder.append("counter", workers_number -1);
+                    session_builder.append("last_worker", worker_name.toStdString());
+                    BSONObj l_session = session_builder.obj();
+
+                    std::cout << "SESSION !!! " << l_session << std::endl;
+
+                    nosql_->Update("sessions", session_id, l_session);
+                    /***********************************/
+
+                    //be step_id;
+                    //step.getField("steps").Obj().getObjectID(step_id);
+
+                    /**** SEND PAYLOAD ****/
+                    //BSONObj payload = BSON("datas" << path.toStdString() << "workflow_uuid" << workflow_uuid.str() << "payload_uuid" << payload_uuid.str() << "step_id" << step.getField("steps").Obj().getField("_id"));
+
+                    /*if (worker_never_connected)
+                    {
+                        qDebug() << "WORKER NERVER CONNECTED : LOST PAYLOAD";
+                        return;
+                    }*/
+
+
+                    BSONObj payload = BSON("datas" << path.toStdString() << "session_uuid" << b_session_uuid.str());
+
+                    qDebug() << "push_payload : " << worker_name;
+                    workers_push[worker_name]->push_payload(payload);
+
+
+                }
             }
+            else qDebug() << "WORKER NERVER CONNECTED : LOST PAYLOAD";
 
-
-            /* EXTRACT PAYLOAD */
-            QString path = "/tmp/";
-
-
-            std::cout << "BINARY && COPY : " << gfs_id << std::endl;
-            QString filename;
-
-            if (nosql_->ExtractBinary(gfs_id, path.toStdString(), filename))
-            {
-                qDebug() << "EXTRACT PAYLOAD, FILENAME : " << filename;
-
-                /********** RECORD PAYLOAD STEP *********/
-                BSONObjBuilder step_builder;
-                step_builder.genOID();
-                step_builder.append("name", worker_name.toStdString());
-                step_builder.append("action", "create");
-                step_builder.append("order", 1);
-                step_builder.append("payload", path.append(filename).toStdString());
-                step_builder.append("send_timestamp", timestamp.Number());
-
-                BSONObj step = BSON("steps" << step_builder.obj());
-
-                nosql_->Addtoarray("payloads", l_payload_id.wrap(), step);
-                /*****************************************/
-
-                /********* UPDATE SESSION **********/
-                BSONObjBuilder session_builder;
-                session_builder.append("step_id", step.getField("steps").Obj().getField("_id").OID());
-                session_builder.append("counter", workers_number -1);
-                session_builder.append("last_worker", worker_name.toStdString());
-                BSONObj l_session = session_builder.obj();
-
-                std::cout << "SESSION !!! " << l_session << std::endl;
-
-                nosql_->Update("sessions", session_id, l_session);
-                /***********************************/
-
-                //be step_id;
-                //step.getField("steps").Obj().getObjectID(step_id);
-
-                /**** SEND PAYLOAD ****/
-                //BSONObj payload = BSON("datas" << path.toStdString() << "workflow_uuid" << workflow_uuid.str() << "payload_uuid" << payload_uuid.str() << "step_id" << step.getField("steps").Obj().getField("_id"));
-                BSONObj payload = BSON("datas" << path.toStdString() << "session_uuid" << b_session_uuid.str());
-                workers_push[worker_name]->push_payload(payload);
-            }
         }
         else if (action.compare("terminate") == 0)
-        {            
+        {
             std::cout << "Zdispatch::receive_payload : ACTION TERMINATE : " << action << std::endl;
-            // add step                                    
+            // add step
             //be payload_step_id = session.getField("step_id");
             //data.getObjectID (payload_step_id);
 
@@ -704,7 +985,7 @@ void Zdispatch::receive_payload()
             be worker_name = data.getField("name");
             be exitcode = data.getField("exitcode");
             be exitstatus = data.getField("exitstatus");
-            be datas = data.getField("datas");            
+            be datas = data.getField("datas");
 
 
             /********** RECORD PAYLOAD STEP *********/
@@ -726,81 +1007,93 @@ void Zdispatch::receive_payload()
 
 
             nosql_->Update("payloads", step_id, step);
-            /*****************************************/                       
+            /*****************************************/
 
 
             payload = nosql_->Find("payloads", payload.getField("_id").wrap());
             payload_steps = payload.getField("steps").Obj();
 
-
+            bool worker_never_connected = true;
+            QString w_name;
+            //QString w_port;
             // Parse workflow to forward payload to the next worker
             for (BSONObj::iterator i = w_workers.begin(); i.more();)
             {
+                if (!worker_never_connected) break;
+
                 BSONElement w_worker = i.next();
+
+                std::cout << "w_worker fieldname : " << w_worker.fieldName()  << " w_worker val : " << w_worker.numberInt() << " workflow order : " << workflow_order << std::endl;
+                std::cout << "session number : " << session.getField("counter").numberInt() << std::endl;
 
                 if (w_worker.numberInt() == workflow_order && session.getField("counter").numberInt() > 0)
                 {
-                    QString w_name = QString::fromStdString(w_worker.fieldName());
+                    w_name = QString::fromStdString(w_worker.fieldName());
 
                     std::cout << "W NAME WORKER : " << w_name.toStdString() << std::endl;
 
-                    QString w_port;
-
-                    QList<BSONObj>::iterator o;
-                    for (o = worker_list.begin(); o != worker_list.end(); ++o)
+                    //QList<BSONObj>::iterator o;
+                    foreach (BSONObj worker, worker_list)
                     {
-                        BSONObj worker = *o;
+                        std::cout << "WORKER : " << worker.getField("name").str() << std::endl;
 
-                        if (worker.getField("name").str() == w_worker.str())
-                        {                            
+                        if (worker.getField("name").str().compare(w_name.toStdString ()) == 0)
+                        {
                             std::cout << "WORKER ENGAGE !!!! : " << worker << std::endl;
-                            w_port = QString::fromStdString(worker.getField("port").str());
+                            //w_port = QString::fromStdString(worker.getField("port").str());
+                            worker_never_connected = false;
                             break;
                         }
                     }
-
-
-                    std::cout << "worker name : " << w_name.toStdString() << std::endl;
-                    std::cout << "worker port : " << w_port.toStdString() << std::endl;
-
-
-                    /********** RECORD PAYLOAD STEP *********/
-                    BSONObjBuilder step_builder;
-                    step_builder.genOID();
-                    step_builder.append("name", w_name.toStdString());
-                    step_builder.append("action", "next");
-                    step_builder.append("order", workflow_order);
-                    step_builder.append("send_timestamp", timestamp.Number());
-
-                    BSONObj step = BSON("steps" << step_builder.obj());
-                    nosql_->Addtoarray("payloads", payload.getField("_id").wrap(), step);
-                    /*****************************************/
-
-                    /********* UPDATE SESSION **********/
-                    BSONObjBuilder session_builder;
-                    session_builder.append("step_id", step.getField("steps").Obj().getField("_id").OID());
-                    session_builder.append("last_worker", w_name.toStdString());
-                    BSONObj session_options = BSON("$inc" << BSON( "counter" << -1));
-
-                    qDebug() << "!!!!!!!!!!!!!!!!!  COUNTER -1 !!!!!!!!!!!!!!!!!!!";
-
-                    BSONObj l_session = session_builder.obj();
-                    nosql_->Update("sessions", session.getField("_id").wrap(), l_session, session_options);
-                    /***********************************/
-
-                    /**** SEND PAYLOAD ****/
-                    BSONObj payload = BSON("datas" << datas.str() << "session_uuid" << b_session_uuid.str());
-                    workers_push[w_name]->push_payload(payload);
-                    break;
                 }
-
             }
+
+            if (!worker_never_connected)
+            {
+                std::cout << "worker name : " << w_name.toStdString() << std::endl;
+                //std::cout << "worker port : " << w_port.toStdString() << std::endl;
+
+
+                /********** RECORD PAYLOAD STEP *********/
+                BSONObjBuilder stepnext_builder;
+                stepnext_builder.genOID();
+                stepnext_builder.append("name", w_name.toStdString());
+                stepnext_builder.append("action", "next");
+                stepnext_builder.append("order", workflow_order);
+                stepnext_builder.append("send_timestamp", timestamp.Number());
+
+                BSONObj stepnext = BSON("steps" << stepnext_builder.obj());
+                nosql_->Addtoarray("payloads", payload.getField("_id").wrap(), stepnext);
+                /*****************************************/
+
+                qDebug() << "!!!!!!!!!!!!!!!!!  PAYLOAD UPDATE !!!!!!!!!!!!!!!!!!!";
+
+
+                /********* UPDATE SESSION **********/
+                BSONObjBuilder session_builder;
+                session_builder.append("step_id", stepnext.getField("steps").Obj().getField("_id").OID());
+                session_builder.append("last_worker", w_name.toStdString());
+                BSONObj session_options = BSON("$inc" << BSON( "counter" << -1));
+
+                qDebug() << "!!!!!!!!!!!!!!!!!  COUNTER -1 !!!!!!!!!!!!!!!!!!!";
+
+                BSONObj l_session = session_builder.obj();
+                nosql_->Update("sessions", session.getField("_id").wrap(), l_session, session_options);
+                /***********************************/
+
+
+
+                /**** SEND PAYLOAD ****/
+                BSONObj payload = BSON("datas" << datas.str() << "session_uuid" << b_session_uuid.str());
+                qDebug() << "push_payload : " << w_name;
+                workers_push[w_name]->push_payload(payload);
+            }
+            else qDebug() << "WORKER NERVER CONNECTED : LOST PAYLOAD";
 
         }
 
 
         std::cout << "!!!!!!! PAYLOAD SEND !!!!" << std::endl;
-    }    
 }
 
 
@@ -812,13 +1105,17 @@ Zworker_push::Zworker_push(zmq::context_t *a_context, string a_worker, string a_
 {
 
     std::cout << "Zworker_push::Zworker_push constructeur" << std::endl;
-
     std::cout << "m context : " << *m_context << std::endl;
 
-    z_sender = new zmq::socket_t(*m_context, ZMQ_PUSH);
-    uint64_t hwm = 50000;
-    zmq_setsockopt (z_sender, ZMQ_HWM, &hwm, sizeof (hwm));
+    m_mutex = new QMutex();
 
+    nosql_ = Nosql::getInstance_front();
+
+
+    z_sender = new zmq::socket_t(*m_context, ZMQ_PUSH);
+    //uint64_t hwm = 50000;
+    uint64_t hwm = 0;
+    z_sender->setsockopt(ZMQ_HWM, &hwm, sizeof (hwm));
 
     string addr = "tcp://*:" + m_port;
     std::cout << "ADDR : " << addr << std::endl;
@@ -832,17 +1129,33 @@ Zworker_push::~Zworker_push()
 {}
 
 
-void Zworker_push::push_payload(bson::bo payload)
+void Zworker_push::push_payload(bson::bo a_payload)
 {
-    std::cout << "Zworker_push::push_payload slot : " << payload << std::endl;
-
+    m_mutex->lock();
     /***************** PUSH ********************/
-    std::cout << "Zworker_push::push_payload Sending tasks to workers...\n" << std::endl;
+    std::cout << "Zworker_push::push_payload Sending tasks to workers..." << std::endl;
 
-    z_message->rebuild(payload.objsize());
-    memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
-    //z_sender->send(*z_message, ZMQ_NOBLOCK);
-    z_sender->send(*z_message);
+    z_message->rebuild(a_payload.objsize());
+    memcpy(z_message->data(), (char*)a_payload.objdata(), a_payload.objsize());
+    bool res = z_sender->send(*z_message, ZMQ_NOBLOCK);
+
+    qint32 events = 0;
+    std::size_t eventsSize = sizeof(events);
+    z_sender->getsockopt(ZMQ_EVENTS, &events, &eventsSize);
+
+    if (!res && zmq_errno () == EAGAIN)
+    {
+        std::cout << "!!!!!!!!!!!!!!!!!!!   PAYLOAD BACKUPED !!!!!!!!!!!!!!!!!!" << std::endl;
+        std::cout << "EVENTS : " << events << " ERROR" << zmq_strerror(zmq_errno()) << std::endl;
+
+        QDateTime timestamp = QDateTime::currentDateTime();
+
+        BSONObj payload = BSON("worker" << m_worker << "timestamp" << timestamp.toTime_t() << "data" << a_payload);
+        nosql_->Insert("lost_payloads", payload);
+    }
+
+    std::cout << "Zworker_push::push_payload after send" << std::endl;
+    m_mutex->unlock();
 }
 
 
@@ -867,7 +1180,9 @@ Zeromq::Zeromq()
 
     m_context = new zmq::context_t(1);
 
-    _singleton = this;
+    _singleton = this;       
+    pull_timer = new QTimer();
+
 }
 
 
@@ -903,48 +1218,57 @@ void Zeromq::init()
     z_workers->bind("inproc://payload");
 
 
+    qRegisterMetaType<BSONObj>("BSONObj");
+
+
     QThread *thread_dispatch = new QThread;
     dispatch = new Zdispatch(m_context);
-    connect(thread_dispatch, SIGNAL(started()), dispatch, SLOT(receive_payload()));
     dispatch->moveToThread(thread_dispatch);
     thread_dispatch->start();
 
 
     QThread *thread_tracker = new QThread;
     ztracker = new Ztracker(m_context);
-    connect(thread_tracker, SIGNAL(started()), ztracker, SLOT(init()));
     ztracker->moveToThread(thread_tracker);
     thread_tracker->start();
 
-    connect(ztracker, SIGNAL(create_server(QString,QString)), dispatch, SLOT(bind_server(QString,QString)), Qt::DirectConnection);
+    connect(ztracker, SIGNAL(create_server(QString,QString)), dispatch, SLOT(bind_server(QString,QString)), Qt::QueuedConnection);
 
 
 
-    /**** PULL DATA ON HTTP API ****/
+    QThread *thread_pull = new QThread;
+    pull = new Zpull(m_context);
+    pull->moveToThread(thread_pull);
+    thread_pull->start();
+    connect(pull, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
+
+
+
+    /**** PULL DATA ON HTTP API ****
     QThread *thread_http_receive = new QThread;
     receive_http = new Zreceive(m_context, z_workers, "http");
     connect(thread_http_receive, SIGNAL(started()), receive_http, SLOT(init_payload()));
     receive_http->moveToThread(thread_http_receive);
-    thread_http_receive->start();
+    thread_http_receive->start();*/
 //    QMetaObject::invokeMethod(receive, "init_payload", Qt::QueuedConnection);
 
 
 
-    /**** PULL DATA ON XMPP API ****/
+    /**** PULL DATA ON XMPP API ****
     QThread *thread_xmpp_receive = new QThread;
     receive_xmpp = new Zreceive(m_context, z_workers, "xmpp");
     connect(thread_xmpp_receive, SIGNAL(started()), receive_xmpp, SLOT(init_payload()));
     receive_xmpp->moveToThread(thread_xmpp_receive);
-    thread_xmpp_receive->start();
+    thread_xmpp_receive->start();*/
 
 
 
-    /**** PULL DATA FROM WORKERS ****/
+    /**** PULL DATA FROM WORKERS ****
     QThread *thread_zeromq_receive = new QThread;
     receive_zeromq = new Zreceive(m_context, z_workers, "workers");
     connect(thread_zeromq_receive, SIGNAL(started()), receive_zeromq, SLOT(init_payload()));
     receive_zeromq->moveToThread(thread_zeromq_receive);
-    thread_zeromq_receive->start();
+    thread_zeromq_receive->start();*/
 
     std::cout << "Zeromq::Zeromq AFTER thread_receive" << std::endl;
 

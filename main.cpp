@@ -22,8 +22,6 @@
 #include "main.h"
 
 
-
-//Dispatcher::Dispatcher(QString mongodb_ip, QString mongodb_base, QString domain_name, int xmpp_client_port, int xmpp_server_port)
 Dispatcher::Dispatcher(params ncs_params)
 {
     qDebug() << "Dispatcher construct";
@@ -39,14 +37,11 @@ Dispatcher::Dispatcher(params ncs_params)
 
     zeromq->init();
 
-
     QThread *thread_alert = new QThread;
-    alert = new Alert(ncs_params.smtp_hostname, ncs_params.smtp_username, ncs_params.smtp_password, ncs_params.smtp_sender, ncs_params.smtp_recipient);
-    //connect(thread_alert, SIGNAL(started()), alert, SLOT(sendEmail(QString)));
+    alert = new Alert(ncs_params.alert_email);
     alert->moveToThread(thread_alert);
     thread_alert->start();
-
-    connect(zeromq->ztracker, SIGNAL(sendAlert(QString)), alert, SLOT(sendEmail(QString)), Qt::DirectConnection);
+    connect(zeromq->ztracker, SIGNAL(sendAlert(QString)), alert, SLOT(sendEmail(QString)), Qt::QueuedConnection);
 }
 
 Dispatcher::~Dispatcher()
@@ -162,7 +157,7 @@ int main(int argc, char *argv[])
 
 
     if(options.count("smtp-hostname")) {
-        ncs_params.smtp_hostname = options.value("smtp-hostname").toString();
+        ncs_params.alert_email.smtp_hostname = options.value("smtp-hostname").toString();
     }
     else {
         std::cout << "ncs: --smtp-hostname requires a parameter" << std::endl;
@@ -172,7 +167,7 @@ int main(int argc, char *argv[])
 
 
     if(options.count("smtp-username")) {
-        ncs_params.smtp_username = options.value("smtp-username").toString();
+        ncs_params.alert_email.smtp_username = options.value("smtp-username").toString();
     }
     else {
         std::cout << "ncs: --smtp-username requires a parameter" << std::endl;
@@ -182,7 +177,7 @@ int main(int argc, char *argv[])
 
 
     if(options.count("smtp-password")) {
-        ncs_params.smtp_password = options.value("smtp-password").toString();
+        ncs_params.alert_email.smtp_password = options.value("smtp-password").toString();
     }
     else {
         std::cout << "ncs: --smtp-password requires a parameter" << std::endl;
@@ -193,7 +188,7 @@ int main(int argc, char *argv[])
 
 
     if(options.count("smtp-sender")) {
-        ncs_params.smtp_sender = options.value("smtp-sender").toString();
+        ncs_params.alert_email.smtp_sender = options.value("smtp-sender").toString();
     }
     else {
         std::cout << "ncs: --smtp-sender requires a parameter" << std::endl;
@@ -203,7 +198,7 @@ int main(int argc, char *argv[])
 
 
     if(options.count("smtp-recipient")) {
-        ncs_params.smtp_recipient = options.value("smtp-recipient").toString();
+        ncs_params.alert_email.smtp_recipient = options.value("smtp-recipient").toString();
     }
     else {
         std::cout << "ncs: --smtp-recipient requires a parameter" << std::endl;
@@ -211,11 +206,10 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    if (!QDir("/tmp/nodecast").exists()) QDir().mkdir("/tmp/nodecast");
+
     Dispatcher dispatcher(ncs_params);
 
-
-
-//    qRegisterMetaType<bson::bo>("bson::bo");
 
     qDebug() << "end";
 

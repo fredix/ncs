@@ -28,6 +28,7 @@
 #include <QMutex>
 #include <QTimer>
 #include <QUuid>
+#include <QSocketNotifier>
 #include <QxtCore/QxtCommandOptions>
 
 #include <zmq.hpp>
@@ -44,14 +45,17 @@ class Zworker_push : public QObject
 public:
     Zworker_push(zmq::context_t *a_context, string a_worker, string a_port);
     ~Zworker_push();
-    void push_payload(bson::bo payload);
+    void push_payload(bson::bo a_payload);
 
 private:
+    Nosql *nosql_;
     string m_worker;
     string m_port;
     zmq::context_t *m_context;
     zmq::socket_t *z_sender;
     zmq::message_t *z_message;
+    QList <BSONObj> m_payload_list;
+    QMutex *m_mutex;
 
     QString m_host;
 
@@ -70,6 +74,7 @@ public:
     QTimer *service_timer;
 
 private:        
+    QSocketNotifier *check_tracker;
     zmq::context_t *m_context;
     QHash<QString, Zworker_push*> workers_push;
     int get_available_port();
@@ -89,8 +94,9 @@ signals:
     void sendAlert(QString worker);   
     void create_server(QString name, QString port);
 
-public slots:
-    void init();
+
+private slots:
+    void receive_payload();
     void worker_update_ticker();
     void service_update_ticker();
 };
@@ -100,6 +106,32 @@ public slots:
 
 
 typedef QSharedPointer<Zworker_push> Zworker_pushPtr;
+
+class Zpull : public QThread
+{
+    Q_OBJECT
+public:
+    Zpull(zmq::context_t *a_context);
+    ~Zpull();
+
+private:                
+    QSocketNotifier *check_http_data;
+    QSocketNotifier *check_worker_response;
+    zmq::context_t *m_context;
+    zmq::socket_t *m_socket_http;
+    zmq::socket_t *m_socket_workers;
+    QMutex *m_mutex;
+
+signals:
+    void forward_payload(BSONObj data);
+
+private slots:
+    void receive_payload();
+    void worker_response();
+};
+
+
+
 
 class Zdispatch : public QObject
 {
@@ -115,16 +147,15 @@ private:
     Nosql *nosql_;
     //QHash<QString, Zworker_push*> workers_push;
     QHash<QString, Zworker_pushPtr> workers_push;
-    QList <QString> worker_name;    
+    QList <QString> worker_name;
     QList <BSONObj> workflow_list;
     QList <BSONObj> worker_list;
     QMutex *m_mutex;
 
 public slots:
-    void receive_payload();
     void bind_server(QString name, QString port);
+    void push_payload(BSONObj data);
 };
-
 
 
 class Zreceive : public QObject
@@ -140,10 +171,6 @@ private:
     QString m_inproc;
     zmq::socket_t *z_workers;
     zmq::socket_t *z_sender;
-
-
-signals:
-    void send_payload();
 
 public slots:
     void init_payload();
@@ -164,6 +191,7 @@ public:
 
     zmq::context_t *m_context;
 
+    Zpull *pull;
     Zdispatch *dispatch;
     Ztracker *ztracker;
 
@@ -173,13 +201,11 @@ public:
     Zworker_push *worker_push;
 
 private:
+    QTimer *pull_timer;
     static Zeromq *_singleton;
     QMutex *m_http_mutex;
     QMutex *m_xmpp_mutex;
     Nosql *nosql_;
-    QString m_smtp_hostname;
-    QString m_smtp_username;
-    QString m_smtp_password;
 
 
 signals:

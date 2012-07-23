@@ -31,10 +31,11 @@ Http_api::Http_api(QxtAbstractWebSessionManager * sm, QObject * parent): QxtWebS
     //m_context = new zmq::context_t(1);
     z_push_api = new zmq::socket_t(*zeromq_->m_context, ZMQ_PUSH);
 
-    uint64_t hwm = 5000;
+    uint64_t hwm = 50000;
     zmq_setsockopt (z_push_api, ZMQ_HWM, &hwm, sizeof (hwm));
 
-    z_push_api->bind("inproc://http");
+    //z_push_api->bind("inproc://http");
+    z_push_api->bind("ipc:///tmp/nodecast/http");
 }
 
 
@@ -490,7 +491,7 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
         BSONObj l_payload = BSON("action" << "create" << "session_uuid" << str_session_uuid.toStdString());
 
         /****** PUSH API PAYLOAD *******/
-        qDebug() << "PUSH API PAYLOAD";
+        qDebug() << "PUSH HTTP API PAYLOAD";
         z_message->rebuild(l_payload.objsize());
         memcpy(z_message->data(), (char*)l_payload.objdata(), l_payload.objsize());
         //z_push_api->send(*z_message, ZMQ_NOBLOCK);

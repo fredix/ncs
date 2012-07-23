@@ -23,7 +23,7 @@
 
 #include <syslog.h>
 #include <QDebug>
-#include <QDomDocument>
+#include <QDir>
 
 #include "nosql.h"
 #include "zeromq.h"
@@ -37,11 +37,8 @@ struct params {
     QString domain_name;
     int xmpp_client_port;
     int xmpp_server_port;
-    QString smtp_hostname;
-    QString smtp_username;
-    QString smtp_password;
-    QString smtp_sender;
-    QString smtp_recipient;
+
+    email alert_email;
 };
 
 class Dispatcher : public QObject

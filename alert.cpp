@@ -22,7 +22,7 @@
 #include "alert.h"
 #include <iostream>
 
-Alert::Alert(QString a_host, QString a_username, QString a_password, QString a_sender, QString a_recipient) : m_host(a_host), m_username(a_username), m_password(a_password), m_sender(a_sender), m_recipient(a_recipient)
+Alert::Alert(email a_alert_email) : m_host(a_alert_email.smtp_hostname), m_username(a_alert_email.smtp_username), m_password(a_alert_email.smtp_password), m_sender(a_alert_email.smtp_sender), m_recipient(a_alert_email.smtp_recipient)
 {
     qDebug() << "ALERT:ALERT CONSTRUCT";
     m_mutex = new QMutex();

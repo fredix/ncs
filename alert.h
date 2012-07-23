@@ -28,11 +28,19 @@
 #include <QxtJSON>
 #include <QxtNetwork>
 
+struct email {
+    QString smtp_hostname;
+    QString smtp_username;
+    QString smtp_password;
+    QString smtp_sender;
+    QString smtp_recipient;
+};
+
 class Alert : public QObject
 {
     Q_OBJECT
 public:
-    Alert(QString a_host, QString a_username, QString a_password, QString a_sender, QString a_recipient);
+    Alert(email a_alert_email);
     ~Alert();
 
 private:
