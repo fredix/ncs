@@ -52,13 +52,10 @@ Ztracker::Ztracker(zmq::context_t *a_context) : m_context(a_context)
     connect(check_tracker, SIGNAL(activated(int)), this, SLOT(receive_payload()), Qt::DirectConnection);
 
 
-
-
     /**************** DATA SOCKET *****************/
     m_data_message = new zmq::message_t(2);
     m_data_socket = new zmq::socket_t(*m_context, ZMQ_PUSH);
     m_data_socket->setsockopt(ZMQ_HWM, &hwm, sizeof (hwm));
-    //m_data_socket->bind("inproc://workers");
     m_data_socket->bind("ipc:///tmp/nodecast/workers");
     /**********************************************/
 
@@ -115,7 +112,6 @@ void Ztracker::receive_payload()
         while (true) {
             zmq::message_t request;
 
-            // Wait for next request from client
             bool res = m_socket->recv (&request, ZMQ_NOBLOCK);
             if (!res && zmq_errno () == EAGAIN) break;
 
@@ -143,10 +139,14 @@ void Ztracker::receive_payload()
                 break;
             }
 
+            QString payload_type = QString::fromStdString(l_payload.getFieldDotted("payload.type").str());
+            QString payload_action = QString::fromStdString(l_payload.getFieldDotted("payload.action").str());
 
-            if (l_payload.getFieldDotted("payload.type").str() == "worker")
+
+
+            if (payload_type == "worker")
             {
-                if (l_payload.getFieldDotted("payload.action").str() == "register")
+                if (payload_action == "register")
                 {
                     QUuid session_uuid = QUuid::createUuid();
                     QString str_session_uuid = session_uuid.toString().mid(1,36);
@@ -198,7 +198,7 @@ void Ztracker::receive_payload()
                     m_message->rebuild(payload.objsize());
                     memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
                 }
-                else if (l_payload.getFieldDotted("payload.action").str() == "watchdog")
+                else if (payload_action == "watchdog")
                    {
                        be timestamp = l_payload.getFieldDotted("payload.timestamp");
                        be uuid = l_payload.getField("uuid");
@@ -213,11 +213,26 @@ void Ztracker::receive_payload()
                        m_message->rebuild(payload.objsize());
                        memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
                    }
-                else if (l_payload.getFieldDotted("payload.action").str() == "terminate")
+                else
                 {
-                    qDebug() << "RECEIVE TERMINATE !!!!";
-                    BSONObj payload = l_payload.getField("payload").Obj();
+                    qDebug() << "RECEIVE ACTION : " << payload_action;
 
+                    BSONObjBuilder b_payload;
+                    b_payload.append(l_payload.getFieldDotted("payload.name"));
+                    b_payload.append(l_payload.getFieldDotted("payload.action"));
+                    b_payload.append(l_payload.getFieldDotted("payload.timestamp"));
+                    b_payload.append(l_payload.getFieldDotted("payload.session_uuid"));
+
+                    /*** ACTION TERMINATE ***/
+                    BSONObj tmp = l_payload.getField("payload").Obj();
+
+                    if (tmp.hasField("datas")) b_payload.append(l_payload.getFieldDotted("payload.datas"));
+                    if (tmp.hasField("exitcode")) b_payload.append(l_payload.getFieldDotted("payload.exitcode"));
+                    if (tmp.hasField("exitstatus")) b_payload.append(l_payload.getFieldDotted("payload.exitstatus"));
+
+                    BSONObj payload = b_payload.obj();
+
+                    std::cout << "PAYLOAD FORWARD : " << payload << std::endl;
 
                     /****** PUSH API PAYLOAD *******/
                     qDebug() << "FORWARD NEXT PAYLOAD";
@@ -225,13 +240,17 @@ void Ztracker::receive_payload()
                     memcpy(m_data_message->data(), (char*)payload.objdata(), payload.objsize());
                     m_data_socket->send(*m_data_message);
                     /************************/
+
+                    payload = BSON("status" << "ACK");
+                    m_message->rebuild(payload.objsize());
+                    memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
                    }
 
             }
 
-            else if (l_payload.getFieldDotted("payload.type").str() == "service")
+            else if (payload_type == "service")
             {
-                if (l_payload.getFieldDotted("payload.action").str() == "register")
+                if (payload_action == "register")
                 {
                     QUuid session_uuid = QUuid::createUuid();
                     QString str_session_uuid = session_uuid.toString().mid(1,36);
@@ -274,7 +293,7 @@ void Ztracker::receive_payload()
                     m_message->rebuild(payload.objsize());
                     memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
                 }
-                else if (l_payload.getFieldDotted("payload.action").str() == "watchdog")
+                else if (payload_action == "watchdog")
                    {
                        be timestamp = l_payload.getFieldDotted("payload.timestamp");
                       // be child_pid = l_payload.getFieldDotted("payload.child_pid");
@@ -293,7 +312,7 @@ void Ztracker::receive_payload()
                        memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
                    }
             }
-            else if (l_payload.getFieldDotted("payload.type").str() == "init")
+            else if (payload_type == "init")
             {
                 qDebug() << "RECEIVE INIT SOCKET";
                 BSONObj payload = BSON("status" << "pong");
@@ -594,7 +613,7 @@ void Zpull::receive_payload()
                     std::cout << "Zpull received : " << res << " data : " << data  << std::endl;
 
                     std::cout << "!!!!!!! BEFORE FORWARD PAYLOAD !!!!" << std::endl;
-                    emit forward_payload(data);
+                    emit forward_payload(data.copy());
                     std::cout << "!!!!!!! AFTER FORWARD PAYLOAD !!!!" << std::endl;
                 }
                 else
@@ -683,7 +702,7 @@ void Zpull::worker_response()
                     std::cout << "Zpull received : " << res << " data : " << data  << std::endl;
 
                     std::cout << "!!!!!!! BEFORE FORWARD PAYLOAD !!!!" << std::endl;
-                    emit forward_payload(data);
+                    emit forward_payload(data.copy());
                     std::cout << "!!!!!!! AFTER FORWARD PAYLOAD !!!!" << std::endl;
                 }
                 else
@@ -818,10 +837,10 @@ void Zdispatch::push_payload(BSONObj data)
 
 
 
-        BSONElement timestamp = session.getField("start_timestamp");
+        BSONElement timestamp = data.getField("timestamp");
 
         //std::cout << "ACTION : " << data.getField("action") << std::endl;
-        std::cout << "start_timestamp : " << timestamp << std::endl;
+        std::cout << "timestamp : " << timestamp << std::endl;
 
 
         //string action = data.getField("action").valuestr();
@@ -946,6 +965,34 @@ void Zdispatch::push_payload(BSONObj data)
             else qDebug() << "WORKER NERVER CONNECTED : LOST PAYLOAD";
 
         }
+        else if (action.compare("receive") == 0)
+        {
+            std::cout << "Zdispatch::receive_payload : ACTION receive : " << action << std::endl;
+            // add step
+            //be payload_step_id = session.getField("step_id");
+            //data.getObjectID (payload_step_id);
+
+            //BSONObj payload_id = BSON("_id" << session.getField("payload_id").OID());
+
+
+            /********** RECORD PAYLOAD STEP *********/
+            BSONObjBuilder step_builder;
+            BSONObj step_id = BSON("steps._id" << session.getField("step_id").OID());
+
+            std::cout << "STEP ID " << step_id << std::endl;
+            step_builder << "steps.$.action" << "receive";
+            step_builder << "steps.$.receive_timestamp" << timestamp.Number();
+
+            BSONObj step = step_builder.obj();
+
+            std::cout << "PAYLOAD RECEIVE !!!" << step << std::endl;
+
+
+            nosql_->Update("payloads", step_id, step);
+            /*****************************************/
+        }
+
+
         else if (action.compare("terminate") == 0)
         {
             std::cout << "Zdispatch::receive_payload : ACTION TERMINATE : " << action << std::endl;
@@ -956,15 +1003,15 @@ void Zdispatch::push_payload(BSONObj data)
             //BSONObj payload_id = BSON("_id" << session.getField("payload_id").OID());
 
 
-            BSONObj search = BSON("steps._id" << session.getField("step_id").OID());
+            BSONObj step_id = BSON("steps._id" << session.getField("step_id").OID());
 
-            std::cout << "search : " << search << std::endl;
+            std::cout << "step_id : " << step_id << std::endl;
 
             BSONObj field = BSON("_id" << 0 << "steps.order" << 1);
 
             //BSONObj old_step = nosql_->Find("payloads", search);
 
-            BSONObj step_order = nosql_->Find("payloads", search, &field);
+            BSONObj step_order = nosql_->Find("payloads", step_id, &field);
 
 
             std::cout << "step_order: " << step_order << std::endl;
@@ -978,7 +1025,7 @@ void Zdispatch::push_payload(BSONObj data)
             std::cout << "ORDER YO : " << workflow_order << std::endl;
 
 
-            std::cout << "search : " << search << "STEP ORDER : " << step_order << std::endl;
+            std::cout << "STEP ORDER : " << step_order << std::endl;
             std::cout << "STEP ORDER : " << order.Number() << std::endl;
 
 
@@ -990,7 +1037,6 @@ void Zdispatch::push_payload(BSONObj data)
 
             /********** RECORD PAYLOAD STEP *********/
             BSONObjBuilder step_builder;
-            BSONObj step_id = BSON("steps._id" << session.getField("step_id").OID());
 
             std::cout << "STEP ID " << step_id << std::endl;
 

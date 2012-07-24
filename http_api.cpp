@@ -488,7 +488,7 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
         /***********************************/
         std::cout << "session inserted : " << session << std::endl;
 
-        BSONObj l_payload = BSON("action" << "create" << "session_uuid" << str_session_uuid.toStdString());
+        BSONObj l_payload = BSON("action" << "create" << "session_uuid" << str_session_uuid.toStdString() << "timestamp" << timestamp.toTime_t());
 
         /****** PUSH API PAYLOAD *******/
         qDebug() << "PUSH HTTP API PAYLOAD";
