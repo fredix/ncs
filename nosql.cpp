@@ -75,7 +75,7 @@ Nosql::Nosql(QString instance_type, QString a_server, QString a_database) : m_se
     //mongo::ScopedDbConnection con (this->m_server.toAscii().data());
 
     m_mutex = new QMutex();
-
+    m_rf_mutex = new QMutex();
 
     try {
         if (!this->m_mongo_connection.connect(this->m_server.toStdString(), m_errmsg))
@@ -127,6 +127,34 @@ int Nosql::Count(QString a_document)
 }
 
 
+
+void Nosql::Flush(string a_document, BSONObj query)
+{
+    m_mutex->lock();
+    std::cout << "Nosql::Flush, query : " << query.toString() << std::endl;
+
+    QString tmp;
+    tmp.append(this->m_database).append(".").append(a_document.data());
+    qDebug() << "m_database.a_document" << tmp;
+
+    try {
+        qDebug() << "before REMOVE";
+        //qDebug() << "before cursor created";
+        //auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toStdString(), mongo::Query(a_query));
+        //qDebug() << "after cursor created";
+
+        m_mongo_connection.remove(tmp.toStdString(), mongo::Query(query));
+        qDebug() << "AFTER REMOVE";
+
+
+        m_mutex->unlock();
+    }
+    catch(mongo::DBException &e ) {
+        std::cout << "caught on remove into " << m_server.toAscii().data() << "." << a_document.data() << " : " << e.what() << std::endl;
+        m_mutex->unlock();
+    }
+
+}
 
 BSONObj Nosql::Find(string a_document, const bo a_query)
 {
@@ -252,9 +280,9 @@ bo Nosql::ExtractJSON(const be &gfs_id)
     //Query req = Query("{" + uuid.jsonString(TenGen) + "}");
 
     //m_mutex->lock();
-    if (ReadFile(gfs_id))
+    if (ReadFile(gfs_id, &m_gf))
     {
-        if (!this->m_gf->exists()) {
+        if (!m_gf->exists()) {
             std::cout << "file not found" << std::endl;
         }
         else {
@@ -310,7 +338,7 @@ QBool Nosql::ExtractBinary(const be &gfs_id, string path, QString &filename)
     cout << "gfs_id : " << gfsid.firstElement() << endl;
 
 
-    if (ReadFile(gfsid.firstElement()))
+    if (ReadFile(gfsid.firstElement(), &m_gf) )
     {
         if (!m_gf->exists()) {
             std::cout << "file not found" << std::endl;
@@ -321,8 +349,8 @@ QBool Nosql::ExtractBinary(const be &gfs_id, string path, QString &filename)
             string l_path = path + m_gf->getFilename();
             QFile binary_tmp(l_path.data());
             m_gf->write(binary_tmp.fileName().toStdString().c_str());
-            delete(this->m_gf);
-            qDebug() << "Find file : delete";
+            delete(m_gf);
+            //qDebug() << "Find file : delete";
         }            
         m_mutex->unlock();
         return QBool(true);
@@ -331,38 +359,37 @@ QBool Nosql::ExtractBinary(const be &gfs_id, string path, QString &filename)
     return QBool(false);
 }
 
-QBool Nosql::ReadFile(const be &gfs_id)
+QBool Nosql::ReadFile(const be &gfs_id, mongo::GridFile **a_gf)
 {
     std::cout << "Nosql::ReadFile : " << gfs_id << std::endl;
     try {
         for (int i = 0; i < 5; i++)
         {
             qDebug() << "Nosql::ReadFile BEFORE GRID";
-            this->m_gf = new mongo::GridFile(this->m_gfs->findFile(gfs_id.wrap()));
+            *a_gf = new mongo::GridFile(this->m_gfs->findFile(gfs_id.wrap()));
 
             qDebug() << "Nosql::ReadFile OPEN";
-            if (!this->m_gf->exists()) {
+            if (!(*a_gf)->exists()) {
                 std::cout << "file not found, sleep and retry, counter : " << i << std::endl;
-                delete(this->m_gf);
+                delete(*a_gf);
                 sleep(1);
             }
             else break;
         }
-        return QBool(true);
+         return QBool(true);
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on get file : " << e.what() << std::endl;
         qDebug() << "Nosql::ReadFile ERROR ON GRIDFS";
         return QBool(false);
     }
-
 }
 
 bo Nosql::WriteFile(const string filename, const char *data, int size)
 {        
     m_mutex->lock();
 
-    bo struct_file;        
+    BSONObj struct_file;
     try {
         struct_file = this->m_gfs->storeFile(data, size, filename, "application/octet-stream");
     }
@@ -404,7 +431,7 @@ QBool Nosql::Insert(QString a_document, bo a_datas)
 
 
 
-QBool Nosql::Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas)
+QBool Nosql::Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas, bool upsert, bool multi)
 {        
     m_mutex->lock();
 
@@ -418,7 +445,7 @@ QBool Nosql::Update(QString a_document, const BSONObj &element_id, const BSONObj
     qDebug() << "Nosql::Update tmp : " << tmp;
 
  try {
-        this->m_mongo_connection.update(tmp.toAscii().data(), mongo::Query(element_id), data);
+        this->m_mongo_connection.update(tmp.toAscii().data(), mongo::Query(element_id), data, upsert ,multi);
         qDebug() << m_server + "." + a_document + " updated";
         m_mutex->unlock();
         return QBool(true);
@@ -432,7 +459,7 @@ QBool Nosql::Update(QString a_document, const BSONObj &element_id, const BSONObj
 
 
 
-QBool Nosql::Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas, BSONObj a_options)
+QBool Nosql::Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas, BSONObj a_options, bool upsert, bool multi)
 {
     m_mutex->lock();
 
@@ -449,7 +476,7 @@ QBool Nosql::Update(QString a_document, const BSONObj &element_id, const BSONObj
     qDebug() << "Nosql::Update tmp : " << tmp;
 
  try {
-        this->m_mongo_connection.update(tmp.toAscii().data(), mongo::Query(element_id), data);
+        this->m_mongo_connection.update(tmp.toAscii().data(), mongo::Query(element_id), data, upsert ,multi);
         qDebug() << m_server + "." + a_document + " updated";
         m_mutex->unlock();
         return QBool(true);

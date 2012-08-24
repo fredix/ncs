@@ -25,7 +25,7 @@
 #include "nosql.h"
 #include "zeromq.h"
 #include "http_api.h"
-#include "zeromq_api.h"
+#include "worker_api.h"
 #include <QxtHttpServerConnector>
 #include <QxtHttpSessionManager>
 #include "xmpp_server.h"
@@ -40,7 +40,8 @@ public:
 
     void Http_init();
     void Xmpp_init(QString domain_name, int xmpp_client_port, int xmpp_server_port);
-    void Zeromq_init();
+    void Worker_init();
+    Worker_api *worker_api;
 
 
 private:
@@ -49,7 +50,6 @@ private:
     Http_api *m_http_api;
     Xmpp_server *m_xmpp_server;
     Xmpp_client *m_xmpp_client;
-    Zeromq_api *m_zeromq_api;
 };
 
 #endif // API_H

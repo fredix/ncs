@@ -57,14 +57,12 @@ public:
     QBool Insert(QString a_document, BSONObj a_datas);
     BSONObj ExtractJSON(const be &gfs_id);
     QBool ExtractBinary(const be &gfs_id, string path, QString &filename);
-    QBool Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas);
-    QBool Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas, BSONObj a_options);
+    QBool Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas, bool upsert=false, bool multi=false);
+    QBool Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas, BSONObj a_options, bool upsert=false, bool multi=false);
     QBool Addtoarray(QString a_document, const BSONObj &element_id, const BSONObj &a_datas);
     BSONObj WriteFile(const string filename, const char *data, int size);
-
-
-protected:
-    QBool ReadFile(const be &gfs_id);
+    QBool ReadFile(const be &gfs_id, mongo::GridFile **a_gf);
+    void Flush(string a_document, BSONObj query);
 
 private:   
     static Nosql *_singleton_front;
@@ -81,6 +79,7 @@ private:
     BSONObj m_grid_file;
     BSONObj m_datas;
     QMutex *m_mutex;
+    QMutex *m_rf_mutex;
 };
 
 

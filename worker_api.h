@@ -25,31 +25,32 @@
 #include "zeromq.h"
 #include <zmq.hpp>
 
-class Zeromq_api : public QObject
+class Worker_api : public QObject
 {
     Q_OBJECT
 public:
-    Zeromq_api();
-    ~Zeromq_api();
+    Worker_api();
+    ~Worker_api();
 
 
 private:
     void on_receive();
-
+    QSocketNotifier *check_payload;
 
     zmq::socket_t *z_receive_api;
     zmq::socket_t *z_push_api;
+    zmq::socket_t *z_publish_api;
     zmq::message_t *z_message;
+    zmq::message_t *z_message_publish;
 
     Nosql *nosql_;
     Zeromq *zeromq_;
 
-signals:
-    void on_zmessage(bson::bo payload);
-
+public slots:
+    void pubsub_payload(bson::bo l_payload);
 
 private slots:
-    void push_payload(bson::bo payload);
+    void receive_payload();
 };
 
 #endif // ZEROMQ_API_H

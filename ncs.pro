@@ -19,7 +19,7 @@ SOURCES += main.cpp \
     api.cpp \
     http_api.cpp \
     alert.cpp \
-    zeromq_api.cpp
+    worker_api.cpp
 LIBS += /usr/local/lib/libmongoclient.a \
         -lboost_system \
         -lboost_filesystem-mt \
@@ -46,4 +46,4 @@ HEADERS += main.h \
     api.h \
     http_api.h \
     alert.h \
-    zeromq_api.h
+    worker_api.h

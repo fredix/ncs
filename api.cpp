@@ -52,8 +52,11 @@ void Api::Xmpp_init(QString domain_name, int xmpp_client_port, int xmpp_server_p
 
 
 
-void Api::Zeromq_init()
+void Api::Worker_init()
 {
+    QThread *worker_pull = new QThread;
+    worker_api = new Worker_api();
+    worker_api->moveToThread(worker_pull);
+    worker_pull->start();
 
-    m_zeromq_api = new Zeromq_api();
 }

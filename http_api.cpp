@@ -25,6 +25,7 @@
 Http_api::Http_api(QxtAbstractWebSessionManager * sm, QObject * parent): QxtWebSlotService(sm,parent)
 {
     nosql_ = Nosql::getInstance_front();
+    //nosql_ = Nosql::getInstance_back();
     zeromq_ = Zeromq::getInstance ();
 
     z_message = new zmq::message_t(2);
@@ -469,6 +470,7 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action)
         payload_builder.append("filename", filename.str());
         payload_builder.append("length", length.numberLong());
         payload_builder.append("gfs_id", gfs_file_struct.getField("_id").OID());
+        payload_builder.append("gridfs", true);
         BSONObj payload = payload_builder.obj();
 
         nosql_->Insert("payloads", payload);

@@ -46,6 +46,7 @@ public:
     Zworker_push(zmq::context_t *a_context, string a_worker, string a_port);
     ~Zworker_push();
     void push_payload(bson::bo a_payload);
+    void stream_payload(bson::bo a_payload);
 
 private:
     Nosql *nosql_;
@@ -62,6 +63,27 @@ private:
     //int m_port;
 };
 
+
+class Zstream_push : public QObject
+{
+    Q_OBJECT
+public:
+    Zstream_push(zmq::context_t *a_context);
+    ~Zstream_push();
+
+private:
+    QSocketNotifier *check_stream;
+    Nosql *nosql_;
+    string m_worker;
+    string m_port;
+    zmq::context_t *m_context;
+    zmq::socket_t *z_stream;
+    zmq::message_t *z_message;
+    QMutex *m_mutex;
+
+private slots:
+    void stream_payload();
+};
 
 
 class Ztracker : public QObject
@@ -116,17 +138,20 @@ public:
 
 private:                
     QSocketNotifier *check_http_data;
+    QSocketNotifier *check_zeromq_data;
     QSocketNotifier *check_worker_response;
     zmq::context_t *m_context;
     zmq::socket_t *m_socket_http;
     zmq::socket_t *m_socket_workers;
+    zmq::socket_t *m_socket_zeromq;
     QMutex *m_mutex;
 
 signals:
     void forward_payload(BSONObj data);
 
 private slots:
-    void receive_payload();
+    void receive_http_payload();
+    void receive_zeromq_payload();
     void worker_response();
 };
 
@@ -151,6 +176,14 @@ private:
     QList <BSONObj> workflow_list;
     QList <BSONObj> worker_list;
     QMutex *m_mutex;
+    QTimer *replay_payload_timer;
+
+signals:
+    void emit_pubsub(bson::bo);
+
+
+private slots:
+    void replay_payload();
 
 public slots:
     void bind_server(QString name, QString port);
@@ -194,10 +227,11 @@ public:
     Zpull *pull;
     Zdispatch *dispatch;
     Ztracker *ztracker;
+    Zstream_push *stream_push;
 
-    Zreceive *receive_http;
-    Zreceive *receive_xmpp;
-    Zreceive *receive_zeromq;
+    //Zreceive *receive_http;
+    //Zreceive *receive_xmpp;
+    //Zreceive *receive_zeromq;
     Zworker_push *worker_push;
 
 private:

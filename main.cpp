@@ -33,9 +33,11 @@ Dispatcher::Dispatcher(params ncs_params)
     api = new Api();
     api->Http_init();
     api->Xmpp_init(ncs_params.domain_name, ncs_params.xmpp_client_port, ncs_params.xmpp_server_port);
-    //api->Zeromq_init();
+    api->Worker_init();
 
     zeromq->init();
+
+    connect(zeromq->dispatch, SIGNAL(emit_pubsub(bson::bo)), api->worker_api, SLOT(pubsub_payload(bson::bo)), Qt::QueuedConnection);
 
     QThread *thread_alert = new QThread;
     alert = new Alert(ncs_params.alert_email);
