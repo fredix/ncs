@@ -22,7 +22,7 @@ make install
 
 four, make the libqxt library 
 cd externals/libqxt
-qmake
+./configure
 make
 make install
 
