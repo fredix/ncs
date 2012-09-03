@@ -1,9 +1,13 @@
 ncs is the nodecast server
 
 
-INSTALL 
+INSTALL
 
-first, get submodule libraries :
+first, install deb :
+apt-get install libzmq-dev libboost-all-dev libqt4-dev
+
+
+next, get submodule libraries :
 git submodule update --init
 
 If you prefer to use your system's libraries, you should modify the ncs.pro
