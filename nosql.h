@@ -22,9 +22,9 @@
 #define NOSQL_H
 
 
-#include "client/dbclient.h"
-#include "client/gridfs.h"
-#include "bson/bson.h"
+#include "mongo/client/dbclient.h"
+#include "mongo/client/gridfs.h"
+#include "mongo/bson/bson.h"
 
 
 #include <QObject>

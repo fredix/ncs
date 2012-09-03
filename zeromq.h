@@ -32,8 +32,8 @@
 #include <QxtCore/QxtCommandOptions>
 
 #include <zmq.hpp>
-#include "client/gridfs.h"
 #include "nosql.h"
+#include "mongo/client/gridfs.h"
 
 using namespace mongo;
 using namespace bson;

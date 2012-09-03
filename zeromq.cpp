@@ -19,7 +19,7 @@
 ****************************************************************************/
 
 #include "zeromq.h"
-
+#include <fstream>
 
 
 Ztracker::Ztracker(zmq::context_t *a_context) : m_context(a_context)
