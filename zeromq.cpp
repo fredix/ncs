@@ -80,7 +80,8 @@ int Ztracker::get_available_port()
     {
         std::cout << "worker : " << worker.getField("port").numberInt() << std::endl;
 
-        port_counter = worker.getField("port").numberInt();
+        if (worker.getField("port").numberInt() > port_counter)
+            port_counter = worker.getField("port").numberInt();
     }
 
     port_counter++;
