@@ -43,7 +43,7 @@ Ztracker::Ztracker(zmq::context_t *a_context) : m_context(a_context)
 
 
     int socket_tracker_fd;
-    size_t socket_size;
+    size_t socket_size = sizeof(socket_tracker_fd);
     m_socket->getsockopt(ZMQ_FD, &socket_tracker_fd, &socket_size);
 
     qDebug() << "RES getsockopt : " << "res" <<  " FD : " << socket_tracker_fd << " errno : " << zmq_strerror (errno);
@@ -460,7 +460,7 @@ Zpull::Zpull(zmq::context_t *a_context) : m_context(a_context)
 
 
     int http_socket_fd;
-    size_t socket_size;
+    size_t socket_size = sizeof(http_socket_fd);
     m_socket_http->getsockopt(ZMQ_FD, &http_socket_fd, &socket_size);
 
     qDebug() << "RES getsockopt : " << "res" <<  " FD : " << http_socket_fd << " errno : " << zmq_strerror (errno);
@@ -471,7 +471,7 @@ Zpull::Zpull(zmq::context_t *a_context) : m_context(a_context)
 
 
     int zeromq_socket_fd;
-    size_t zeromq_socket_size;
+    size_t zeromq_socket_size = sizeof(zeromq_socket_fd);
     m_socket_zeromq->getsockopt(ZMQ_FD, &zeromq_socket_fd, &zeromq_socket_size);
 
     qDebug() << "RES getsockopt : " << "res" <<  " FD : " << zeromq_socket_fd << " errno : " << zmq_strerror (errno);
@@ -482,7 +482,7 @@ Zpull::Zpull(zmq::context_t *a_context) : m_context(a_context)
 
 
     int worker_socket_fd;
-    size_t worker_socket_size;
+    size_t worker_socket_size = sizeof(worker_socket_fd);
     m_socket_workers->getsockopt(ZMQ_FD, &worker_socket_fd, &worker_socket_size);
 
     qDebug() << "RES getsockopt : " << "res" <<  " FD : " << worker_socket_fd << " errno : " << zmq_strerror (errno);
@@ -1345,7 +1345,7 @@ Zstream_push::Zstream_push(zmq::context_t *a_context) : m_context(a_context)
 
 
     int socket_stream_fd;
-    size_t socket_size;
+    size_t socket_size = sizeof(socket_stream_fd);
     z_stream->getsockopt(ZMQ_FD, &socket_stream_fd, &socket_size);
 
     qDebug() << "RES getsockopt : " << "res" <<  " FD : " << socket_stream_fd << " errno : " << zmq_strerror (errno);

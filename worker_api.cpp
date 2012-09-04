@@ -34,7 +34,7 @@ Worker_api::Worker_api()
 
 
     int socket_receive_fd;
-    size_t socket_size;
+    size_t socket_size = sizeof(socket_receive_fd);
     z_receive_api->getsockopt(ZMQ_FD, &socket_receive_fd, &socket_size);
 
     qDebug() << "RES getsockopt : " << "res" <<  " FD : " << socket_receive_fd << " errno : " << zmq_strerror (errno);
