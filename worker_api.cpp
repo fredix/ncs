@@ -59,10 +59,10 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
 {
     std::cout << "Worker_api::pubsub_payload : " << l_payload << std::endl;
     BSONElement dest = l_payload.getFieldDotted("payload.dest");
-    string payload = dest.str() + " ";
-    payload.append(l_payload.getFieldDotted("payload.datas").str());
+    QString payload = QString::fromStdString(dest.str()) + " ";
+    payload.append(QString::fromStdString(l_payload.getFieldDotted("payload.datas").str()));
 
-    std::cout << "payload send : " << payload << std::endl;
+    std::cout << "payload send : " << payload.toStdString() << std::endl;
 
 
     /** ALL KIND OF WORKERS ARE CONNECTED TO THE PUB SOCKET
@@ -76,7 +76,7 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
     BSONObj t_payload = BSON(GENOID <<
                              "dest" << dest.str() <<
                              "timestamp" << timestamp.toTime_t() <<
-                             "data" << payload);
+                             "data" << payload.toStdString());
     nosql_->Insert("pubsub_payloads", t_payload);
 
     /****** PUBLISH API PAYLOAD *******/
