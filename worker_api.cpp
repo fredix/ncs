@@ -166,8 +166,8 @@ void Worker_api::receive_payload()
 
                 BSONElement payloadname = payload.getFieldDotted("payload.payloadname");
                 BSONElement datas = payload.getFieldDotted("payload.datas");
-                BSONElement node_uuid = payload.getFieldDotted("payload.node_uuid");
-                BSONElement node_password = payload.getFieldDotted("payload.node_password");
+                BSONElement node_uuid = payload.getField("node_uuid");
+                BSONElement node_password = payload.getField("node_password");
                 BSONElement workflow_uuid = payload.getFieldDotted("payload.workflow_uuid");
                 std::cout << "DATA : " << datas << std::endl;
                 std::cout << "NODE UUID : " << node_uuid << std::endl;
