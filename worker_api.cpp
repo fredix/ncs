@@ -45,7 +45,8 @@ Worker_api::Worker_api()
 
     /********* PUB / SUB *************/
     z_publish_api = new zmq::socket_t (*zeromq_->m_context, ZMQ_PUB);
-    z_publish_api->setsockopt(ZMQ_HWM, &hwm, sizeof (hwm));
+    uint64_t pub_hwm = 50000;
+    z_publish_api->setsockopt(ZMQ_HWM, &pub_hwm, sizeof (pub_hwm));
     z_publish_api->bind("tcp://*:5557");
     /*********************************/
 
@@ -81,8 +82,11 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
 
     /****** PUBLISH API PAYLOAD *******/
     qDebug() << "Worker_api::publish_payload PUBLISH PAYLOAD";
-    z_message_publish->rebuild(payload.size());
-    memcpy(z_message_publish->data(), (char*)payload.data(), payload.size());
+
+    QByteArray s_payload = payload.toAscii();
+
+    z_message_publish->rebuild(s_payload.size());
+    memcpy(z_message_publish->data(), (char*)s_payload.constData(), s_payload.size());
     z_publish_api->send(*z_message_publish);
     /************************/
 }
