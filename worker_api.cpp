@@ -83,7 +83,7 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
     qDebug() << "Worker_api::publish_payload PUBLISH PAYLOAD";
     z_message_publish->rebuild(payload.size());
     memcpy(z_message_publish->data(), (char*)payload.data(), payload.size());
-    z_publish_api->send(*z_message_publish, ZMQ_NOBLOCK);
+    z_publish_api->send(*z_message_publish);
     /************************/
 }
 

@@ -40,7 +40,7 @@ ncs --mongodb-ip=127.0.0.1 --mongodb-base=nodecast_prod --domain-name=localhost 
 
 
 Launch a worker
-./ncw --ncs-ip=127.0.0.1 --ncs-port=5569 --worker-type=process --worker-name="ls" --exec="ls"
+./ncw --ncs-ip=127.0.0.1 --ncs-port=5569 --node-uuid=your-node-uuid --node-password=your-node-password --worker-type=process --worker-name="ls" --exec="ls"
 
 
 MONGODB
