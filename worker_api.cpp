@@ -61,7 +61,7 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
     std::cout << "Worker_api::pubsub_payload : " << l_payload << std::endl;
     BSONElement dest = l_payload.getFieldDotted("payload.dest");
     QString payload = QString::fromStdString(dest.str()) + " ";
-    payload.append(QString::fromStdString(l_payload.getFieldDotted("payload.datas").str()));
+    payload.append(QString::fromStdString(l_payload.getFieldDotted("payload.data").str()));
 
     std::cout << "payload send : " << payload.toStdString() << std::endl;
 
@@ -92,6 +92,36 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
 }
 
 
+/********** RESEND PAYLOAD PAYLOAD ************/
+void Worker_api::replay_pubsub_payload(bson::bo a_payload)
+{
+    std::cout << "Worker_api::replay_pubsub_payload : " << a_payload << std::endl;
+
+    BSONElement dest = a_payload.getFieldDotted("payload.dest");
+    BSONObj search = BSON("dest" << a_payload.getFieldDotted("payload.from").str() << "data_type" << a_payload.getFieldDotted("payload.data_type"));
+    QList <BSONObj> pubsub_payloads_list = nosql_->FindAll("pubsub_payloads", search);
+
+    foreach (BSONObj pubsub_payload, pubsub_payloads_list)
+    {
+        std::cout << "pubsub_payload : " << pubsub_payload.getField("data") << std::endl;
+
+        QString payload = QString::fromStdString(dest.str()) + " ";
+        payload.append(QString::fromStdString(pubsub_payload.getField("data").str()));
+
+        std::cout << "Worker_api::replay_pubsub_payload payload send : " << payload.toStdString() << std::endl;
+
+
+        /****** REPLAY API PAYLOAD *******/
+        qDebug() << "Worker_api::publish_payload REPLAY PAYLOAD";
+
+        QByteArray s_payload = payload.toAscii();
+
+        z_message_publish->rebuild(s_payload.size()+1);
+        memcpy(z_message_publish->data(), s_payload.constData(), s_payload.size()+1);
+        z_publish_api->send(*z_message_publish);
+        /************************/
+    }
+}
 
 /********** CREATE PAYLOAD ************/
 void Worker_api::receive_payload()
@@ -161,6 +191,12 @@ void Worker_api::receive_payload()
                 std::cout << "RECEIVE PUBLISH : " << payload << std::endl;
 
                 pubsub_payload(payload.copy());
+            }
+            else if (payload_action == "replay")
+            {
+                std::cout << "RECEIVE REPLAY : " << payload << std::endl;
+
+                replay_pubsub_payload(payload.copy());
             }
             else if (payload_action == "create")
             {

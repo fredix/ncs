@@ -34,7 +34,7 @@ public:
 
 
 private:
-    void on_receive();
+    void replay_pubsub_payload(bson::bo l_payload);
     QSocketNotifier *check_payload;
 
     zmq::socket_t *z_receive_api;

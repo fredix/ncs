@@ -861,16 +861,16 @@ void Zdispatch::bind_server(QString name, QString port)
 
 
 
-void Zdispatch::push_payload(BSONObj data)
+void Zdispatch::push_payload(BSONObj a_data)
 {
-        std::cout << "Zdispatch received data : " << data << std::endl;
+        std::cout << "Zdispatch received data : " << a_data << std::endl;
 
 
         //BSONElement session_uuid = data.getField("session_uuid");
-        BSONObj session_uuid = BSON("uuid" << data.getField("session_uuid").str());
+        BSONObj session_uuid = BSON("uuid" << a_data.getField("session_uuid").str());
         BSONElement b_session_uuid = session_uuid.getField("uuid");
 
-        BSONElement b_action = data.getField("action");
+        BSONElement b_action = a_data.getField("action");
 
 
         std::cout << "session_uuid : " << session_uuid << std::endl;
@@ -919,7 +919,7 @@ void Zdispatch::push_payload(BSONObj data)
 
 
 
-        BSONElement timestamp = data.getField("timestamp");
+        BSONElement timestamp = a_data.getField("timestamp");
 
         //std::cout << "ACTION : " << data.getField("action") << std::endl;
         std::cout << "timestamp : " << timestamp << std::endl;
@@ -933,7 +933,7 @@ void Zdispatch::push_payload(BSONObj data)
 
 
         BSONElement datas;
-        if (data.hasField("datas")) datas = data.getField("datas");
+        if (a_data.hasField("data")) datas = a_data.getField("data");
 
 
 
@@ -1018,9 +1018,9 @@ void Zdispatch::push_payload(BSONObj data)
 
                         if (gridfs)
                         {
-                            step_builder.append("datas", path.append(filename).toStdString());
+                            step_builder.append("data", path.append(filename).toStdString());
                         }
-                        else step_builder.append("datas", payload.getField("datas").str());
+                        else step_builder.append("data", payload.getField("data").str());
 
                         step_builder.append("send_timestamp", timestamp.Number());
 
@@ -1056,9 +1056,9 @@ void Zdispatch::push_payload(BSONObj data)
                         BSONObj s_payload;
                         if (gridfs)
                         {
-                            s_payload = BSON("datas" << path.toStdString() << "session_uuid" << b_session_uuid.str());
+                            s_payload = BSON("data" << path.toStdString() << "session_uuid" << b_session_uuid.str());
                         }
-                        else s_payload = BSON("datas" << payload.getField("datas").str() << "session_uuid" << b_session_uuid.str());
+                        else s_payload = BSON("data" << payload.getField("data").str() << "session_uuid" << b_session_uuid.str());
 
 
 
@@ -1134,15 +1134,15 @@ void Zdispatch::push_payload(BSONObj data)
             std::cout << "STEP ORDER : " << order.Number() << std::endl;
 
 
-            be worker_name = data.getField("name");
+            be worker_name = a_data.getField("name");
 
             be exitcode;
             be exitstatus;
-            if (data.hasField("exitcode")) exitcode = data.getField("exitcode");
-            if (data.hasField("exitstatus")) exitstatus = data.getField("exitstatus");
+            if (a_data.hasField("exitcode")) exitcode = a_data.getField("exitcode");
+            if (a_data.hasField("exitstatus")) exitstatus = a_data.getField("exitstatus");
 
 
-            be datas = data.getField("datas");
+            be datas = a_data.getField("data");
 
 
             /********** RECORD PAYLOAD STEP *********/
@@ -1152,9 +1152,9 @@ void Zdispatch::push_payload(BSONObj data)
 
             step_builder << "steps.$.name" << worker_name.str();
             step_builder << "steps.$.action" << "terminate";
-            step_builder << "steps.$.datas" << datas.str();
-            if (data.hasField("exitcode")) step_builder << "steps.$.exitcode" << exitcode;
-            if (data.hasField("exitstatus")) step_builder << "steps.$.exitstatus" << exitstatus;
+            step_builder << "steps.$.data" << datas.str();
+            if (a_data.hasField("exitcode")) step_builder << "steps.$.exitcode" << exitcode;
+            if (a_data.hasField("exitstatus")) step_builder << "steps.$.exitstatus" << exitstatus;
             step_builder << "steps.$.terminate_timestamp" << timestamp.Number();
 
             BSONObj step = step_builder.obj();
@@ -1240,7 +1240,7 @@ void Zdispatch::push_payload(BSONObj data)
 
 
                 /**** SEND PAYLOAD ****/
-                BSONObj payload = BSON("datas" << datas.str() << "session_uuid" << b_session_uuid.str());
+                BSONObj payload = BSON("data" << datas.str() << "session_uuid" << b_session_uuid.str());
                 qDebug() << "push_payload : " << w_name;
                 workers_push[w_name]->push_payload(payload);
             }
