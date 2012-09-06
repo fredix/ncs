@@ -97,7 +97,17 @@ void Worker_api::replay_pubsub_payload(bson::bo a_payload)
 {
     std::cout << "Worker_api::replay_pubsub_payload : " << a_payload << std::endl;
 
-    BSONElement dest = a_payload.getFieldDotted("payload.dest");
+    QString dest = QString::fromStdString(a_payload.getFieldDotted("payload.dest").str());
+
+    if ("self" == dest)
+    {
+        QString node_uuid = QString::fromStdString(a_payload.getField("node_uuid").str());
+        QString worker_name = QString::fromStdString(a_payload.getField("worker_name").str());
+        QString worker_uuid = QString::fromStdString(a_payload.getField("uuid").str());
+
+        dest = node_uuid + "." + worker_name + "." + worker_uuid;
+    }
+
     BSONObj search = BSON("dest" << a_payload.getFieldDotted("payload.from").str() << "data_type" << a_payload.getFieldDotted("payload.data_type"));
     QList <BSONObj> pubsub_payloads_list = nosql_->FindAll("pubsub_payloads", search);
 
@@ -105,7 +115,7 @@ void Worker_api::replay_pubsub_payload(bson::bo a_payload)
     {
         std::cout << "pubsub_payload : " << pubsub_payload.getField("data") << std::endl;
 
-        QString payload = QString::fromStdString(dest.str()) + " ";
+        QString payload = dest + " ";
         payload.append(QString::fromStdString(pubsub_payload.getField("data").str()));
 
         std::cout << "Worker_api::replay_pubsub_payload payload send : " << payload.toStdString() << std::endl;
