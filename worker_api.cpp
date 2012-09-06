@@ -85,8 +85,8 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
 
     QByteArray s_payload = payload.toAscii();
 
-    z_message_publish->rebuild(s_payload.size());
-    memcpy(z_message_publish->data(), (char*)s_payload.constData(), s_payload.size());
+    z_message_publish->rebuild(s_payload.size()+1);
+    memcpy(z_message_publish->data(), s_payload.constData(), s_payload.size()+1);
     z_publish_api->send(*z_message_publish);
     /************************/
 }
