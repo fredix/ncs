@@ -59,7 +59,9 @@ Worker_api::Worker_api()
 void Worker_api::pubsub_payload(bson::bo l_payload)
 {
     std::cout << "Worker_api::pubsub_payload : " << l_payload << std::endl;
+    BSONElement from = l_payload.getField("worker_name");
     BSONElement dest = l_payload.getFieldDotted("payload.dest");
+    BSONElement data_type = l_payload.getFieldDotted("payload.data_type");
     QString payload = QString::fromStdString(dest.str()) + " ";
     payload.append(QString::fromStdString(l_payload.getFieldDotted("payload.data").str()));
 
@@ -69,15 +71,17 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
     /** ALL KIND OF WORKERS ARE CONNECTED TO THE PUB SOCKET
         SO ZEROMQ CANNOT CHECK IF A DEST WORKER RECEIVE OR NOT THE PAYLOAD.
         SO, I MUST STORE ALL PAYLOAD THROUGH THE PUB/SUB SOCKET INTO MONGODB,
-        A WORKER CAN RETREIVE LATER A PAYLOAD (TODO)
+        A WORKER CAN RETREIVE LATER A PAYLOAD (replay_pubsub_payload)
     **/
 
 
     QDateTime timestamp = QDateTime::currentDateTime();
-    BSONObj t_payload = BSON(GENOID <<
+    BSONObj t_payload = BSON(GENOID <<                                                          
+                             "from" << from.str() <<
                              "dest" << dest.str() <<
+                             "data_type" << data_type.str() <<
                              "timestamp" << timestamp.toTime_t() <<
-                             "data" << payload.toStdString());
+                             "data" << l_payload.getFieldDotted("payload.data").str());
     nosql_->Insert("pubsub_payloads", t_payload);
 
     /****** PUBLISH API PAYLOAD *******/
@@ -105,7 +109,7 @@ void Worker_api::replay_pubsub_payload(bson::bo a_payload)
         QString worker_name = QString::fromStdString(a_payload.getField("worker_name").str());
         QString worker_uuid = QString::fromStdString(a_payload.getField("uuid").str());
 
-        dest = node_uuid + "." + worker_name + "." + worker_uuid;
+        dest = node_uuid + "." + worker_name + "." + worker_uuid + " ";
     }
 
     BSONObj search = BSON("dest" << a_payload.getFieldDotted("payload.from").str() << "data_type" << a_payload.getFieldDotted("payload.data_type"));
@@ -115,7 +119,7 @@ void Worker_api::replay_pubsub_payload(bson::bo a_payload)
     {
         std::cout << "pubsub_payload : " << pubsub_payload.getField("data") << std::endl;
 
-        QString payload = dest + " ";
+        QString payload = dest;
         payload.append(QString::fromStdString(pubsub_payload.getField("data").str()));
 
         std::cout << "Worker_api::replay_pubsub_payload payload send : " << payload.toStdString() << std::endl;
@@ -214,8 +218,8 @@ void Worker_api::receive_payload()
 
                 QDateTime timestamp = QDateTime::currentDateTime();
 
-                BSONElement payloadname = payload.getFieldDotted("payload.payloadname");
-                BSONElement datas = payload.getFieldDotted("payload.datas");
+                BSONElement data_type = payload.getFieldDotted("payload.data_type");
+                BSONElement datas = payload.getFieldDotted("payload.data");
                 BSONElement node_uuid = payload.getField("node_uuid");
                 BSONElement node_password = payload.getField("node_password");
                 BSONElement workflow_uuid = payload.getFieldDotted("payload.workflow_uuid");
@@ -273,6 +277,7 @@ void Worker_api::receive_payload()
                 payload_builder.genOID();
                 payload_builder.append("action", "create");
                 payload_builder.append("timestamp", timestamp.toTime_t());
+                payload_builder.append("data_type", data_type.str());
                 payload_builder.append("node_uuid", node_uuid.str());
                 payload_builder.append("node_password", node_password.str());
                 payload_builder.append("workflow_uuid", workflow_uuid.str());
@@ -334,11 +339,11 @@ void Worker_api::receive_payload()
                 if (t_payload.hasField("gridfs") && t_payload.getField("gridfs").Bool() == false)
                 {
                     payload_builder.append("gridfs", false);
-                    payload_builder.append("datas", datas.valuestr());
+                    payload_builder.append("data", datas.valuestr());
                 }
                 else
                 {
-                    BSONObj gfs_file_struct = nosql_->WriteFile(payloadname.str(), datas.valuestr(), datas.objsize());
+                    BSONObj gfs_file_struct = nosql_->WriteFile(data_type.str(), datas.valuestr(), datas.objsize());
                     if (gfs_file_struct.nFields() == 0)
                     {
                         qDebug() << "write on gridFS failed !";
@@ -409,7 +414,7 @@ void Worker_api::receive_payload()
                 /*** ACTION TERMINATE ***/
                 BSONObj tmp = payload.getField("payload").Obj();
 
-                if (tmp.hasField("datas")) b_payload.append(payload.getFieldDotted("payload.datas"));
+                if (tmp.hasField("data")) b_payload.append(payload.getFieldDotted("payload.data"));
                 if (tmp.hasField("exitcode")) b_payload.append(payload.getFieldDotted("payload.exitcode"));
                 if (tmp.hasField("exitstatus")) b_payload.append(payload.getFieldDotted("payload.exitstatus"));
 

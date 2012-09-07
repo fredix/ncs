@@ -1058,7 +1058,7 @@ void Zdispatch::push_payload(BSONObj a_data)
                         {
                             s_payload = BSON("data" << path.toStdString() << "session_uuid" << b_session_uuid.str());
                         }
-                        else s_payload = BSON("data" << payload.getField("data").str() << "session_uuid" << b_session_uuid.str());
+                        else s_payload = BSON("data" << payload.getField("data").str() << "session_uuid" << b_session_uuid.str() << "data_type" << payload.getField("data_type").str());
 
 
 
