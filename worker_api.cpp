@@ -94,7 +94,7 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
     z_message_publish->rebuild(s_payload.size()+1);
     memcpy(z_message_publish->data(), s_payload.constData(), s_payload.size()+1);
     z_publish_api->send(*z_message_publish);
-    delete(z_message_publish);
+    //delete(z_message_publish);
     /************************/
 }
 
@@ -137,7 +137,7 @@ void Worker_api::replay_pubsub_payload(bson::bo a_payload)
         z_message_publish_replay->rebuild(s_payload.size()+1);
         memcpy(z_message_publish_replay->data(), s_payload.constData(), s_payload.size()+1);
         z_publish_api->send(*z_message_publish_replay);
-        delete(z_message_publish_replay);
+        //delete(z_message_publish_replay);
         /************************/
     }
 }
@@ -402,7 +402,7 @@ void Worker_api::receive_payload()
                 memcpy(z_message->data(), (char*)l_payload.objdata(), l_payload.objsize());
                 //z_push_api->send(*z_message, ZMQ_NOBLOCK);
                 z_push_api->send(*z_message);
-                delete(z_message);
+                //delete(z_message);
                 /************************/
 
             }
@@ -435,7 +435,7 @@ void Worker_api::receive_payload()
                 memcpy(z_message->data(), (char*)l_payload.objdata(), l_payload.objsize());
                 //z_push_api->send(*z_message, ZMQ_NOBLOCK);
                 z_push_api->send(*z_message);
-                delete(z_message);
+                //delete(z_message);
                 /************************/
             }
         }

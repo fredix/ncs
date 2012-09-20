@@ -250,7 +250,7 @@ void Ztracker::receive_payload()
 
 
             m_socket->send(*m_message);
-            delete(m_message);
+            //delete(m_message);
         }
     }
     check_tracker->setEnabled(true);
@@ -1326,7 +1326,7 @@ void Zworker_push::push_payload(bson::bo a_payload)
 
     std::cout << "Zworker_push::push_payload after send" << std::endl;
 
-    delete(z_message);
+    //delete(z_message);
     m_mutex->unlock();
 }
 
@@ -1463,7 +1463,7 @@ void Zstream_push::stream_payload()
                         z_stream->send(*z_message, ZMQ_SNDMORE);
                     }
                     z_stream->send(*z_message, 0);
-                    delete(z_message);
+                    //delete(z_message);
                     qDebug() << "END OF STREAM CHUNCK";
 
 
@@ -1487,7 +1487,7 @@ void Zstream_push::stream_payload()
                         z_message->rebuild(r_payload.objsize());
                         memcpy(z_message->data(), (char*)r_payload.objdata(), r_payload.objsize());
                         z_stream->send(*z_message);
-                        delete(z_message);
+                        //delete(z_message);
                 }
 
 
