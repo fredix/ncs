@@ -30,6 +30,11 @@ Worker_api::Worker_api()
     z_receive_api = new zmq::socket_t (*zeromq_->m_context, ZMQ_PULL);
     uint64_t hwm = 50000;
     z_receive_api->setsockopt(ZMQ_HWM, &hwm, sizeof (hwm));
+
+    //int linger = 0;
+    //z_receive_api->setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
+
+
     z_receive_api->bind("tcp://*:5555");
 
 
@@ -47,6 +52,11 @@ Worker_api::Worker_api()
     z_publish_api = new zmq::socket_t (*zeromq_->m_context, ZMQ_PUB);
     uint64_t pub_hwm = 50000;
     z_publish_api->setsockopt(ZMQ_HWM, &pub_hwm, sizeof (pub_hwm));
+
+    //int linger_pub = 0;
+    //z_publish_api->setsockopt (ZMQ_LINGER, &linger_pub, sizeof (linger_pub));
+
+
     z_publish_api->bind("tcp://*:5557");
     /*********************************/
 
@@ -187,7 +197,7 @@ void Worker_api::receive_payload()
                 if (!payload.isValid() || payload.isEmpty())
                 {
                     qDebug() << "Worker_api::receive_payload PAYLOAD INVALID !!!";
-                    return;
+                    break;
                 }
 
             }
@@ -237,25 +247,25 @@ void Worker_api::receive_payload()
                 if (datas.size() == 0)
                 {
                     std::cout << "ERROR : DATA EMPTY" << std::endl;
-                    return;
+                    break;
                 }
 
                 if (node_uuid.size() == 0)
                 {
                     std::cout << "ERROR : NODE UUID EMPTY" << std::endl;
-                    return;
+                    break;
                 }
 
                 if (node_password.size() == 0)
                 {
                     std::cout << "ERROR : NODE PASSWORD EMPTY" << std::endl;
-                    return;
+                    break;
                 }
 
                 if (workflow_uuid.size() == 0)
                 {
                     std::cout << "ERROR : WORKFLOW EMPTY" << std::endl;
-                    return;
+                    break;
                 }
 
 
@@ -264,7 +274,7 @@ void Worker_api::receive_payload()
                 if (workflow.nFields() == 0)
                 {
                     std::cout << "ERROR : WORKFLOW NOT FOUND" << std::endl;
-                    return;
+                    break;
                 }
 
 
@@ -273,7 +283,7 @@ void Worker_api::receive_payload()
                 if (node.nFields() == 0)
                 {
                     std::cout << "ERROR : NODE NOT FOUND" << std::endl;
-                    return;
+                    break;
                 }
 
 
@@ -297,7 +307,7 @@ void Worker_api::receive_payload()
                 if (user_nodes.nFields() == 0)
                 {
                     std::cout << "ERROR : USER NOT FOUND" << std::endl;
-                    return;
+                    break;
                 }
 
 
