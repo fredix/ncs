@@ -26,7 +26,7 @@ Worker_api::Worker_api()
     zeromq_ = Zeromq::getInstance ();
     z_message = new zmq::message_t(2);
     z_message_publish = new zmq::message_t(2);
-
+    z_message_publish_replay = new zmq::message_t(2);
     z_receive_api = new zmq::socket_t (*zeromq_->m_context, ZMQ_PULL);
     uint64_t hwm = 50000;
     z_receive_api->setsockopt(ZMQ_HWM, &hwm, sizeof (hwm));
@@ -81,6 +81,8 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
                              "dest" << dest.str() <<
                              "data_type" << data_type.str() <<
                              "timestamp" << timestamp.toTime_t() <<
+                             //"timestamp" << timestamp.date().toString() <<
+                             //BSONObj
                              "data" << l_payload.getFieldDotted("payload.data").str());
     nosql_->Insert("pubsub_payloads", t_payload);
 
@@ -92,6 +94,7 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
     z_message_publish->rebuild(s_payload.size()+1);
     memcpy(z_message_publish->data(), s_payload.constData(), s_payload.size()+1);
     z_publish_api->send(*z_message_publish);
+    delete(z_message_publish);
     /************************/
 }
 
@@ -131,9 +134,10 @@ void Worker_api::replay_pubsub_payload(bson::bo a_payload)
 
         QByteArray s_payload = payload.toAscii();
 
-        z_message_publish->rebuild(s_payload.size()+1);
-        memcpy(z_message_publish->data(), s_payload.constData(), s_payload.size()+1);
-        z_publish_api->send(*z_message_publish);
+        z_message_publish_replay->rebuild(s_payload.size()+1);
+        memcpy(z_message_publish_replay->data(), s_payload.constData(), s_payload.size()+1);
+        z_publish_api->send(*z_message_publish_replay);
+        delete(z_message_publish_replay);
         /************************/
     }
 }
@@ -398,6 +402,7 @@ void Worker_api::receive_payload()
                 memcpy(z_message->data(), (char*)l_payload.objdata(), l_payload.objsize());
                 //z_push_api->send(*z_message, ZMQ_NOBLOCK);
                 z_push_api->send(*z_message);
+                delete(z_message);
                 /************************/
 
             }
@@ -430,6 +435,7 @@ void Worker_api::receive_payload()
                 memcpy(z_message->data(), (char*)l_payload.objdata(), l_payload.objsize());
                 //z_push_api->send(*z_message, ZMQ_NOBLOCK);
                 z_push_api->send(*z_message);
+                delete(z_message);
                 /************************/
             }
         }

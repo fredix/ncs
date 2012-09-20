@@ -633,7 +633,7 @@ void Http_api::index(QxtWebRequestEvent* event)
         }
         else
         {
-            index["ncs_version"]="0.9.5";
+            index["ncs_version"]="0.9.6";
 
             page = new QxtWebPageEvent(event->sessionID,
                                        event->requestID,

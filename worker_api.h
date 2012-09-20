@@ -42,6 +42,7 @@ private:
     zmq::socket_t *z_publish_api;
     zmq::message_t *z_message;
     zmq::message_t *z_message_publish;
+    zmq::message_t *z_message_publish_replay;
 
     Nosql *nosql_;
     Zeromq *zeromq_;

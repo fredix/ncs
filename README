@@ -4,7 +4,7 @@ ncs is the nodecast server
 INSTALL
 
 first, install deb :
-apt-get install libzmq-dev libboost-all-dev libqt4-dev
+apt-get install g++ make scons libzmq-dev libboost-all-dev libqt4-dev
 
 
 next, get submodule libraries :

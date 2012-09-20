@@ -250,6 +250,7 @@ void Ztracker::receive_payload()
 
 
             m_socket->send(*m_message);
+            delete(m_message);
         }
     }
     check_tracker->setEnabled(true);
@@ -827,12 +828,14 @@ void Zdispatch::replay_payload()
 
         std::cout << "LIST SIZE : " << lost_payload_list.size() << std::endl;
 
+        /*
         for (int i = 0; i < lost_payload_list.size(); ++i) {
             std::cout << "LIST PAYLOADS : " << lost_payload_list.at(i) << std::endl;
          }
 
-        std::cout << "LOST PAYLOAD : " << lost_payload << std::endl;
 
+        std::cout << "LOST PAYLOAD : " << lost_payload << std::endl;
+        */
 
         QString w_name = QString::fromStdString(lost_payload.getField("worker").str());
         BSONObj payload = lost_payload.getField("data").Obj();
@@ -1322,6 +1325,8 @@ void Zworker_push::push_payload(bson::bo a_payload)
     }
 
     std::cout << "Zworker_push::push_payload after send" << std::endl;
+
+    delete(z_message);
     m_mutex->unlock();
 }
 
@@ -1458,6 +1463,7 @@ void Zstream_push::stream_payload()
                         z_stream->send(*z_message, ZMQ_SNDMORE);
                     }
                     z_stream->send(*z_message, 0);
+                    delete(z_message);
                     qDebug() << "END OF STREAM CHUNCK";
 
 
@@ -1475,12 +1481,13 @@ void Zstream_push::stream_payload()
                         qDebug() << "GRIDFS FILE NOT FOUND !";
                         BSONObjBuilder b_payload;
                         b_payload.append(l_payload.getField("session_uuid"));
-                        b_payload << "error" << "file not fount";
+                        b_payload << "error" << "file not found";
                         r_payload = b_payload.obj();
 
                         z_message->rebuild(r_payload.objsize());
                         memcpy(z_message->data(), (char*)r_payload.objdata(), r_payload.objsize());
                         z_stream->send(*z_message);
+                        delete(z_message);
                 }
 
 
