@@ -175,6 +175,8 @@ void Worker_api::receive_payload()
 
         while (true)
         {
+            flush_socket:
+
             zmq::message_t request;
 
             bool res = z_receive_api->recv(&request, ZMQ_NOBLOCK);
@@ -185,7 +187,7 @@ void Worker_api::receive_payload()
             char *plop = (char*) request.data();
             if (strlen(plop) == 0) {
                 std::cout << "Worker_api::receive_payload STRLEN received request 0" << std::endl;
-                break;
+                goto flush_socket;
             }
 
 
@@ -197,7 +199,7 @@ void Worker_api::receive_payload()
                 if (!payload.isValid() || payload.isEmpty())
                 {
                     qDebug() << "Worker_api::receive_payload PAYLOAD INVALID !!!";
-                    break;
+                    goto flush_socket;
                 }
 
             }
@@ -205,7 +207,7 @@ void Worker_api::receive_payload()
             {
                 std::cout << "error on data : " << payload << std::endl;
                 std::cout << "error on data BSON : " << e.what() << std::endl;
-                break;
+                goto flush_socket;
             }
 
 
@@ -247,25 +249,25 @@ void Worker_api::receive_payload()
                 if (datas.size() == 0)
                 {
                     std::cout << "ERROR : DATA EMPTY" << std::endl;
-                    break;
+                    goto flush_socket;
                 }
 
                 if (node_uuid.size() == 0)
                 {
                     std::cout << "ERROR : NODE UUID EMPTY" << std::endl;
-                    break;
+                    goto flush_socket;
                 }
 
                 if (node_password.size() == 0)
                 {
                     std::cout << "ERROR : NODE PASSWORD EMPTY" << std::endl;
-                    break;
+                    goto flush_socket;
                 }
 
                 if (workflow_uuid.size() == 0)
                 {
                     std::cout << "ERROR : WORKFLOW EMPTY" << std::endl;
-                    break;
+                    goto flush_socket;
                 }
 
 
@@ -274,7 +276,7 @@ void Worker_api::receive_payload()
                 if (workflow.nFields() == 0)
                 {
                     std::cout << "ERROR : WORKFLOW NOT FOUND" << std::endl;
-                    break;
+                    goto flush_socket;
                 }
 
 
@@ -283,7 +285,7 @@ void Worker_api::receive_payload()
                 if (node.nFields() == 0)
                 {
                     std::cout << "ERROR : NODE NOT FOUND" << std::endl;
-                    break;
+                    goto flush_socket;
                 }
 
 
@@ -307,7 +309,7 @@ void Worker_api::receive_payload()
                 if (user_nodes.nFields() == 0)
                 {
                     std::cout << "ERROR : USER NOT FOUND" << std::endl;
-                    break;
+                    goto flush_socket;
                 }
 
 
@@ -362,7 +364,7 @@ void Worker_api::receive_payload()
                     if (gfs_file_struct.nFields() == 0)
                     {
                         qDebug() << "write on gridFS failed !";
-                        break;
+                        goto flush_socket;
                     }
 
 

@@ -108,6 +108,8 @@ void Ztracker::receive_payload()
 
 
         while (true) {
+
+            flush_socket:
             zmq::message_t request;
 
             bool res = m_socket->recv (&request, ZMQ_NOBLOCK);
@@ -119,7 +121,7 @@ void Ztracker::receive_payload()
             char *plop = (char*) request.data();
             if (strlen(plop) == 0) {
                 std::cout << "Zpull::worker_response STRLEN received request 0" << std::endl;
-                break;
+                goto flush_socket;
             }
 
 
@@ -132,7 +134,7 @@ void Ztracker::receive_payload()
             {
                 std::cout << "error on data : " << l_payload << std::endl;
                 std::cout << "error on data BSON : " << e.what() << std::endl;
-                break;
+                goto flush_socket;;
             }
 
             QString worker_type = QString::fromStdString(l_payload.getFieldDotted("payload.type").str());
@@ -520,6 +522,7 @@ void Zpull::receive_http_payload()
 
         while (true)
         {
+            flush_socket:
 
 
     //  Initialize poll set
@@ -543,7 +546,7 @@ void Zpull::receive_http_payload()
             char *plop = (char*) request.data();
             if (strlen(plop) == 0) {
                 std::cout << "Zpull::worker_response STRLEN received request 0" << std::endl;
-                break;
+                goto flush_socket;
             }
 
 
@@ -574,7 +577,7 @@ void Zpull::receive_http_payload()
             {
                 std::cout << "error on data : " << data << std::endl;
                 std::cout << "error on data BSON : " << e.what() << std::endl;                                    
-                break;
+                goto flush_socket;
             }
         }
 
@@ -607,6 +610,7 @@ void Zpull::receive_zeromq_payload()
 
         while (true)
         {
+            flush_socket:
 
 
     //  Initialize poll set
@@ -630,7 +634,7 @@ void Zpull::receive_zeromq_payload()
             char *plop = (char*) request.data();
             if (strlen(plop) == 0) {
                 std::cout << "Zpull::receive_zeromq_payload STRLEN received request 0" << std::endl;
-                break;
+                goto flush_socket;
             }
 
 
@@ -661,7 +665,7 @@ void Zpull::receive_zeromq_payload()
             {
                 std::cout << "error on data : " << data << std::endl;
                 std::cout << "error on data BSON : " << e.what() << std::endl;
-                break;
+                goto flush_socket;
             }
         }
 
@@ -694,6 +698,7 @@ void Zpull::worker_response()
 
         while (true)
         {
+            flush_socket:
 
 
     //  Initialize poll set
@@ -717,7 +722,7 @@ void Zpull::worker_response()
             char * plop = (char*) request.data();
             if (strlen(plop) == 0) {
                 std::cout << "Zpull::worker_response STRLEN received request 0" << std::endl;
-                break;
+                goto flush_socket;
             }
 
 
@@ -748,7 +753,7 @@ void Zpull::worker_response()
             {
                 std::cout << "error on data : " << data << std::endl;
                 std::cout << "error on data BSON : " << e.what() << std::endl;
-                break;
+                goto flush_socket;
             }
 
         }
@@ -1385,6 +1390,8 @@ void Zstream_push::stream_payload()
 
 
         while (true) {
+            flush_socket:
+
             zmq::message_t request;
 
             bool res = z_stream->recv (&request, ZMQ_NOBLOCK);
@@ -1396,7 +1403,7 @@ void Zstream_push::stream_payload()
             char *plop = (char*) request.data();
             if (strlen(plop) == 0) {
                 std::cout << "Zstream_push::stream_payload STRLEN received request 0" << std::endl;
-                break;
+                goto flush_socket;
             }
 
 
@@ -1410,7 +1417,7 @@ void Zstream_push::stream_payload()
             {
                 std::cout << "error on data : " << l_payload << std::endl;
                 std::cout << "error on data BSON : " << e.what() << std::endl;
-                break;
+                goto flush_socket;
             }
 
             QString payload_action = QString::fromStdString(l_payload.getField("action").str());
