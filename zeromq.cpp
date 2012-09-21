@@ -121,7 +121,7 @@ void Ztracker::receive_payload()
             char *plop = (char*) request.data();
             if (strlen(plop) == 0) {
                 std::cout << "Zpull::worker_response STRLEN received request 0" << std::endl;
-                goto flush_socket;
+                break;
             }
 
 
@@ -546,7 +546,7 @@ void Zpull::receive_http_payload()
             char *plop = (char*) request.data();
             if (strlen(plop) == 0) {
                 std::cout << "Zpull::worker_response STRLEN received request 0" << std::endl;
-                goto flush_socket;
+                break;
             }
 
 
@@ -634,7 +634,7 @@ void Zpull::receive_zeromq_payload()
             char *plop = (char*) request.data();
             if (strlen(plop) == 0) {
                 std::cout << "Zpull::receive_zeromq_payload STRLEN received request 0" << std::endl;
-                goto flush_socket;
+                break;
             }
 
 
@@ -722,7 +722,7 @@ void Zpull::worker_response()
             char * plop = (char*) request.data();
             if (strlen(plop) == 0) {
                 std::cout << "Zpull::worker_response STRLEN received request 0" << std::endl;
-                goto flush_socket;
+                break;
             }
 
 
@@ -1403,7 +1403,7 @@ void Zstream_push::stream_payload()
             char *plop = (char*) request.data();
             if (strlen(plop) == 0) {
                 std::cout << "Zstream_push::stream_payload STRLEN received request 0" << std::endl;
-                goto flush_socket;
+                break;
             }
 
 
