@@ -22,9 +22,59 @@
 #include "main.h"
 
 
+int Dispatcher::sighupFd[2]={};
+int Dispatcher::sigtermFd[2]={};
+
+
+
+// http://doc.qt.nokia.com/4.7/unix-signals.html
+static void setup_unix_signal_handlers()
+{
+    struct sigaction hup, term;
+
+    hup.sa_handler = Dispatcher::hupSignalHandler;
+    sigemptyset(&hup.sa_mask);
+    hup.sa_flags = 0;
+    hup.sa_flags |= SA_RESTART;
+
+    /*if (sigaction(SIGHUP, &hup, 0) > 0)
+       return 1;*/
+
+    term.sa_handler = Dispatcher::termSignalHandler;
+    sigemptyset(&term.sa_mask);
+    term.sa_flags |= SA_RESTART;
+
+    /*if (sigaction(SIGTERM, &term, 0) > 0)
+       return 2;
+
+    return 0;*/
+
+    sigaction (SIGINT, &hup, NULL);
+    sigaction (SIGTERM, &term, NULL);
+}
+
+
+
+
+
 Dispatcher::Dispatcher(params ncs_params)
 {
     qDebug() << "Dispatcher construct";
+
+
+
+    if (::socketpair(AF_UNIX, SOCK_STREAM, 0, sighupFd))
+        qFatal("Couldn't create HUP socketpair");
+
+    if (::socketpair(AF_UNIX, SOCK_STREAM, 0, sigtermFd))
+        qFatal("Couldn't create TERM socketpair");
+    snHup = new QSocketNotifier(sighupFd[1], QSocketNotifier::Read, this);
+    connect(snHup, SIGNAL(activated(int)), this, SLOT(handleSigHup()));
+    snTerm = new QSocketNotifier(sigtermFd[1], QSocketNotifier::Read, this);
+    connect(snTerm, SIGNAL(activated(int)), this, SLOT(handleSigTerm()));
+
+
+
 
     nosql_front = new Nosql("front", ncs_params.mongodb_ip, ncs_params.mongodb_base);
     nosql_back = new Nosql("back", ncs_params.mongodb_ip, ncs_params.mongodb_base);
@@ -48,6 +98,55 @@ Dispatcher::Dispatcher(params ncs_params)
 
 Dispatcher::~Dispatcher()
 {}
+
+
+
+
+
+void Dispatcher::hupSignalHandler(int)
+{
+    char a = 1;
+    ::write(sighupFd[0], &a, sizeof(a));
+}
+
+void Dispatcher::termSignalHandler(int)
+{
+    char a = 1;
+    ::write(sigtermFd[0], &a, sizeof(a));
+}
+
+void Dispatcher::handleSigTerm()
+{
+    snTerm->setEnabled(false);
+    char tmp;
+    ::read(sigtermFd[1], &tmp, sizeof(tmp));
+
+    // do Qt stuff
+    std::cout << "Received SIGTERM" << std::endl;
+    snTerm->setEnabled(true);
+}
+
+void Dispatcher::handleSigHup()
+{
+    snHup->setEnabled(false);
+    char tmp;
+    ::read(sighupFd[1], &tmp, sizeof(tmp));
+
+    // do Qt stuff
+    std::cout << "Received SIGHUP" << std::endl;
+
+    delete(alert);
+    delete(api);
+    delete(zeromq);
+    nosql_front->kill_front ();
+    nosql_back->kill_back ();
+
+    snHup->setEnabled(true);
+
+    std::cout << "ncs shutdown successfull" << std::endl;
+    qApp->exit();
+}
+
 
 
 int main(int argc, char *argv[])
@@ -209,6 +308,10 @@ int main(int argc, char *argv[])
     }
 
     if (!QDir("/tmp/nodecast").exists()) QDir().mkdir("/tmp/nodecast");
+
+
+    setup_unix_signal_handlers();
+
 
     Dispatcher dispatcher(ncs_params);
 

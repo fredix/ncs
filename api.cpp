@@ -24,7 +24,19 @@ Api::Api(QObject *parent) : QObject(parent)
 {}
 
 Api::~Api()
-{}
+{
+    qDebug() << "delete m_http_api";
+    delete(m_http_api);
+
+    qDebug() << "delete m_xmpp_server";
+    delete(m_xmpp_server);
+
+    qDebug() << "delete m_xmpp_client";
+    delete(m_xmpp_client);
+
+    qDebug() << "delete worker_api";
+    delete(worker_api);
+}
 
 
 void Api::Http_init()

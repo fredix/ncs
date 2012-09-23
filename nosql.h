@@ -49,6 +49,7 @@ public:
     static Nosql *getInstance_front();
     static Nosql *getInstance_back();
     static void kill_front();
+    static void kill_back();
 
     BSONObj Find(string a_document, const BSONObj a_datas);        
     BSONObj Find(string a_document, const BSONObj a_query, BSONObj *a_fields);

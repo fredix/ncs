@@ -66,6 +66,17 @@ void Nosql::kill_front ()
   }
 
 
+void Nosql::kill_back ()
+  {
+    if (NULL != _singleton_back)
+      {
+        delete _singleton_back;
+        _singleton_back = NULL;
+      }
+  }
+
+
+
 Nosql::Nosql(QString instance_type, QString a_server, QString a_database) : m_server(a_server), m_database(a_database)
 {
     qDebug() << "Nosql construct param";

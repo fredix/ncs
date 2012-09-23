@@ -34,7 +34,6 @@ Worker_api::Worker_api()
     //int linger = 0;
     //z_receive_api->setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
 
-
     z_receive_api->bind("tcp://*:5555");
 
 
@@ -50,12 +49,11 @@ Worker_api::Worker_api()
 
     /********* PUB / SUB *************/
     z_publish_api = new zmq::socket_t (*zeromq_->m_context, ZMQ_PUB);
-    uint64_t pub_hwm = 50000;
-    z_publish_api->setsockopt(ZMQ_HWM, &pub_hwm, sizeof (pub_hwm));
+    //uint64_t pub_hwm = 50000;
+    //z_publish_api->setsockopt(ZMQ_HWM, &pub_hwm, sizeof (pub_hwm));
 
     //int linger_pub = 0;
     //z_publish_api->setsockopt (ZMQ_LINGER, &linger_pub, sizeof (linger_pub));
-
 
     z_publish_api->bind("tcp://*:5557");
     /*********************************/
@@ -63,6 +61,9 @@ Worker_api::Worker_api()
 
     z_push_api = new zmq::socket_t(*zeromq_->m_context, ZMQ_PUSH);
     z_push_api->bind("ipc:///tmp/nodecast/workers");
+
+    int linger_push = 0;
+    z_push_api->setsockopt (ZMQ_LINGER, &linger_push, sizeof (linger_push));
 }
 
 
@@ -187,7 +188,7 @@ void Worker_api::receive_payload()
             char *plop = (char*) request.data();
             if (strlen(plop) == 0) {
                 std::cout << "Worker_api::receive_payload STRLEN received request 0" << std::endl;
-                goto flush_socket;
+                break;
             }
 
 
@@ -461,5 +462,21 @@ void Worker_api::receive_payload()
 
 Worker_api::~Worker_api()
 {
+    qDebug() << "Worker_api close sockets";
+
+    check_payload->setEnabled(false);
+
+
+    z_receive_api->close ();
     z_push_api->close();
+    z_publish_api->close ();
+
+    qDebug() << "Worker_api delete z_receive_api socket";
+    delete(z_receive_api);
+
+    qDebug() << "Worker_api delete z_push_api socket";
+    delete(z_push_api);
+
+    qDebug() << "Worker_api delete z_publish_api socket";
+    delete(z_publish_api);
 }

@@ -234,13 +234,14 @@ public:
     //Zreceive *receive_zeromq;
     Zworker_push *worker_push;
 
+
 private:
+
     QTimer *pull_timer;
     static Zeromq *_singleton;
     QMutex *m_http_mutex;
     QMutex *m_xmpp_mutex;
     Nosql *nosql_;
-
 
 signals:
     void payload(bo data);

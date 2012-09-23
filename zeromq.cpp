@@ -313,6 +313,14 @@ void Ztracker::worker_update_ticker()
                 qDebug() << "SEND ALERT !!!!!!!";
 
                 BSONObj bo_node_id = BSON("nodes._id" << node_id.OID());
+
+                BSONObj field = BSON("_id" << 0 << "nodename" << 1);
+
+
+                BSONObj node_name = nosql_->Find ("nodes", bo_node_id, &field);
+
+                std::cout << "node name : " << node_name << std::endl;
+
                 BSONObj worker_status = BSON("nodes.$.status" << "down");
                 nosql_->Update("workers", bo_node_id, worker_status);
 
@@ -407,7 +415,11 @@ void Ztracker::service_update_ticker()
 
 
 Ztracker::~Ztracker()
-{}
+{
+    qDebug() << "Ztracker deleted";
+    m_socket->close ();
+    delete(m_socket);
+}
 
 
 
@@ -436,7 +448,11 @@ void Zreceive::init_payload()
 }
 
 Zreceive::~Zreceive()
-{}
+{
+    qDebug() << "Zreceive deleted";
+    z_sender->close ();
+    delete(z_sender);
+}
 
 
 
@@ -496,7 +512,16 @@ Zpull::Zpull(zmq::context_t *a_context) : m_context(a_context)
 
 
 Zpull::~Zpull()
-{}
+{
+    qDebug() << "Zpull deleted";
+    m_socket_http->close ();
+    m_socket_workers->close ();
+    m_socket_zeromq->close ();
+
+    delete(m_socket_http);
+    delete(m_socket_workers);
+    delete(m_socket_zeromq);
+}
 
 
 
@@ -809,7 +834,31 @@ Zdispatch::Zdispatch(zmq::context_t *a_context) : m_context(a_context)
 
 
 Zdispatch::~Zdispatch()
-{}
+{
+    qDebug() << "Zdispatch deleted";
+/*
+    BSONObj empty;
+    worker_list = nosql_->FindAll("workers", empty);
+
+    // read workers collection and instance workers's server
+    foreach (BSONObj worker, worker_list)
+    {
+        std::cout << "LIST SIZE : " << worker_list.size() << std::endl;
+
+        for (int i = 0; i < worker_list.size(); ++i) {
+            std::cout << "LIST WORKERS : " << worker_list.at(i) << std::endl;
+         }
+
+        std::cout << "WORKER : " << worker << std::endl;
+
+
+        QString w_name = QString::fromStdString(worker.getField("name").str());
+        std::cout << "worker name : " << w_name.toStdString() << std::endl;
+        delete(workers_push[w_name]);
+    }
+*/
+
+}
 
 
 
@@ -1290,7 +1339,11 @@ Zworker_push::Zworker_push(zmq::context_t *a_context, string a_worker, string a_
 
 
 Zworker_push::~Zworker_push()
-{}
+{
+    qDebug() << "Zworker_push deleted";
+    z_sender->close ();
+    delete(z_sender);
+}
 
 
 void Zworker_push::push_payload(bson::bo a_payload)
@@ -1367,7 +1420,11 @@ Zstream_push::Zstream_push(zmq::context_t *a_context) : m_context(a_context)
 
 
 Zstream_push::~Zstream_push()
-{}
+{
+    qDebug() << "Zstream_push deleted";
+    z_stream->close ();
+    delete(z_stream);
+}
 
 
 
@@ -1520,6 +1577,10 @@ Zeromq::Zeromq()
 {
     qDebug() << "Zeromq::construct";
 
+
+    qRegisterMetaType<bson::bo>("bson::bo");
+    qRegisterMetaType<BSONObj>("BSONObj");
+
     nosql_ = Nosql::getInstance_front();
 
 
@@ -1541,7 +1602,20 @@ Zeromq::Zeromq()
 
 
 Zeromq::~Zeromq()
-{}
+{
+    qDebug() << "Zeromq delete ztracker";
+    delete(ztracker);
+    qDebug() << "Zeromq delete pull";
+    delete(pull);
+    qDebug() << "Zeromq delete dispatch";
+    delete(dispatch);
+    qDebug() << "Zeromq delete stream_push";
+    delete(stream_push);
+    qDebug() << "Zeromq delete m_context";
+    // block the exit ...
+    //delete(m_context);
+    qDebug() << "Zeromq after delete m_context";
+}
 
 
 
@@ -1570,10 +1644,6 @@ void Zeromq::init()
     zmq_setsockopt (z_workers, ZMQ_HWM, &hwm, sizeof (hwm));
 
     z_workers->bind("inproc://payload");
-
-
-    qRegisterMetaType<BSONObj>("BSONObj");
-
 
     QThread *thread_dispatch = new QThread;
     dispatch = new Zdispatch(m_context);
