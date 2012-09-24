@@ -45,3 +45,11 @@ Xmpp_server::Xmpp_server(QString a_domain, int a_xmpp_client_port, int a_xmpp_se
     m_server.listenForClients(bind_ip, m_xmpp_client_port);
     m_server.listenForServers(bind_ip, m_xmpp_server_port);
 }
+
+
+
+Xmpp_server::~Xmpp_server()
+{
+    qDebug() << "Xmpp_server shutdown";
+    m_server.close ();
+}

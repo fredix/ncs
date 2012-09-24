@@ -415,12 +415,23 @@ void Ztracker::service_update_ticker()
 
 
 Ztracker::~Ztracker()
+{}
+
+
+void Ztracker::destructor()
 {
-    qDebug() << "Ztracker deleted";
+    qDebug() << "Ztracker destructor";
+    check_tracker->setEnabled(false);
+
+    qDebug() << "Ztracker worker_timer stop";
+    worker_timer->stop ();
+
+    qDebug() << "Ztracker close socket";
     m_socket->close ();
+
+    qDebug() << "Ztracker deleted socket";
     delete(m_socket);
 }
-
 
 
 
@@ -448,12 +459,14 @@ void Zreceive::init_payload()
 }
 
 Zreceive::~Zreceive()
+{}
+
+void Zreceive::destructor()
 {
-    qDebug() << "Zreceive deleted";
+    qDebug() << "Zreceive destructor";
     z_sender->close ();
     delete(z_sender);
 }
-
 
 
 
@@ -512,8 +525,16 @@ Zpull::Zpull(zmq::context_t *a_context) : m_context(a_context)
 
 
 Zpull::~Zpull()
+{}
+
+void Zpull::destructor()
 {
-    qDebug() << "Zpull deleted";
+    qDebug() << "Zpull destructor";
+    check_http_data->setEnabled(false);
+    check_zeromq_data->setEnabled(false);
+    check_worker_response->setEnabled(false);
+
+
     m_socket_http->close ();
     m_socket_workers->close ();
     m_socket_zeromq->close ();
@@ -522,7 +543,6 @@ Zpull::~Zpull()
     delete(m_socket_workers);
     delete(m_socket_zeromq);
 }
-
 
 
 void Zpull::receive_http_payload()
@@ -805,13 +825,14 @@ Zdispatch::Zdispatch(zmq::context_t *a_context) : m_context(a_context)
     // read workers collection and instance workers's server
     foreach (BSONObj worker, worker_list)
     {
-        std::cout << "LIST SIZE : " << worker_list.size() << std::endl;
+        /*std::cout << "LIST SIZE : " << worker_list.size() << std::endl;
 
         for (int i = 0; i < worker_list.size(); ++i) {
             std::cout << "LIST WORKERS : " << worker_list.at(i) << std::endl;
          }
 
         std::cout << "WORKER : " << worker << std::endl;
+        */
 
         int port = worker.getField("port").number();
         std::cout << "INT worker port : " << port << std::endl;
@@ -834,31 +855,33 @@ Zdispatch::Zdispatch(zmq::context_t *a_context) : m_context(a_context)
 
 
 Zdispatch::~Zdispatch()
+{}
+
+
+void Zdispatch::destructor()
 {
-    qDebug() << "Zdispatch deleted";
-/*
+    qDebug() << "Zdispatch destructor";
+
     BSONObj empty;
     worker_list = nosql_->FindAll("workers", empty);
 
     // read workers collection and instance workers's server
     foreach (BSONObj worker, worker_list)
     {
-        std::cout << "LIST SIZE : " << worker_list.size() << std::endl;
 
-        for (int i = 0; i < worker_list.size(); ++i) {
+
+        /*for (int i = 0; i < worker_list.size(); ++i) {
             std::cout << "LIST WORKERS : " << worker_list.at(i) << std::endl;
          }
-
-        std::cout << "WORKER : " << worker << std::endl;
-
+        */
 
         QString w_name = QString::fromStdString(worker.getField("name").str());
         std::cout << "worker name : " << w_name.toStdString() << std::endl;
-        delete(workers_push[w_name]);
+        qDebug() << "delete worker push : " << w_name;
+        if (workers_push.contains (w_name)) workers_push[w_name].clear ();
     }
-*/
-
 }
+
 
 
 
@@ -1420,12 +1443,16 @@ Zstream_push::Zstream_push(zmq::context_t *a_context) : m_context(a_context)
 
 
 Zstream_push::~Zstream_push()
+{}
+
+void Zstream_push::destructor()
 {
-    qDebug() << "Zstream_push deleted";
+    qDebug() << "Zstream_push destructor";
+
+    check_stream->setEnabled(false);
     z_stream->close ();
     delete(z_stream);
 }
-
 
 
 void Zstream_push::stream_payload()
@@ -1603,17 +1630,45 @@ Zeromq::Zeromq()
 
 Zeromq::~Zeromq()
 {
+    qDebug() << "pull_timer stop";
+    pull_timer->stop ();
+
+    qDebug() << "BEFORE SHUTDOWN";
+    emit shutdown();
+    qDebug() << "AFTER SHUTDOWN";
+
     qDebug() << "Zeromq delete ztracker";
+    qDebug() << "stop ztracker thread";
+    thread_tracker->quit ();
+    while(!thread_tracker->isFinished ()){};
     delete(ztracker);
+
     qDebug() << "Zeromq delete pull";
+    qDebug() << "stop pull thread";
+    thread_pull->quit ();
+    while(!thread_pull->isFinished ()){};
     delete(pull);
+
     qDebug() << "Zeromq delete dispatch";
+    qDebug() << "stop dispatch thread";
+    thread_dispatch->quit ();
+    while(!thread_dispatch->isFinished ()){};
     delete(dispatch);
+
     qDebug() << "Zeromq delete stream_push";
+    qDebug() << "stop stream_push thread";
+    thread_stream->quit ();
+    while(!thread_stream->isFinished ()){};
     delete(stream_push);
+
+    qDebug() << "Zeromq close zworkers socket";
+    z_workers->close ();
+    qDebug() << "Zeromq delete zworkers";
+    delete(z_workers);
+
     qDebug() << "Zeromq delete m_context";
-    // block the exit ...
-    //delete(m_context);
+    // delete zmq context block the exit ...
+    delete(m_context);
     qDebug() << "Zeromq after delete m_context";
 }
 
@@ -1638,42 +1693,48 @@ void Zeromq::init()
 {
     qDebug() << "Zeromq::init";
 
-    zmq::socket_t *z_workers = new zmq::socket_t (*m_context, ZMQ_PUSH);
+    z_workers = new zmq::socket_t (*m_context, ZMQ_PUSH);
 
-    uint64_t hwm = 50000;
-    zmq_setsockopt (z_workers, ZMQ_HWM, &hwm, sizeof (hwm));
+    //uint64_t hwm = 50000;
+    //zmq_setsockopt (z_workers, ZMQ_HWM, &hwm, sizeof (hwm));
 
     z_workers->bind("inproc://payload");
 
-    QThread *thread_dispatch = new QThread;
+    thread_dispatch = new QThread;
     dispatch = new Zdispatch(m_context);
     dispatch->moveToThread(thread_dispatch);
     thread_dispatch->start();
+    connect(this, SIGNAL(shutdown()), dispatch, SLOT(destructor()), Qt::BlockingQueuedConnection);
 
 
-    QThread *thread_tracker = new QThread;
+
+    thread_tracker = new QThread;
     ztracker = new Ztracker(m_context);
     ztracker->moveToThread(thread_tracker);
     thread_tracker->start();
 
+    connect(this, SIGNAL(shutdown()), ztracker, SLOT(destructor()), Qt::BlockingQueuedConnection);
     connect(ztracker, SIGNAL(create_server(QString,QString)), dispatch, SLOT(bind_server(QString,QString)), Qt::QueuedConnection);
 
 
 
-    QThread *thread_pull = new QThread;
+    thread_pull = new QThread;
     pull = new Zpull(m_context);
-    pull->moveToThread(thread_pull);
+    pull->moveToThread(thread_pull);    
     thread_pull->start();
+    connect(this, SIGNAL(shutdown()), pull, SLOT(destructor()), Qt::BlockingQueuedConnection);
     connect(pull, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
 
 
 
 
-    QThread *thread_stream = new QThread;
+    thread_stream = new QThread;
     stream_push = new Zstream_push(m_context);
     stream_push->moveToThread(thread_stream);
     thread_stream->start();
+    connect(this, SIGNAL(shutdown()), stream_push, SLOT(destructor()), Qt::BlockingQueuedConnection);
+
     //connect(pull, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
 

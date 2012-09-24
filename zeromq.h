@@ -81,6 +81,9 @@ private:
     zmq::message_t *z_message;
     QMutex *m_mutex;
 
+public slots:
+    void destructor();
+
 private slots:
     void stream_payload();
 };
@@ -116,6 +119,8 @@ signals:
     void sendAlert(QString worker);   
     void create_server(QString name, QString port);
 
+public slots:
+    void destructor();
 
 private slots:
     void receive_payload();
@@ -148,6 +153,9 @@ private:
 
 signals:
     void forward_payload(BSONObj data);
+
+public slots:
+    void destructor();
 
 private slots:
     void receive_http_payload();
@@ -188,6 +196,8 @@ private slots:
 public slots:
     void bind_server(QString name, QString port);
     void push_payload(BSONObj data);
+    void destructor();
+
 };
 
 
@@ -207,6 +217,8 @@ private:
 
 public slots:
     void init_payload();
+    void destructor();
+
 };
 
 
@@ -236,7 +248,13 @@ public:
 
 
 private:
+    QThread *thread_dispatch;
+    QThread *thread_tracker;
+    QThread *thread_pull;
+    QThread *thread_stream;
 
+
+    zmq::socket_t *z_workers;
     QTimer *pull_timer;
     static Zeromq *_singleton;
     QMutex *m_http_mutex;
@@ -245,6 +263,7 @@ private:
 
 signals:
     void payload(bo data);
+    void shutdown();
 };
 
 #endif // ZEROMQ_H

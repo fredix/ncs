@@ -50,6 +50,10 @@ private:
     Http_api *m_http_api;
     Xmpp_server *m_xmpp_server;
     Xmpp_client *m_xmpp_client;
+
+
+signals:
+    void shutdown();
 };
 
 #endif // API_H

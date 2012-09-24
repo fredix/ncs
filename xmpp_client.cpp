@@ -99,7 +99,10 @@ Xmpp_client::Xmpp_client(QString a_domain, int a_xmpp_client_port, QObject *pare
 
 
 Xmpp_client::~Xmpp_client()
-{}
+{
+    qDebug() << "Xmpp_client shutdown";
+    this->disconnectFromServer ();
+}
 
 
 void Xmpp_client::file_received (QXmppTransferJob *job)

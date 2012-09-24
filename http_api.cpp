@@ -41,7 +41,11 @@ Http_api::Http_api(QxtAbstractWebSessionManager * sm, QObject * parent): QxtWebS
 
 
 Http_api::~Http_api()
-{}
+{
+    qDebug() << "Http_api : close socket";
+    z_push_api->close ();
+    delete(z_push_api);
+}
 
 
 QBool Http_api::checkAuth(QString header, BSONObjBuilder &payload_builder, bo &a_user)

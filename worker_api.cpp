@@ -461,8 +461,12 @@ void Worker_api::receive_payload()
 
 
 Worker_api::~Worker_api()
+{}
+
+
+void Worker_api::destructor()
 {
-    qDebug() << "Worker_api close sockets";
+    qDebug() << "Worker_api destructor";
 
     check_payload->setEnabled(false);
 

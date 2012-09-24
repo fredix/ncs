@@ -49,6 +49,7 @@ private:
 
 public slots:
     void pubsub_payload(bson::bo l_payload);
+    void destructor();
 
 private slots:
     void receive_payload();

@@ -25,16 +25,17 @@ Api::Api(QObject *parent) : QObject(parent)
 
 Api::~Api()
 {
-    qDebug() << "delete m_http_api";
+    qDebug() << "delete http server";
     delete(m_http_api);
 
-    qDebug() << "delete m_xmpp_server";
+    qDebug() << "delete xmpp server";
     delete(m_xmpp_server);
 
-    qDebug() << "delete m_xmpp_client";
+    qDebug() << "delete xmpp client";
     delete(m_xmpp_client);
 
-    qDebug() << "delete worker_api";
+    qDebug() << "delete worker api";
+    emit shutdown();
     delete(worker_api);
 }
 
@@ -69,6 +70,8 @@ void Api::Worker_init()
     QThread *worker_pull = new QThread;
     worker_api = new Worker_api();
     worker_api->moveToThread(worker_pull);
-    worker_pull->start();
+    worker_pull->start();    
+    connect(this, SIGNAL(shutdown()), worker_api, SLOT(destructor()), Qt::BlockingQueuedConnection);
+
 
 }
