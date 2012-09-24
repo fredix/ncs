@@ -177,6 +177,7 @@ void Ztracker::receive_payload()
                 worker_builder.genOID();
                 worker_builder.append(payload.getField("uuid"));
                 worker_builder.append(l_payload.getFieldDotted("payload.pid"));
+                worker_builder.append(l_payload.getFieldDotted("payload.node_uuid"));
                 worker_builder.append(l_payload.getFieldDotted("payload.timestamp"));
                 worker_builder.append("status", "up");
 
@@ -288,12 +289,12 @@ void Ztracker::worker_update_ticker()
 
             //std::cout << "L_NODE : " << l_node << std::endl;
 
-            be node_id;
+            BSONElement node_id;
             l_node.getObjectID (node_id);
 
-            be node_timestamp = l_node.getField("timestamp");
-            be status = l_node.getField("status");
-            be uuid = l_node.getField("uuid");
+            BSONElement node_timestamp = l_node.getField("timestamp");
+            BSONElement status = l_node.getField("status");
+            BSONElement uuid = l_node.getField("uuid");
 
             t_timestamp.setTime_t(node_timestamp.number());
 
@@ -307,14 +308,16 @@ void Ztracker::worker_update_ticker()
             {
                 qDebug() << "SEND ALERT !!!!!!!";
 
+
+                std::cout << "node_id : " << node_id << std::endl;
+                std::cout << "node_id.OID() : " << node_id.OID() << std::endl;
+
+                BSONElement node_uuid = l_node.getField("node_uuid");
+                BSONObj node = nosql_->Find("nodes", node_uuid.wrap());
+
                 BSONObj bo_node_id = BSON("nodes._id" << node_id.OID());
 
-                BSONObj field = BSON("_id" << 0 << "nodename" << 1);
-
-
-                BSONObj node_name = nosql_->Find ("nodes", bo_node_id, &field);
-
-                std::cout << "node name : " << node_name << std::endl;
+                std::cout << "node name : " << node << std::endl;
 
                 BSONObj worker_status = BSON("nodes.$.status" << "down");
                 nosql_->Update("workers", bo_node_id, worker_status);
@@ -322,9 +325,11 @@ void Ztracker::worker_update_ticker()
 
                 QString l_worker = "WORKER ";
                 l_worker.append(QString::fromStdString(worker.getField("name").str()));
-                l_worker.append(" type : ");
+                l_worker.append(" NODE NAME : ");
+                l_worker.append(QString::fromStdString(node.getField("nodename").str()));
+                l_worker.append(" TYPE : ");
                 l_worker.append(QString::fromStdString(worker.getField("type").str()));
-                l_worker.append (", uuid : ").append (uuid.valuestr()).append (", at : ").append (t_timestamp.toString("dd MMMM yyyy hh:mm:ss"));
+                l_worker.append (", UUID : ").append (uuid.valuestr()).append (", AT : ").append (t_timestamp.toString("dd MMMM yyyy hh:mm:ss"));
                 qDebug() << "WORKER ALERT ! " << l_worker;
                 emit sendAlert(l_worker);
             }
