@@ -96,7 +96,6 @@ public:
     Ztracker(zmq::context_t *a_context);
     ~Ztracker();
     QTimer *worker_timer;
-    QTimer *service_timer;
 
 private:        
     QSocketNotifier *check_tracker;
@@ -125,7 +124,6 @@ public slots:
 private slots:
     void receive_payload();
     void worker_update_ticker();
-    void service_update_ticker();
 };
 
 
@@ -149,7 +147,9 @@ private:
     zmq::socket_t *m_socket_http;
     zmq::socket_t *m_socket_workers;
     zmq::socket_t *m_socket_zeromq;
-    QMutex *m_mutex;
+    QMutex *m_mutex_zeromq;
+    QMutex *m_mutex_http;
+    QMutex *m_mutex_worker_response;
 
 signals:
     void forward_payload(BSONObj data);
@@ -183,7 +183,9 @@ private:
     QList <QString> worker_name;
     QList <BSONObj> workflow_list;
     QList <BSONObj> worker_list;
-    QMutex *m_mutex;
+    QMutex *m_mutex_replay_payload;
+    QMutex *m_mutex_push_payload;
+
     QTimer *replay_payload_timer;
 
 signals:
