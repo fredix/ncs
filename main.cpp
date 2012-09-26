@@ -25,6 +25,7 @@
 int Dispatcher::sighupFd[2]={};
 int Dispatcher::sigtermFd[2]={};
 
+QSettings settings("nodecast", "ncs");
 
 
 // http://doc.qt.nokia.com/4.7/unix-signals.html
@@ -207,8 +208,14 @@ int main(int argc, char *argv[])
         return -1;
     }
     verbose = options.count("verbose");
+
     if(options.count("mongodb-base")) {
         ncs_params.mongodb_base = options.value("mongodb-base").toString();
+        settings.setValue("mongodb-base", ncs_params.mongodb_base);
+    }
+    else if(settings.contains("mongodb-base"))
+    {
+        ncs_params.mongodb_base = settings.value("mongodb-base").toString();
     }
     else {
         std::cout << "ncs: --mongodb-base requires a parameter" << std::endl;
@@ -219,7 +226,12 @@ int main(int argc, char *argv[])
 
 
     if(options.count("mongodb-ip")) {
-        ncs_params.mongodb_ip = options.value("mongodb-ip").toString();
+        ncs_params.mongodb_ip = options.value("mongodb-ip").toString();                
+        settings.setValue("mongodb-ip", ncs_params.mongodb_ip);
+    }
+    else if(settings.contains("mongodb-ip"))
+    {
+        ncs_params.mongodb_ip = settings.value("mongodb-ip").toString();
     }
     else {
         std::cout << "ncs: --mongodb-ip requires a parameter" << std::endl;
@@ -229,7 +241,12 @@ int main(int argc, char *argv[])
 
 
     if(options.count("domain-name")) {
-        ncs_params.domain_name = options.value("domain-name").toString();
+        ncs_params.domain_name = options.value("domain-name").toString();                
+        settings.setValue("domain-name", ncs_params.domain_name);
+    }
+    else if(settings.contains("domain-name"))
+    {
+        ncs_params.domain_name = settings.value("domain-name").toString();
     }
     else {
         std::cout << "ncs: --domain-name requires a parameter" << std::endl;
@@ -240,6 +257,11 @@ int main(int argc, char *argv[])
 
     if(options.count("xmpp-client-port")) {
         ncs_params.xmpp_client_port = options.value("xmpp-client-port").toInt();
+        settings.setValue("xmpp-client-port", ncs_params.xmpp_client_port);
+    }
+    else if(settings.contains("xmpp-client-port"))
+    {
+        ncs_params.xmpp_client_port = settings.value("xmpp-client-port").toInt();
     }
     else {
         std::cout << "ncs: --xmpp-client-port requires a parameter" << std::endl;
@@ -249,6 +271,11 @@ int main(int argc, char *argv[])
 
     if(options.count("xmpp-server-port")) {
         ncs_params.xmpp_server_port = options.value("xmpp-server-port").toInt();
+        settings.setValue("xmpp-server-port", ncs_params.xmpp_server_port);
+    }
+    else if(settings.contains("xmpp-server-port"))
+    {
+        ncs_params.xmpp_server_port = settings.value("xmpp-server-port").toInt();
     }
     else {
         std::cout << "ncs: --xmpp-server-port requires a parameter" << std::endl;
@@ -259,6 +286,11 @@ int main(int argc, char *argv[])
 
     if(options.count("smtp-hostname")) {
         ncs_params.alert_email.smtp_hostname = options.value("smtp-hostname").toString();
+        settings.setValue("smtp-hostname", ncs_params.alert_email.smtp_hostname);
+    }
+    else if(settings.contains("smtp-hostname"))
+    {
+        ncs_params.alert_email.smtp_hostname = settings.value("smtp-hostname").toString();
     }
     else {
         std::cout << "ncs: --smtp-hostname requires a parameter" << std::endl;
@@ -269,6 +301,11 @@ int main(int argc, char *argv[])
 
     if(options.count("smtp-username")) {
         ncs_params.alert_email.smtp_username = options.value("smtp-username").toString();
+        settings.setValue("smtp-username", ncs_params.alert_email.smtp_username);
+    }
+    else if(settings.contains("smtp-username"))
+    {
+        ncs_params.alert_email.smtp_username = settings.value("smtp-username").toString();
     }
     else {
         std::cout << "ncs: --smtp-username requires a parameter" << std::endl;
@@ -279,6 +316,11 @@ int main(int argc, char *argv[])
 
     if(options.count("smtp-password")) {
         ncs_params.alert_email.smtp_password = options.value("smtp-password").toString();
+        settings.setValue("smtp-password", ncs_params.alert_email.smtp_password);
+    }
+    else if(settings.contains("smtp-password"))
+    {
+        ncs_params.alert_email.smtp_password = settings.value("smtp-password").toString();
     }
     else {
         std::cout << "ncs: --smtp-password requires a parameter" << std::endl;
@@ -290,6 +332,11 @@ int main(int argc, char *argv[])
 
     if(options.count("smtp-sender")) {
         ncs_params.alert_email.smtp_sender = options.value("smtp-sender").toString();
+        settings.setValue("smtp-sender", ncs_params.alert_email.smtp_sender);
+    }
+    else if(settings.contains("smtp-sender"))
+    {
+        ncs_params.alert_email.smtp_sender = settings.value("smtp-sender").toString();
     }
     else {
         std::cout << "ncs: --smtp-sender requires a parameter" << std::endl;
@@ -300,6 +347,11 @@ int main(int argc, char *argv[])
 
     if(options.count("smtp-recipient")) {
         ncs_params.alert_email.smtp_recipient = options.value("smtp-recipient").toString();
+        settings.setValue("smtp-recipient", ncs_params.alert_email.smtp_recipient);
+    }
+    else if(settings.contains("smtp-recipient"))
+    {
+        ncs_params.alert_email.smtp_recipient = settings.value("smtp-recipient").toString();
     }
     else {
         std::cout << "ncs: --smtp-recipient requires a parameter" << std::endl;

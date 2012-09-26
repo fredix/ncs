@@ -23,6 +23,7 @@
 
 #include <syslog.h>
 #include <QDebug>
+#include <QSettings>
 #include <QDir>
 
 #include "nosql.h"
