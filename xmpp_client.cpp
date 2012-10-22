@@ -102,6 +102,9 @@ Xmpp_client::~Xmpp_client()
 {
     qDebug() << "Xmpp_client shutdown";
     this->disconnectFromServer ();
+    qDebug() << "Xmpp_client : close socket";
+    z_push_api->close ();
+    delete(z_push_api);
 }
 
 

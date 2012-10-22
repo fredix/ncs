@@ -113,9 +113,8 @@ void Ztracker::receive_payload()
 
             std::cout << "Ztracker::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
 
-            char *plop = (char*) request.data();
-            if (strlen(plop) == 0) {
-                std::cout << "Zpull::worker_response STRLEN received request 0" << std::endl;
+            if (request.size() == 0) {
+                std::cout << "Zpull::worker_response received request 0" << std::endl;
                 break;
             }
 
@@ -129,7 +128,7 @@ void Ztracker::receive_payload()
             {
                 std::cout << "error on data : " << l_payload << std::endl;
                 std::cout << "error on data BSON : " << e.what() << std::endl;
-                goto flush_socket;;
+                goto flush_socket;
             }
 
             QString worker_type = QString::fromStdString(l_payload.getFieldDotted("payload.type").str());
@@ -534,9 +533,8 @@ void Zpull::receive_http_payload()
 
             std::cout << "Zpull::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
 
-            char *plop = (char*) request.data();
-            if (strlen(plop) == 0) {
-                std::cout << "Zpull::worker_response STRLEN received request 0" << std::endl;
+            if (request.size() == 0) {
+                std::cout << "Zpull::worker_response received request 0" << std::endl;
                 break;
             }
 
@@ -624,9 +622,8 @@ void Zpull::receive_zeromq_payload()
 
             std::cout << "Zpull::receive_zeromq_payload received request: [" << (char*) request.data() << "]" << std::endl;
 
-            char *plop = (char*) request.data();
-            if (strlen(plop) == 0) {
-                std::cout << "Zpull::receive_zeromq_payload STRLEN received request 0" << std::endl;
+            if (request.size() == 0) {
+                std::cout << "Zpull::receive_zeromq_payload received request 0" << std::endl;
                 break;
             }
 
@@ -713,11 +710,9 @@ void Zpull::worker_response()
             int res = m_socket_workers->recv(&request, ZMQ_NOBLOCK);
             if (res == -1 && zmq_errno () == EAGAIN) break;
 
-            std::cout << "Zpull::worker_response received request: [" << (char*) request.data() << "]" << std::endl;
 
-            char * plop = (char*) request.data();
-            if (strlen(plop) == 0) {
-                std::cout << "Zpull::worker_response STRLEN received request 0" << std::endl;
+            if (request.size() == 0) {
+                std::cout << "Zpull::worker_response received request 0" << std::endl;
                 break;
             }
 
@@ -907,6 +902,7 @@ void Zdispatch::push_payload(BSONObj a_data)
     //BSONElement session_uuid = data.getField("session_uuid");
     BSONObj session_uuid = BSON("uuid" << a_data.getField("session_uuid").str());
     BSONElement b_session_uuid = session_uuid.getField("uuid");
+    BSONElement payload_type = a_data.getField("payload_type");
 
     BSONElement b_action = a_data.getField("action");
 
@@ -974,15 +970,15 @@ void Zdispatch::push_payload(BSONObj a_data)
     if (a_data.hasField("data")) datas = a_data.getField("data");
 
 
-
+/*
     if (action.compare("publish") == 0 && w_workers.nFields() !=0)
     {
         std::cout << "Zdispatch::receive_payload RECEIVE PUBLISH : " << datas << std::endl;
 
         //emit emit_pubsub(datas.Obj().copy());
 
-    }
-    else if (action.compare("create") == 0 && w_workers.nFields() !=0)
+    }*/
+    if ((action.compare("push") == 0 || action.compare("publish") == 0) && w_workers.nFields() !=0)
     {
         // create step
         QString worker_name;
@@ -991,7 +987,7 @@ void Zdispatch::push_payload(BSONObj a_data)
 
 
 
-        std::cout << "Zdispatch::receive_payload : ACTION CREATE : " << action << std::endl;
+        std::cout << "Zdispatch::receive_payload : ACTION PUSH : " << action << std::endl;
 
         bool worker_never_connected = true;
 
@@ -1031,77 +1027,86 @@ void Zdispatch::push_payload(BSONObj a_data)
 
         if (!worker_never_connected)
         {
+                std::cout << "EXTRACT GFSID : " << gfs_id << std::endl;
+                BSONObj gfsid = BSON("_id" << gfs_id);
+
+
+                string filename = nosql_->GetFilename(gfsid.firstElement());
+
+                //if (gridfs) nosql_->ExtractBinary(gfs_id, path.toStdString(), filename);
+
+
+                std::cout << "EXTRACT PAYLOAD, FILENAME : " << filename << std::endl;
+
+                /********** RECORD PAYLOAD STEP *********/
+                BSONObjBuilder step_builder;
+                step_builder.genOID();
+                step_builder.append("name", worker_name.toStdString());
+                step_builder.append("action", "push");
+                step_builder.append("order", 1);
+
+
+                if (gridfs)
+                {
+                    step_builder.append("data", filename);
+                }
+                else step_builder.append("data", payload.getField("data").str());
+
+                step_builder.append("send_timestamp", timestamp.Number());
+
+                BSONObj step = BSON("steps" << step_builder.obj());
+
+                nosql_->Addtoarray("payloads", l_payload_id.wrap(), step);
+                /*****************************************/
+
+                /********* UPDATE SESSION **********/
+                BSONObjBuilder session_builder;
+                session_builder.append("step_id", step.getField("steps").Obj().getField("_id").OID());
+                session_builder.append("counter", workers_number -1);
+                session_builder.append("last_worker", worker_name.toStdString());
+                BSONObj l_session = session_builder.obj();
+
+                std::cout << "SESSION !!! " << l_session << std::endl;
+
+                nosql_->Update("sessions", session_id, l_session);
+                /***********************************/
+
+                //be step_id;
+                //step.getField("steps").Obj().getObjectID(step_id);
+
+                /**** SEND PAYLOAD ****/
+                //BSONObj payload = BSON("datas" << path.toStdString() << "workflow_uuid" << workflow_uuid.str() << "payload_uuid" << payload_uuid.str() << "step_id" << step.getField("steps").Obj().getField("_id"));
+
+                /*if (worker_never_connected)
+                {
+                    qDebug() << "WORKER NERVER CONNECTED : LOST PAYLOAD";
+                    return;
+                }*/
+
+                BSONObj s_payload;
+                if (gridfs)
+                {
+                    //s_payload = BSON("data" << path.toStdString() << "session_uuid" << b_session_uuid.str());
+                    s_payload = BSON("payload" << BSON("command" << "get_file" <<
+                                                       "filename" << filename <<
+                                                       "action" << action <<
+                                                       payload_type <<
+                                                       "session_uuid" << b_session_uuid.str()));
+
+
+                    //std::cout << "!!!!!!!!!!!!!PUSH PAYLOAD : " << s_payload << std::endl;
+
+                    //s_payload = BSON("data" << BSON("command" << "receive") << "session_uuid" << b_session_uuid.str());
+                }
+                else s_payload = BSON("payload" << BSON("data" << payload.getField("data").str() <<
+                                                        "action" << action <<
+                                                        payload_type <<
+                                                        "session_uuid" << b_session_uuid.str()));
 
 
 
-                /* EXTRACT PAYLOAD */
-                QString path = "/tmp/";
-
-
-                std::cout << "BINARY && COPY : " << gfs_id << std::endl;
-                QString filename;
-
-
-                if (gridfs) nosql_->ExtractBinary(gfs_id, path.toStdString(), filename);
-
-                    qDebug() << "EXTRACT PAYLOAD, FILENAME : " << filename;
-
-                    /********** RECORD PAYLOAD STEP *********/
-                    BSONObjBuilder step_builder;
-                    step_builder.genOID();
-                    step_builder.append("name", worker_name.toStdString());
-                    step_builder.append("action", "create");
-                    step_builder.append("order", 1);
-
-
-                    if (gridfs)
-                    {
-                        step_builder.append("data", path.append(filename).toStdString());
-                    }
-                    else step_builder.append("data", payload.getField("data").str());
-
-                    step_builder.append("send_timestamp", timestamp.Number());
-
-                    BSONObj step = BSON("steps" << step_builder.obj());
-
-                    nosql_->Addtoarray("payloads", l_payload_id.wrap(), step);
-                    /*****************************************/
-
-                    /********* UPDATE SESSION **********/
-                    BSONObjBuilder session_builder;
-                    session_builder.append("step_id", step.getField("steps").Obj().getField("_id").OID());
-                    session_builder.append("counter", workers_number -1);
-                    session_builder.append("last_worker", worker_name.toStdString());
-                    BSONObj l_session = session_builder.obj();
-
-                    std::cout << "SESSION !!! " << l_session << std::endl;
-
-                    nosql_->Update("sessions", session_id, l_session);
-                    /***********************************/
-
-                    //be step_id;
-                    //step.getField("steps").Obj().getObjectID(step_id);
-
-                    /**** SEND PAYLOAD ****/
-                    //BSONObj payload = BSON("datas" << path.toStdString() << "workflow_uuid" << workflow_uuid.str() << "payload_uuid" << payload_uuid.str() << "step_id" << step.getField("steps").Obj().getField("_id"));
-
-                    /*if (worker_never_connected)
-                    {
-                        qDebug() << "WORKER NERVER CONNECTED : LOST PAYLOAD";
-                        return;
-                    }*/
-
-                    BSONObj s_payload;
-                    if (gridfs)
-                    {
-                        s_payload = BSON("data" << path.toStdString() << "session_uuid" << b_session_uuid.str());
-                    }
-                    else s_payload = BSON("data" << payload.getField("data").str() << "session_uuid" << b_session_uuid.str() << "data_type" << payload.getField("data_type").str());
-
-
-
-                    qDebug() << "push_payload : " << worker_name;
-                    workers_push[worker_name]->push_payload(s_payload);
+                qDebug() << "push_payload : " << worker_name;
+                workers_push[worker_name]->push_payload(s_payload);
 
 
 
@@ -1445,9 +1450,9 @@ void Zstream_push::stream_payload()
 
             std::cout << "Zstream_push::stream_payload received request: [" << (char*) request.data() << "]" << std::endl;
 
-            char *plop = (char*) request.data();
-            if (strlen(plop) == 0) {
-                std::cout << "Zstream_push::stream_payload STRLEN received request 0" << std::endl;
+
+            if (request.size() == 0) {
+                std::cout << "Zstream_push::stream_payload received request 0" << std::endl;
                 break;
             }
 
@@ -1467,13 +1472,40 @@ void Zstream_push::stream_payload()
 
             QString payload_action = QString::fromStdString(l_payload.getField("action").str());
 
-            if (payload_action == "get_file")
+            if (payload_action == "get_filename")
             {
+                std::cout << "!!!!!! get_filename RECEIVE !!!" << std::endl;
 
-                BSONObj session_uuid = BSON("uuid" << l_payload.getField("session_uuid").str());
-
+                BSONObj session_uuid = BSON("uuid" << l_payload.getFieldDotted("payload.session_uuid").str());
                 BSONObj session = nosql_->Find("sessions", session_uuid);
+                std::cout << "!!!!! session !!!!!! : " << session << std::endl;
 
+                BSONObj payload_id = BSON("_id" << session.getField("payload_id").OID());
+                std::cout << "payload_id : " << payload_id << std::endl;
+
+                BSONObj payload = nosql_->Find("payloads", payload_id);
+
+                BSONElement gfs_id = payload.getField("gfs_id");
+
+                std::cout << "EXTRACT GFSID : " << gfs_id << std::endl;
+                BSONObj gfsid = BSON("_id" << gfs_id);
+
+                string filename = nosql_->GetFilename(gfsid.firstElement());
+                std::cout << "filename : " << filename << std::endl;
+
+
+
+                BSONObj b_filename = BSON("filename" << filename);
+                z_message->rebuild(b_filename.objsize());
+                memcpy ((void *) z_message->data(), (char*)b_filename.objdata(), b_filename.objsize());
+                z_stream->send (*z_message, ZMQ_NOBLOCK);
+                goto flush_socket;
+            }
+
+            else if (payload_action == "get_file")
+            {
+                BSONObj session_uuid = BSON("uuid" << l_payload.getFieldDotted("payload.session_uuid").str());
+                BSONObj session = nosql_->Find("sessions", session_uuid);
                 std::cout << "!!!!! session !!!!!! : " << session << std::endl;
 
                 BSONObj payload_id = BSON("_id" << session.getField("payload_id").OID());
@@ -1485,71 +1517,82 @@ void Zstream_push::stream_payload()
 
                 std::cout << "EXTRACT GFSID : " << gfs_id << std::endl;
 
-                mongo::GridFile *m_grid_file = NULL;
 
                 BSONObj gfsid = BSON("_id" << gfs_id);
 
 
-                QBool check_grid_file = nosql_->ReadFile(gfsid.firstElement(), &m_grid_file);
 
-                BSONObj r_payload;
-                if (m_grid_file && m_grid_file->exists())
+                int num_chunck = nosql_->GetNumChunck(gfsid.firstElement());
+                std::cout << "NUM CHUCK : " << num_chunck << std::endl;
+
+                //std::fstream out;
+                //out.open("/tmp/nodecast/dump_gridfile", ios::out);
+
+                //ofstream out ("/tmp/nodecast/dump_gridfile",ofstream::binary);
+
+
+                QFile out("/tmp/nodecast/dump_gridfile");
+                out.open(QIODevice::WriteOnly);
+                //out.write(requestContent);
+                //out.close();
+
+                QByteArray chunk_data;
+
+                for ( int chunk_index = 0; chunk_index < num_chunck; chunk_index++ )
                 {
-                    qDebug() << "FIND GRID FILE : ";
-                    std::fstream out;
-                    out.open("/tmp/nodecast/dump_gridfile", ios::out);
+                    std::cout << "BEFORE GET CHUNCK " << std::endl;
 
-                    const int num = m_grid_file->getNumChunks();
-                    std::cout << "FILE NAME : " << m_grid_file->getFilename() << std::endl;
-                    std::cout << "NUM CHUCK : " << num << std::endl;
+                    int chunk_length;
+
+                    QBool res = nosql_->ExtractByChunck(gfsid.firstElement(), chunk_index, chunk_data, chunk_length);
+                    //std::cout << "AFTER GET CHUNCK chunk_data : " << chunk_data << std::endl;
+                    if (res)
+                    {
+
+                        std::cout << "Zstream_push::stream_payload CHUNK LEN : " << chunk_length << " size : " << chunk_data.size() << std::endl;
 
 
-                    for ( int i=0; i<num; i++ ) {
-                        GridFSChunk c = m_grid_file->getChunk( i );
-                        int len;
-                        const char * data = c.data( len );
-                        out.write( data , len );
+                        out.write( chunk_data.constData(), chunk_data.size());
 
-                        z_message->rebuild(len);
-                        memcpy(z_message->data(), data, len);
-                        z_stream->send(*z_message, ZMQ_SNDMORE);
+
+                        //s_chunk_data = chunk_data.toBase64();
+                        //chunk_data.clear();
+
+                        //std::cout << "Zstream_push::stream_payload CHUNK toBase64 LEN : " << chunk_length << " size : " << s_chunk_data.size() << std::endl;
+
+
+
+                        z_message->rebuild(chunk_data.size());
+                        memcpy((void *) z_message->data(), chunk_data.constData(), chunk_data.size());
+
+
+                        std::cout << "Zstream_push::stream_payload MESSAGE LEN : " << z_message->size() << std::endl;
+
+
+
+                        bool l_res = z_stream->send(*z_message, (chunk_index+1<num_chunck)? ZMQ_SNDMORE | ZMQ_NOBLOCK: 0);
+                        if (!l_res)
+                        {
+                            std::cout << "ERROR ON STREAMING DATA" << std::endl;
+                            break;
+                        }
                     }
-                    z_stream->send(*z_message, 0);
-                    //delete(z_message);
-                    qDebug() << "END OF STREAM CHUNCK";
 
-
-                    out.close();
-                    delete(m_grid_file);
-
-                    BSONObjBuilder b_payload;
-                    b_payload.append(l_payload.getField("session_uuid"));
-                    b_payload << "file_path" << "/tmp/nodecast/dump_gridfile";
-                    r_payload = b_payload.obj();
-
+                    chunk_data.clear();
                 }
-                else
-                {
-                        qDebug() << "GRIDFS FILE NOT FOUND !";
-                        BSONObjBuilder b_payload;
-                        b_payload.append(l_payload.getField("session_uuid"));
-                        b_payload << "error" << "file not found";
-                        r_payload = b_payload.obj();
-
-                        z_message->rebuild(r_payload.objsize());
-                        memcpy(z_message->data(), (char*)r_payload.objdata(), r_payload.objsize());
-                        z_stream->send(*z_message);
-                        //delete(z_message);
-                }
-
-
-
-
+                out.close();
+                qDebug() << "END OF STREAM CHUNCK";
             }
-
+            else
+            {
+                BSONObj b_error = BSON("error" << "action unknown : " + payload_action.toStdString());
+                z_message->rebuild(b_error.objsize());
+                memcpy ((void *) z_message->data(), (char*)b_error.objdata(), b_error.objsize());
+                z_stream->send (*z_message, ZMQ_NOBLOCK);
+                goto flush_socket;
+            }
         }
     }
-
     check_stream->setEnabled(true);
     m_mutex->unlock();
 }

@@ -370,7 +370,7 @@ QBool Nosql::ExtractBinary(const be &gfs_id, string path, QString &filename)
     return QBool(false);
 }
 
-QBool Nosql::ReadFile(const be &gfs_id, mongo::GridFile **a_gf)
+QBool Nosql::ReadFile(const be &gfs_id, const mongo::GridFile **a_gf)
 {
     std::cout << "Nosql::ReadFile : " << gfs_id << std::endl;
     try {
@@ -395,6 +395,152 @@ QBool Nosql::ReadFile(const be &gfs_id, mongo::GridFile **a_gf)
         return QBool(false);
     }
 }
+
+int Nosql::GetNumChunck(const be &gfs_id)
+{
+    m_mutex->lock();
+
+    std::cout << "Nosql::GetNumChunck : " << gfs_id << std::endl;
+    try {
+
+
+        qDebug() << "Nosql::ExtractByChunck BEFORE GRID";
+            const mongo::GridFile *m_grid_file = new mongo::GridFile(this->m_gfs->findFile(gfs_id.wrap()));
+
+            qDebug() << "Nosql::ExtractByChunck OPEN";
+            if (!m_grid_file->exists()) {
+                std::cout << "Nosql::ExtractByChunck file not found" << std::endl;
+                delete(m_grid_file);
+                m_mutex->unlock();
+                return -1;
+            }
+            else
+            {
+                const int num = m_grid_file->getNumChunks();
+                std::cout << "Nosql::ExtractByChunck FILE NAME : " << m_grid_file->getFilename() << std::endl;
+                std::cout << "Nosql::ExtractByChunck NUM CHUCK : " << num << std::endl;
+
+                m_mutex->unlock();
+                return num;
+            }
+    }
+    catch(mongo::DBException &e ) {
+        std::cout << "caught on get file : " << e.what() << std::endl;
+        qDebug() << "Nosql::GetNumChunck ERROR ON GRIDFS";
+        m_mutex->unlock();
+        return -1;
+    }
+}
+
+
+string Nosql::GetFilename(const be &gfs_id)
+{
+    m_mutex->lock();
+
+    std::cout << "Nosql::GetFilename : " << gfs_id << std::endl;
+
+
+
+    try {
+        qDebug() << "Nosql::GetFilename BEFORE GRID";
+            const mongo::GridFile *m_grid_file = new mongo::GridFile(this->m_gfs->findFile(gfs_id.wrap()));
+
+            qDebug() << "Nosql::GetFilename OPEN";
+            if (!m_grid_file->exists()) {
+                std::cout << "Nosql::ExtractByChunck file not found" << std::endl;
+                delete(m_grid_file);
+                m_mutex->unlock();
+                return "";
+            }
+            else
+            {
+                string filename = m_grid_file->getFilename();
+                std::cout << "Nosql::GetFilename FILE NAME : " << filename << std::endl;
+
+                m_mutex->unlock();
+                return filename;
+            }
+    }
+    catch(mongo::DBException &e ) {
+        std::cout << "caught on get file : " << e.what() << std::endl;
+        qDebug() << "Nosql::GetFilename ERROR ON GRIDFS";
+        m_mutex->unlock();
+        return "";
+    }
+}
+
+
+
+
+
+
+QBool Nosql::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &chunk_data, int &chunk_length)
+{
+    m_mutex->lock();
+
+    std::cout << "Nosql::ExtractByChunck : " << gfs_id << std::endl;
+    try {
+        for (int i = 0; i < 5; i++)
+        {
+            qDebug() << "Nosql::ExtractByChunck BEFORE GRID";
+            const mongo::GridFile *m_grid_file = new mongo::GridFile(this->m_gfs->findFile(gfs_id.wrap()));
+
+            qDebug() << "Nosql::ExtractByChunck OPEN";
+            if (!m_grid_file->exists()) {
+                std::cout << "file not found, sleep and retry, counter : " << i << std::endl;
+                delete(m_grid_file);
+                sleep(1);
+            }
+            else
+            {
+                std::cout << "Nosql::ExtractByChunck BEFORE GET CHUNCK " << std::endl;
+                GridFSChunk chunk = m_grid_file->getChunk( chunk_index );
+                std::cout << "Nosql::ExtractByChunck AFTER GET CHUNCK " << std::endl;
+
+                const char *l_chunk_data = chunk.data( chunk_length );
+
+                std::cout << "Nosql::ExtractByChunck CHUNCK LEN : " << chunk_length << std::endl;
+
+
+                if (chunk_length != 0)
+                {
+                    //*chunk_data = (char*) malloc(chunk_length);
+                    //memcpy(*chunk_data, l_chunk_data, chunk_length);
+
+                    //chunk_data.setRawData(l_chunk_data, chunk_length);
+                    chunk_data.append(l_chunk_data, chunk_length);
+
+                    std::cout << "Nosql::ExtractByChunck CHUNCK SIZE : " << chunk_data.size() << std::endl;
+
+                    delete(m_grid_file);
+                    m_mutex->unlock();
+                    return QBool(true);
+                }
+                else
+                {
+                    //*chunk_data = NULL;
+                    chunk_data.clear();
+                    delete(m_grid_file);
+                    m_mutex->unlock();
+                    return QBool(false);
+                }
+            }
+        }
+    }
+    catch(mongo::DBException &e ) {
+        std::cout << "caught on get file : " << e.what() << std::endl;
+        qDebug() << "Nosql::ExtractByChunck ERROR ON GRIDFS";
+        m_mutex->unlock();
+        return QBool(false);
+    }
+}
+
+
+
+
+
+
+
 
 bo Nosql::WriteFile(const string filename, const char *data, int size)
 {        

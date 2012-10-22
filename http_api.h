@@ -34,6 +34,17 @@
 using namespace mongo;
 using namespace bson;
 
+
+enum MethodType {
+    GET=1,
+    POST=2,
+    PUT=3,
+    DELETE=4
+};
+typedef QMap<QString, MethodType> StringToEnumMap;
+
+
+
 class Http_api : public QxtWebSlotService
 {    
     Q_OBJECT
@@ -47,12 +58,17 @@ public slots:
     void index(QxtWebRequestEvent* event);
     void admin(QxtWebRequestEvent* event, QString action);
     void payload(QxtWebRequestEvent* event, QString action, QString uuid);
-    void payload(QxtWebRequestEvent* event, QString action);
+    void file(QxtWebRequestEvent* event, QString action);
     void node(QxtWebRequestEvent* event, QString action);
     void workflow(QxtWebRequestEvent* event, QString action);
 
 
 private:
+    void payload_post(QxtWebRequestEvent* event, QString action, QString workflow_uuid);
+
+
+    StringToEnumMap enumToHTTPmethod;
+
     zmq::socket_t *z_push_api;
     zmq::message_t *z_message;
 

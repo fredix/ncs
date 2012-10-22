@@ -72,16 +72,20 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
     std::cout << "Worker_api::pubsub_payload : " << l_payload << std::endl;
     BSONElement from = l_payload.getField("worker_name");
     BSONElement dest = l_payload.getFieldDotted("payload.dest");
-    BSONElement data_type = l_payload.getFieldDotted("payload.data_type");
+    BSONElement payload_type = l_payload.getFieldDotted("payload.payload_type");
+    BSONElement session_uuid = l_payload.getFieldDotted("payload.session_uuid");
     QString payload = QString::fromStdString(dest.str()) + " @";
-    payload.append(QString::fromStdString(l_payload.getFieldDotted("payload.data").str()));
+    payload.append(QString::fromStdString(l_payload.getFieldDotted("payload.data").Obj().jsonString()));
+
+
+    std::cout << "payload.data : " << l_payload.getFieldDotted("payload.data").Obj().jsonString() << std::endl;
 
     std::cout << "payload send : " << payload.toStdString() << std::endl;
 
 
     /** ALL KIND OF WORKERS ARE CONNECTED TO THE PUB SOCKET
         SO ZEROMQ CANNOT CHECK IF A DEST WORKER RECEIVE OR NOT THE PAYLOAD.
-        SO, I MUST STORE ALL PAYLOAD THROUGH THE PUB/SUB SOCKET INTO MONGODB,
+        SO, I HAVE TO STORE ALL PAYLOADS FROM THE PUB/SUB SOCKET INTO MONGODB,
         A WORKER CAN RETREIVE LATER A PAYLOAD (replay_pubsub_payload)
     **/
 
@@ -90,8 +94,9 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
     BSONObj t_payload = BSON(GENOID <<                                                          
                              "from" << from.str() <<
                              "dest" << dest.str() <<
-                             "data_type" << data_type.str() <<
-                             "timestamp" << timestamp.toTime_t() <<
+                             "payload_type" << payload_type.str() <<
+                             "timestamp" << timestamp.toTime_t() <<                                                          
+                             session_uuid <<
                              //"timestamp" << timestamp.date().toString() <<
                              //BSONObj
                              "data" << l_payload.getFieldDotted("payload.data").str());
@@ -127,7 +132,7 @@ void Worker_api::replay_pubsub_payload(bson::bo a_payload)
     }
     else dest.append(" @");
 
-    BSONObj search = BSON("dest" << a_payload.getFieldDotted("payload.from").str() << "data_type" << a_payload.getFieldDotted("payload.data_type"));
+    BSONObj search = BSON("dest" << a_payload.getFieldDotted("payload.from").str() << "payload_type" << a_payload.getFieldDotted("payload.payload_type"));
     QList <BSONObj> pubsub_payloads_list = nosql_->FindAll("pubsub_payloads", search);
 
     foreach (BSONObj pubsub_payload, pubsub_payloads_list)
@@ -185,9 +190,8 @@ void Worker_api::receive_payload()
 
             std::cout << "Worker_api::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
 
-            char *plop = (char*) request.data();
-            if (strlen(plop) == 0) {
-                std::cout << "Worker_api::receive_payload STRLEN received request 0" << std::endl;
+            if (request.size() == 0) {
+                std::cout << "Worker_api::receive_payload received request 0" << std::endl;
                 break;
             }
 
@@ -230,13 +234,13 @@ void Worker_api::receive_payload()
 
                 replay_pubsub_payload(payload.copy());
             }
-            else if (payload_action == "create")
+            else if (payload_action == "push")
             {
                 std::cout << "Worker_api::payload CREATE PAYLOAD : " << payload <<std::endl;
 
                 QDateTime timestamp = QDateTime::currentDateTime();
 
-                BSONElement data_type = payload.getFieldDotted("payload.data_type");
+                BSONElement payload_type = payload.getFieldDotted("payload.payload_type");
                 BSONElement datas = payload.getFieldDotted("payload.data");
                 BSONElement node_uuid = payload.getField("node_uuid");
                 BSONElement node_password = payload.getField("node_password");
@@ -293,9 +297,9 @@ void Worker_api::receive_payload()
 
                 BSONObjBuilder payload_builder;
                 payload_builder.genOID();
-                payload_builder.append("action", "create");
+                payload_builder.append("action", "push");
                 payload_builder.append("timestamp", timestamp.toTime_t());
-                payload_builder.append("data_type", data_type.str());
+                payload_builder.append("payload_type", payload_type.str());
                 payload_builder.append("node_uuid", node_uuid.str());
                 payload_builder.append("node_password", node_password.str());
                 payload_builder.append("workflow_uuid", workflow_uuid.str());
@@ -361,7 +365,7 @@ void Worker_api::receive_payload()
                 }
                 else
                 {
-                    BSONObj gfs_file_struct = nosql_->WriteFile(data_type.str(), datas.valuestr(), datas.objsize());
+                    /*BSONObj gfs_file_struct = nosql_->WriteFile(data_type.str(), datas.valuestr(), datas.objsize());
                     if (gfs_file_struct.nFields() == 0)
                     {
                         qDebug() << "write on gridFS failed !";
@@ -383,7 +387,7 @@ void Worker_api::receive_payload()
                     payload_builder.append("filename", filename.str());
                     payload_builder.append("length", length.numberLong());
                     payload_builder.append("gfs_id", gfs_file_struct.getField("_id").OID());
-                    payload_builder.append("gridfs", true);
+                    payload_builder.append("gridfs", true);*/
                 }
                 BSONObj s_payload = payload_builder.obj();
 
@@ -405,7 +409,7 @@ void Worker_api::receive_payload()
                 /***********************************/
                 std::cout << "session inserted : " << session << std::endl;
 
-                BSONObj l_payload = BSON("action" << "create" << "session_uuid" << str_session_uuid.toStdString() << "timestamp" << timestamp.toTime_t());
+                BSONObj l_payload = BSON("action" << "push" << "session_uuid" << str_session_uuid.toStdString() << "timestamp" << timestamp.toTime_t());
 
                 std::cout << "PUSH WORKER API PAYLOAD : " << l_payload << std::endl;
 
