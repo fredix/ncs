@@ -70,10 +70,13 @@ Worker_api::Worker_api()
 void Worker_api::pubsub_payload(bson::bo l_payload)
 {
     std::cout << "Worker_api::pubsub_payload : " << l_payload << std::endl;
+
+
     BSONElement from = l_payload.getField("worker_name");
     BSONElement dest = l_payload.getFieldDotted("payload.dest");
     BSONElement payload_type = l_payload.getFieldDotted("payload.payload_type");
-    BSONElement session_uuid = l_payload.getFieldDotted("payload.session_uuid");
+
+
     QString payload = QString::fromStdString(dest.str()) + " @";
     payload.append(QString::fromStdString(l_payload.getFieldDotted("payload.data").Obj().jsonString()));
 
@@ -91,16 +94,26 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
 
 
     QDateTime timestamp = QDateTime::currentDateTime();
-    BSONObj t_payload = BSON(GENOID <<                                                          
-                             "from" << from.str() <<
-                             "dest" << dest.str() <<
-                             "payload_type" << payload_type.str() <<
-                             "timestamp" << timestamp.toTime_t() <<                                                          
-                             session_uuid <<
-                             //"timestamp" << timestamp.date().toString() <<
-                             //BSONObj
-                             "data" << l_payload.getFieldDotted("payload.data").str());
-    nosql_->Insert("pubsub_payloads", t_payload);
+    BSONObjBuilder t_payload;
+    t_payload << GENOID <<
+                 "from" << from.str() <<
+                 "dest" << dest.str() <<
+                 "payload_type" << payload_type.str() <<
+                 "timestamp" << timestamp.toTime_t() <<
+                 //"timestamp" << timestamp.date().toString() <<
+                 //BSONObj
+                 "data" << l_payload.getFieldDotted("payload.data").str();
+
+    BSONObj tmp_payload = l_payload.getField("payload").Obj();
+    BSONElement session_uuid;
+    if (tmp_payload.hasField("session_uuid"))
+    {
+        session_uuid = l_payload.getFieldDotted("payload.session_uuid");
+        t_payload.append(session_uuid);
+    }
+
+
+    nosql_->Insert("pubsub_payloads", t_payload.obj());
 
     /****** PUBLISH API PAYLOAD *******/
     qDebug() << "Worker_api::publish_payload PUBLISH PAYLOAD";
