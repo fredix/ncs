@@ -78,10 +78,10 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
 
 
     QString payload = QString::fromStdString(dest.str()) + " @";
-    payload.append(QString::fromStdString(l_payload.getFieldDotted("payload.data").Obj().jsonString()));
+    payload.append(QString::fromStdString(l_payload.getFieldDotted("payload.data").Obj().jsonString(Strict)));
 
 
-    std::cout << "payload.data : " << l_payload.getFieldDotted("payload.data").Obj().jsonString() << std::endl;
+    std::cout << "payload.data : " << l_payload.getFieldDotted("payload.data").Obj().jsonString(Strict) << std::endl;
 
     std::cout << "payload send : " << payload.toStdString() << std::endl;
 
