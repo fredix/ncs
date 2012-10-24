@@ -79,10 +79,15 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
     QString payload = QString::fromStdString(dest.str()) + " @";
 
     BSONElement payload_data = l_payload.getFieldDotted("payload.data");
-    payload.append(QString::fromStdString(payload_data.jsonString(mongo::JsonStringFormat(Strict), false)));
 
-    std::cout << "payload.data : " << payload_data.jsonString(mongo::JsonStringFormat(Strict), false) << std::endl;
+    QString data_json = QString::fromStdString(payload_data.jsonString(mongo::JsonStringFormat(Strict), false));
+    payload.append(data_json);
+
+//    payload.append(QString::fromStdString(l_payload.getFieldDotted("payload.data").str()));
+
+    std::cout << "payload.data : " << payload_data.str() << std::endl;
     std::cout << "payload send : " << payload.toStdString() << std::endl;
+
 
 
     /** ALL KIND OF WORKERS ARE CONNECTED TO THE PUB SOCKET
@@ -101,7 +106,9 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
                  "timestamp" << timestamp.toTime_t() <<
                  //"timestamp" << timestamp.date().toString() <<
                  //BSONObj
-                 "data" << l_payload.getFieldDotted("payload.data").str();
+                 //"data" << l_payload.getFieldDotted("payload.data").str();
+                 "data" << data_json.toStdString();
+
 
     BSONObj tmp_payload = l_payload.getField("payload").Obj();
     BSONElement session_uuid;

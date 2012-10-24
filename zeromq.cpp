@@ -1087,11 +1087,37 @@ void Zdispatch::push_payload(BSONObj a_data)
                 if (gridfs)
                 {
                     //s_payload = BSON("data" << path.toStdString() << "session_uuid" << b_session_uuid.str());
-                    s_payload = BSON("payload" << BSON("command" << "get_file" <<
+
+                    BSONObj t_data = BSON("command" << "get_file" <<
+                                          "filename" << filename <<
+                                          payload_type <<
+                                          "session_uuid" << b_session_uuid.str());
+                    /*
+
+                    BSONObj data = BSON("command" << "get_file" <<
+                                        "filename" << filename <<
+                                        payload_type <<
+                                        "session_uuid" << b_session_uuid.str()) <<
+                                        "action" << action <<
+                                        "session_uuid" << b_session_uuid.str();
+                    */
+
+
+                    BSONObj data = BSON("data" << t_data.jsonString(Strict, false) <<
+                                        "action" << action <<
+                                        "session_uuid" << b_session_uuid.str());
+
+
+
+                    s_payload = BSON("payload" << data);
+
+
+/*                    s_payload = BSON("payload" << BSON("command" << "get_file" <<
                                                        "filename" << filename <<
                                                        "action" << action <<
                                                        payload_type <<
                                                        "session_uuid" << b_session_uuid.str()));
+                                                       */
 
 
                     //std::cout << "!!!!!!!!!!!!!PUSH PAYLOAD : " << s_payload << std::endl;
@@ -1099,9 +1125,10 @@ void Zdispatch::push_payload(BSONObj a_data)
                     //s_payload = BSON("data" << BSON("command" << "receive") << "session_uuid" << b_session_uuid.str());
                 }
                 else s_payload = BSON("payload" << BSON("data" << payload.getField("data").str() <<
-                                                        "action" << action <<
                                                         payload_type <<
-                                                        "session_uuid" << b_session_uuid.str()));
+                                                        "session_uuid" << b_session_uuid.str()) <<
+                                                        "action" << action <<
+                                                        "session_uuid" << b_session_uuid.str());
 
 
 
