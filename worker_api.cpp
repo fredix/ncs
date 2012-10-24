@@ -76,13 +76,12 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
     BSONElement dest = l_payload.getFieldDotted("payload.dest");
     BSONElement payload_type = l_payload.getFieldDotted("payload.payload_type");
 
-
     QString payload = QString::fromStdString(dest.str()) + " @";
-    payload.append(QString::fromStdString(l_payload.getFieldDotted("payload.data").Obj().jsonString(Strict)));
 
+    BSONElement payload_data = l_payload.getFieldDotted("payload.data");
+    payload.append(QString::fromStdString(payload_data.jsonString(mongo::JsonStringFormat(Strict), false)));
 
-    std::cout << "payload.data : " << l_payload.getFieldDotted("payload.data").Obj().jsonString(Strict) << std::endl;
-
+    std::cout << "payload.data : " << payload_data.jsonString(mongo::JsonStringFormat(Strict), false) << std::endl;
     std::cout << "payload send : " << payload.toStdString() << std::endl;
 
 
