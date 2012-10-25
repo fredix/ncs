@@ -890,7 +890,7 @@ QString Http_api::buildResponse(QString action, QString data1, QString data2)
         data.insert("node_uuid", data1);
         data.insert("node_password", data2);
     }
-    else if (action == "push" || action == "publish")
+    else if (action == "push" || action == "publish" || action == "create")
     {
         data.insert("uuid", data1);
     }
