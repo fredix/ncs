@@ -927,7 +927,17 @@ void Zdispatch::push_payload(BSONObj a_data)
     BSONObj payload = nosql_->Find("payloads", payload_id);
     BSONElement l_payload_id = payload.getField("_id");
     bool gridfs = payload.getField("gridfs").Bool();
+    string filename;
 
+    if (gridfs)
+    {
+        BSONElement gfs_id = payload.getField("gfs_id");
+
+        std::cout << "EXTRACT GFSID : " << gfs_id << std::endl;
+        BSONObj gfsid = BSON("_id" << gfs_id);
+
+        filename = nosql_->GetFilename(gfsid.firstElement());
+    }
 
     //std::cout << "payload : " << payload << std::endl;
     std::cout << "l_payload_id : " << l_payload_id << std::endl;
@@ -983,9 +993,6 @@ void Zdispatch::push_payload(BSONObj a_data)
         // create step
         QString worker_name;
         QString worker_port;
-        BSONElement gfs_id = payload.getField("gfs_id");
-
-
 
         std::cout << "Zdispatch::receive_payload : ACTION PUSH : " << action << std::endl;
 
@@ -1027,11 +1034,7 @@ void Zdispatch::push_payload(BSONObj a_data)
 
         if (!worker_never_connected)
         {
-                std::cout << "EXTRACT GFSID : " << gfs_id << std::endl;
-                BSONObj gfsid = BSON("_id" << gfs_id);
 
-
-                string filename = nosql_->GetFilename(gfsid.firstElement());
 
                 //if (gridfs) nosql_->ExtractBinary(gfs_id, path.toStdString(), filename);
 
