@@ -380,7 +380,8 @@ void Worker_api::receive_payload()
                 if (t_payload.hasField("gridfs") && t_payload.getField("gridfs").Bool() == false)
                 {
                     payload_builder.append("gridfs", false);
-                    payload_builder.append("data", datas.valuestr());
+                    //payload_builder.append("data", datas.valuestr());
+                    payload_builder.append("data", datas.toString(false));
                 }
                 else
                 {
