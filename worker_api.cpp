@@ -381,7 +381,8 @@ void Worker_api::receive_payload()
                 {
                     payload_builder.append("gridfs", false);
                     //payload_builder.append("data", datas.valuestr());
-                    payload_builder.append("data", datas.toString(false));
+                    //payload_builder.append("data", datas.toString(false));
+                    payload_builder.append("data", datas.jsonString(mongo::JsonStringFormat(Strict), false));
                 }
                 else
                 {

@@ -865,7 +865,7 @@ void Zdispatch::replay_payload()
         */
 
         QString w_name = QString::fromStdString(lost_payload.getField("worker").str());
-        BSONObj payload = lost_payload.getField("data").Obj();
+        BSONObj payload = BSON("payload" << lost_payload.getFieldDotted("data.payload"));
 
 
         if (workers_push.contains(w_name))
@@ -902,7 +902,6 @@ void Zdispatch::push_payload(BSONObj a_data)
     //BSONElement session_uuid = data.getField("session_uuid");
     BSONObj session_uuid = BSON("uuid" << a_data.getField("session_uuid").str());
     BSONElement b_session_uuid = session_uuid.getField("uuid");
-    BSONElement payload_type = a_data.getField("payload_type");
 
     BSONElement b_action = a_data.getField("action");
 
@@ -926,6 +925,10 @@ void Zdispatch::push_payload(BSONObj a_data)
 
     BSONObj payload = nosql_->Find("payloads", payload_id);
     BSONElement l_payload_id = payload.getField("_id");
+
+    BSONElement payload_type = payload.getField("payload_type");
+
+
     bool gridfs = payload.getField("gridfs").Bool();
     string filename;
 
@@ -937,6 +940,7 @@ void Zdispatch::push_payload(BSONObj a_data)
         BSONObj gfsid = BSON("_id" << gfs_id);
 
         filename = nosql_->GetFilename(gfsid.firstElement());
+        std::cout << "EXTRACT PAYLOAD, FILENAME : " << filename << std::endl;
     }
 
     //std::cout << "payload : " << payload << std::endl;
@@ -1039,7 +1043,6 @@ void Zdispatch::push_payload(BSONObj a_data)
                 //if (gridfs) nosql_->ExtractBinary(gfs_id, path.toStdString(), filename);
 
 
-                std::cout << "EXTRACT PAYLOAD, FILENAME : " << filename << std::endl;
 
                 /********** RECORD PAYLOAD STEP *********/
                 BSONObjBuilder step_builder;
