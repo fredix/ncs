@@ -1537,21 +1537,37 @@ void Zstream_push::stream_payload()
 
             else if (payload_action == "get_file")
             {
-                BSONObj session_uuid = BSON("uuid" << l_payload.getFieldDotted("payload.session_uuid").str());
-                BSONObj session = nosql_->Find("sessions", session_uuid);
-                std::cout << "!!!!! session !!!!!! : " << session << std::endl;
 
-                BSONObj payload_id = BSON("_id" << session.getField("payload_id").OID());
-                std::cout << "payload_id : " << payload_id << std::endl;
+                // if the field filename exist we retreive the gfsid instead of use the session
 
-                BSONObj payload = nosql_->Find("payloads", payload_id);
+                BSONObj t_payload = l_payload.getFieldDotted("payload").Obj();
 
-                BSONElement gfs_id = payload.getField("gfs_id");
+                BSONObj gfsid;
 
-                std::cout << "EXTRACT GFSID : " << gfs_id << std::endl;
+                if (t_payload.hasField("filename"))
+                {
 
+                    gfsid = nosql_->GetGfsid(t_payload.getField("filename").str());
 
-                BSONObj gfsid = BSON("_id" << gfs_id);
+                }
+                else
+                {
+                /***** retreive through session ******************/
+                    BSONObj session_uuid = BSON("uuid" << l_payload.getFieldDotted("payload.session_uuid").str());
+                    BSONObj session = nosql_->Find("sessions", session_uuid);
+                    std::cout << "!!!!! session !!!!!! : " << session << std::endl;
+
+                    BSONObj payload_id = BSON("_id" << session.getField("payload_id").OID());
+                    std::cout << "payload_id : " << payload_id << std::endl;
+
+                    BSONObj payload = nosql_->Find("payloads", payload_id);
+
+                    BSONElement gfs_id = payload.getField("gfs_id");
+                    gfsid = BSON("_id" << gfs_id);
+                }
+                /**************************************************/
+
+                std::cout << "EXTRACT GFSID : " << gfsid << std::endl;
 
 
 
@@ -1564,8 +1580,8 @@ void Zstream_push::stream_payload()
                 //ofstream out ("/tmp/nodecast/dump_gridfile",ofstream::binary);
 
 
-                QFile out("/tmp/nodecast/dump_gridfile");
-                out.open(QIODevice::WriteOnly);
+                //QFile out("/tmp/nodecast/dump_gridfile");
+                //out.open(QIODevice::WriteOnly);
                 //out.write(requestContent);
                 //out.close();
 
@@ -1585,7 +1601,7 @@ void Zstream_push::stream_payload()
                         std::cout << "Zstream_push::stream_payload CHUNK LEN : " << chunk_length << " size : " << chunk_data.size() << std::endl;
 
 
-                        out.write( chunk_data.constData(), chunk_data.size());
+                        //out.write( chunk_data.constData(), chunk_data.size());
 
 
                         //s_chunk_data = chunk_data.toBase64();
@@ -1613,7 +1629,7 @@ void Zstream_push::stream_payload()
 
                     chunk_data.clear();
                 }
-                out.close();
+                //out.close();
                 qDebug() << "END OF STREAM CHUNCK";
             }
             else

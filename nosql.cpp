@@ -471,6 +471,41 @@ string Nosql::GetFilename(const be &gfs_id)
 
 
 
+BSONObj Nosql::GetGfsid(const string filename)
+{
+    m_mutex->lock();
+
+    std::cout << "Nosql::GetGfsid : " << filename << std::endl;
+    BSONElement gfsid;
+
+    try {
+        qDebug() << "Nosql::GetFilename BEFORE GRID";
+            const mongo::GridFile *m_grid_file = new mongo::GridFile(this->m_gfs->findFile(filename));
+
+            qDebug() << "Nosql::GetGfsid OPEN";
+            if (!m_grid_file->exists()) {
+                std::cout << "Nosql::GetGfsid file not found" << std::endl;
+                delete(m_grid_file);
+                m_mutex->unlock();
+                return gfsid.Obj().copy();
+            }
+            else
+            {
+                gfsid = m_grid_file->getFileField("_id");
+                std::cout << "Nosql::GetGfsid : " << gfsid << std::endl;
+
+                m_mutex->unlock();
+                return gfsid.Obj().copy();
+            }
+    }
+    catch(mongo::DBException &e ) {
+        std::cout << "caught on get file : " << e.what() << std::endl;
+        qDebug() << "Nosql::GetGfsid ERROR ON GRIDFS";
+        m_mutex->unlock();
+        return gfsid.Obj().copy();
+    }
+}
+
 
 
 
@@ -542,7 +577,7 @@ QBool Nosql::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &chun
 
 
 
-bo Nosql::WriteFile(const string filename, const char *data, int size)
+BSONObj Nosql::WriteFile(const string filename, const char *data, int size)
 {        
     m_mutex->lock();
 

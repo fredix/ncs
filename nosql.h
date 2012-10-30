@@ -65,6 +65,7 @@ public:
     QBool ReadFile(const be &gfs_id, const mongo::GridFile **a_gf);        
     int GetNumChunck(const be &gfs_id);
     string GetFilename(const be &gfs_id);
+    BSONObj GetGfsid(const string filename);
     QBool ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &chunk_data, int &chunk_length);
     void Flush(string a_document, BSONObj query);
 
