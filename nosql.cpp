@@ -477,6 +477,7 @@ BSONObj Nosql::GetGfsid(const string filename)
 
     std::cout << "Nosql::GetGfsid : " << filename << std::endl;
     BSONElement gfsid;
+    BSONObj gfsid_;
 
     try {
         qDebug() << "Nosql::GetFilename BEFORE GRID";
@@ -487,22 +488,24 @@ BSONObj Nosql::GetGfsid(const string filename)
                 std::cout << "Nosql::GetGfsid file not found" << std::endl;
                 delete(m_grid_file);
                 m_mutex->unlock();
-                return gfsid.Obj().copy();
+                return gfsid_;
             }
             else
             {
                 gfsid = m_grid_file->getFileField("_id");
                 std::cout << "Nosql::GetGfsid : " << gfsid << std::endl;
+                gfsid_ = BSON("_id" << gfsid);
+                std::cout << "Nosql::GetGfsid2 : " << gfsid_ << std::endl;
 
                 m_mutex->unlock();
-                return gfsid.Obj().copy();
+                return gfsid_;
             }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on get file : " << e.what() << std::endl;
         qDebug() << "Nosql::GetGfsid ERROR ON GRIDFS";
         m_mutex->unlock();
-        return gfsid.Obj().copy();
+        return gfsid_;
     }
 }
 
