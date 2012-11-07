@@ -1571,66 +1571,89 @@ void Zstream_push::stream_payload()
 
 
 
-                int num_chunck = nosql_->GetNumChunck(gfsid.firstElement());
-                std::cout << "NUM CHUCK : " << num_chunck << std::endl;
-
-                //std::fstream out;
-                //out.open("/tmp/nodecast/dump_gridfile", ios::out);
-
-                //ofstream out ("/tmp/nodecast/dump_gridfile",ofstream::binary);
-
-
-                //QFile out("/tmp/nodecast/dump_gridfile");
-                //out.open(QIODevice::WriteOnly);
-                //out.write(requestContent);
-                //out.close();
-
-                QByteArray chunk_data;
-
-                for ( int chunk_index = 0; chunk_index < num_chunck; chunk_index++ )
+                if (gfsid.isValid() && !gfsid.isEmpty())
                 {
-                    std::cout << "BEFORE GET CHUNCK " << std::endl;
 
-                    int chunk_length;
 
-                    QBool res = nosql_->ExtractByChunck(gfsid.firstElement(), chunk_index, chunk_data, chunk_length);
-                    //std::cout << "AFTER GET CHUNCK chunk_data : " << chunk_data << std::endl;
-                    if (res)
+                    int num_chunck = nosql_->GetNumChunck(gfsid.firstElement());
+                    std::cout << "NUM CHUCK : " << num_chunck << std::endl;
+
+                    //std::fstream out;
+                    //out.open("/tmp/nodecast/dump_gridfile", ios::out);
+
+                    //ofstream out ("/tmp/nodecast/dump_gridfile",ofstream::binary);
+
+
+                    //QFile out("/tmp/nodecast/dump_gridfile");
+                    //out.open(QIODevice::WriteOnly);
+                    //out.write(requestContent);
+                    //out.close();
+
+                    QByteArray chunk_data;
+
+                    for ( int chunk_index = 0; chunk_index < num_chunck; chunk_index++ )
                     {
+                        std::cout << "BEFORE GET CHUNCK " << std::endl;
 
-                        std::cout << "Zstream_push::stream_payload CHUNK LEN : " << chunk_length << " size : " << chunk_data.size() << std::endl;
+                        int chunk_length;
 
-
-                        //out.write( chunk_data.constData(), chunk_data.size());
-
-
-                        //s_chunk_data = chunk_data.toBase64();
-                        //chunk_data.clear();
-
-                        //std::cout << "Zstream_push::stream_payload CHUNK toBase64 LEN : " << chunk_length << " size : " << s_chunk_data.size() << std::endl;
-
-
-
-                        z_message->rebuild(chunk_data.size());
-                        memcpy((void *) z_message->data(), chunk_data.constData(), chunk_data.size());
-
-
-                        std::cout << "Zstream_push::stream_payload MESSAGE LEN : " << z_message->size() << std::endl;
-
-
-
-                        bool l_res = z_stream->send(*z_message, (chunk_index+1<num_chunck)? ZMQ_SNDMORE | ZMQ_NOBLOCK: 0);
-                        if (!l_res)
+                        QBool res = nosql_->ExtractByChunck(gfsid.firstElement(), chunk_index, chunk_data, chunk_length);
+                        //std::cout << "AFTER GET CHUNCK chunk_data : " << chunk_data << std::endl;
+                        if (res)
                         {
-                            std::cout << "ERROR ON STREAMING DATA" << std::endl;
-                            break;
+
+                            std::cout << "Zstream_push::stream_payload CHUNK LEN : " << chunk_length << " size : " << chunk_data.size() << std::endl;
+
+
+                            //out.write( chunk_data.constData(), chunk_data.size());
+
+
+                            //s_chunk_data = chunk_data.toBase64();
+                            //chunk_data.clear();
+
+                            //std::cout << "Zstream_push::stream_payload CHUNK toBase64 LEN : " << chunk_length << " size : " << s_chunk_data.size() << std::endl;
+
+
+
+                            z_message->rebuild(chunk_data.size());
+                            memcpy((void *) z_message->data(), chunk_data.constData(), chunk_data.size());
+
+
+                            std::cout << "Zstream_push::stream_payload MESSAGE LEN : " << z_message->size() << std::endl;
+
+
+
+                            bool l_res = z_stream->send(*z_message, (chunk_index+1<num_chunck)? ZMQ_SNDMORE | ZMQ_NOBLOCK: 0);
+                            if (!l_res)
+                            {
+                                std::cout << "ERROR ON STREAMING DATA" << std::endl;
+                                break;
+                            }
                         }
+
+                        chunk_data.clear();
+                    }
+                    //out.close();
+                    qDebug() << "END OF STREAM CHUNCK";
+                }
+                else
+                {
+                    gfsid = BSON("error" << "filename not found : " + t_payload.getField("filename").str());
+
+                    z_message->rebuild(gfsid.objsize());
+                    memcpy((void *) z_message->data(), gfsid.objdata(), gfsid.objsize());
+
+                    bool l_res = z_stream->send(*z_message);
+                    if (!l_res)
+                    {
+                        std::cout << "ERROR ON ERROR DATA" << std::endl;
+                        break;
                     }
 
-                    chunk_data.clear();
+
                 }
-                //out.close();
-                qDebug() << "END OF STREAM CHUNCK";
+
+
             }
             else
             {
