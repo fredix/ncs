@@ -21,6 +21,7 @@
 #ifndef HTTP_API_H
 #define HTTP_API_H
 
+#include "ncs_global.h"
 #include "nosql.h"
 #include "zeromq.h"
 #include <zmq.hpp>
@@ -35,14 +36,7 @@ using namespace mongo;
 using namespace bson;
 
 
-enum MethodType {
-    GET=1,
-    POST=2,
-    PUT=3,
-    DELETE=4
-};
 typedef QMap<QString, MethodType> StringToEnumMap;
-
 
 
 class Http_api : public QxtWebSlotService

@@ -83,6 +83,7 @@ Dispatcher::Dispatcher(params ncs_params)
 
     api = new Api();
     api->Http_init();
+    api->Tracker_init();
     api->Xmpp_init(ncs_params.domain_name, ncs_params.xmpp_client_port, ncs_params.xmpp_server_port);
     api->Worker_init();
 

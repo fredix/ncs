@@ -28,6 +28,10 @@ Api::~Api()
     qDebug() << "delete http server";
     delete(m_http_api);
 
+    qDebug() << "delete tracker";
+    delete(m_tracker);
+
+
     qDebug() << "delete xmpp server";
     delete(m_xmpp_server);
 
@@ -53,6 +57,18 @@ void Api::Http_init()
     m_session.start();
 }
 
+
+
+void Api::Tracker_init()
+{
+    m_tracker_session.setPort(6969);
+    m_tracker_session.setConnector(&m_tracker_connector);
+
+    m_tracker = new Tracker(&m_tracker_session);
+
+    m_tracker_session.setStaticContentService(m_tracker);
+    m_tracker_session.start();
+}
 
 
 void Api::Xmpp_init(QString domain_name, int xmpp_client_port, int xmpp_server_port)

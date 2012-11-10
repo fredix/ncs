@@ -19,7 +19,8 @@ SOURCES += main.cpp \
     api.cpp \
     http_api.cpp \
     alert.cpp \
-    worker_api.cpp
+    worker_api.cpp \
+    tracker.cpp
 LIBS += /usr/local/lib/libmongoclient.a \
         -lboost_system \
         -lboost_filesystem-mt \
@@ -46,4 +47,6 @@ HEADERS += main.h \
     api.h \
     http_api.h \
     alert.h \
-    worker_api.h
+    worker_api.h \
+    tracker.h \
+    ncs_global.h

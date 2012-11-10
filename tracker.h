@@ -18,48 +18,55 @@
 **   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ****************************************************************************/
 
-#ifndef API_H
-#define API_H
+#ifndef TRACKER_H
+#define TRACKER_H
 
-#include <QThread>
+#include "ncs_global.h"
 #include "nosql.h"
 #include "zeromq.h"
-#include "http_api.h"
-#include "tracker.h"
-#include "worker_api.h"
-#include <QxtHttpServerConnector>
-#include <QxtHttpSessionManager>
-#include "xmpp_server.h"
-#include "xmpp_client.h"
+#include <zmq.hpp>
+#include <QxtWeb/QxtWebSlotService>
+#include <QxtWeb/QxtWebPageEvent>
+#include <QxtWeb/QxtWebContent>
+#include <QxtWeb/QxtHtmlTemplate>
+#include <QxtJSON>
+#include <QUuid>
 
-class Api : public QObject
+using namespace mongo;
+using namespace bson;
+
+typedef QMap<QString, MethodType> StringToEnumMap;
+
+
+class Tracker : public QxtWebSlotService
 {
     Q_OBJECT
-public:
-    Api(QObject *parent = 0);
-    ~Api();
 
-    void Http_init();
-    void Tracker_init();
-    void Xmpp_init(QString domain_name, int xmpp_client_port, int xmpp_server_port);
-    void Worker_init();
-    Worker_api *worker_api;
+public:
+    Tracker(QxtAbstractWebSessionManager *sm, QObject * parent = 0);
+    //Http_api(QxtAbstractWebSessionManager * sm, Nosql& a);
+    ~Tracker();
+
+public slots:
+    void index(QxtWebRequestEvent* event);
+    void admin(QxtWebRequestEvent* event, QString action);
+    void announce(QxtWebRequestEvent* event);
 
 
 private:
-    QxtHttpServerConnector m_connector;
-    QxtHttpSessionManager m_session;
-    Http_api *m_http_api;
-    Xmpp_server *m_xmpp_server;
-    Xmpp_client *m_xmpp_client;
-
-    QxtHttpServerConnector m_tracker_connector;
-    QxtHttpSessionManager m_tracker_session;
-    Tracker *m_tracker;
+    void announce_get(QxtWebRequestEvent* event);
 
 
-signals:
-    void shutdown();
+    StringToEnumMap enumToHTTPmethod;
+
+    zmq::socket_t *z_push_api;
+    zmq::message_t *z_message;
+
+    Nosql *nosql_;
+    Zeromq *zeromq_;
+    QBool checkAuth(QString header, BSONObjBuilder &payload, bo &a_user);
+    QString buildResponse(QString action, QString data1, QString data2="");
 };
 
-#endif // API_H
+
+#endif // TRACKER_H
