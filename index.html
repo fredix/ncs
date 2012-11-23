@@ -30,15 +30,17 @@
       <section id="main_content">
         <h3>Welcome to Nodecast server.</h3>
 
-<p>Nodecast is a worker scheduler, also he's agnoctic so yours workers can use any kind of langage. Workers must read STDIN to receive a payload and write to STDOUT to push a payload.
-Your worker is managed with <a href="http://nodecast.github.com/ncw/">NCW</a> (nodecast client) which is connected to NCS.
+<p>Nodecast is a worker scheduler, also it's agnoctic so yours workers can use any kind of langage. Workers must read STDIN to receive a payload and write to STDOUT to push a payload.
+Your worker is managed though <a href="http://nodecast.github.com/ncw/">NCW</a> (nodecast client) which is connected to NCS.
 Nodecast can push any kind of binary data to a worker or to a pool of worker.</p>
 
 <p>Nodecast is using deeply <a href="http://www.zeromq.org/">Zeromq</a> to communicate between yours workers and <a href="http://www.mongodb.org/">mongoDB</a> to store yours payloads and the workers's status.</p>
 
+<p>It embeds an HTTP server to expose an API.</p>
+
 <h3>FUTUR</h3>
 
-<p>Nodecast embeds an XMPP server and soon a torrent tracker. These features will be explains later.</p>
+<p>Nodecast have also an XMPP server and soon a torrent tracker. These features will be explains later.</p>
 
 <p>The next big step is to embeds a web interface to manage yours workers, kwow their status, etc ...</p>
 
@@ -60,6 +62,22 @@ Nodecast can push any kind of binary data to a worker or to a pool of worker.</p
 </code></pre>
 
 <p>Nodecast can use smtp protocol to send an email alert when a worker is down.</p>
+
+<h3>USAGE</h3>
+
+<p>You need to create a node and a workflow (see <a href="http://nodecast.github.com/ncw/">NCW</a> page)</p>
+
+<p>push your data</p>
+
+<pre><code>curl -H "X-node-uuid: 2d0a7780-e8fe-4e0a-89c6-a5a2737b095a" -H "X-node-password: 2d0a7780-e8fe-4e0a-89c6-a5a2737b095a" -H "X-workflow-uuid: 0ebcdab6-0263-42d3-be7d-9602fa15f68c" -H "X-payloadfilename: filename" -X POST --data-binary @filename http://127.0.0.1:4567/payload/create
+</code></pre>
+
+<p>return a session uuid : </p>
+
+<pre><code>{"uuid":"7b32b9d0-3ea9-4663-9577-4b34192055bf"}
+</code></pre>
+
+<p>Nodecast will store your data to <a href="http://www.mongodb.org/display/DOCS/GridFS">GridFS</a> and push it to your first worker according your workflow.</p>
 
 <h3>Contact</h3>
 
