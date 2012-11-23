@@ -30,9 +30,9 @@
       <section id="main_content">
         <h3>Welcome to Nodecast server.</h3>
 
-<p>Nodecast aimed to be a worker scheduler, also he's agnoctic so yours workers can use any kind of langage. Your worker must read STDIN to receive a payload and write to STDOUT to push a payload.
+<p>Nodecast is a worker scheduler, also he's agnoctic so yours workers can use any kind of langage. Workers must read STDIN to receive a payload and write to STDOUT to push a payload.
 Your worker is managed with NCW (nodecast client) which is connected to NCS.
-Nodecast can push any kind of binary data to your worker or your pool of worker.</p>
+Nodecast can push any kind of binary data to a worker or to a pool of worker.</p>
 
 <p>Nodecast is using deeply <a href="http://www.zeromq.org/">Zeromq</a> to communicate between yours workers and MongoDB to store yours payloads and the workers's status.</p>
 
@@ -46,6 +46,14 @@ Nodecast can push any kind of binary data to your worker or your pool of worker.
 
 <p>Nodecast is using a full Qt stack (C++) so he has a tiny memory print and he is really quickly to perform yours tasks. </p>
 
+<p>This picture showing the internal architecture, it's for developer only not user.</p>
+
+<p><img src="https://raw.github.com/nodecast/ncs/master/docs/ncs_dev.png" alt="nodecast internal architecture"></p>
+
+<p>Picture of nodecast for a user</p>
+
+<p><img src="https://raw.github.com/nodecast/ncs/master/docs/ncs_user.png" alt="nodecast user's architecture"></p>
+
 <h3>Launch NCS</h3>
 
 <pre><code>$ ncs --mongodb-ip=127.0.0.1 --mongodb-base=nodecast_prod --domain-name=localhost --xmpp-client-port=6222 --xmpp-server-port=6269 --smtp-hostname="your.server.mail" --smtp-username="your-user-account" --smtp-password="your-password" --smtp-sender="your-email-sender" --smtp-recipient="your-email-recipient"
@@ -55,8 +63,9 @@ Nodecast can push any kind of binary data to your worker or your pool of worker.
 
 <h3>Support or Contact</h3>
 
-<p>email : fredix at nodecast do net
-irc : #nodecast on irc.freenode.net</p>
+<p>email : fredix at nodecast do net</p>
+
+<p>irc : #nodecast on irc.freenode.net</p>
       </section>
     </div>
 
