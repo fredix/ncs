@@ -32,8 +32,8 @@ LIBS += /usr/local/lib/libmongoclient.a \
 
 INCLUDEPATH += /usr/include/
 INCLUDEPATH += ./externals/libqxt/
-INCLUDEPATH += ./externals/libqxt/core
-INCLUDEPATH += ./externals/libqxt/web
+INCLUDEPATH += ./externals/libqxt/src/core
+INCLUDEPATH += ./externals/libqxt/src/web
 INCLUDEPATH += ./externals/mongodb/src
 INCLUDEPATH += ./externals/qxmpp/src/base
 INCLUDEPATH += ./externals/qxmpp/src/client
