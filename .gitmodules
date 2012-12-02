@@ -7,3 +7,9 @@
 [submodule "externals/mongodb"]
 	path = externals/mongodb
 	url = git://github.com/nodecast/mongodb.git
+[submodule "externals/cppzmq"]
+	path = externals/cppzmq
+	url = git://github.com/zeromq/cppzmq.git
+[submodule "externals/zeromq"]
+	path = externals/zeromq
+	url = git://github.com/nodecast/zeromq.git
