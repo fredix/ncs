@@ -35,8 +35,9 @@ Ztracker::Ztracker(zmq::context_t *a_context) : m_context(a_context)
     m_message = new zmq::message_t(2);
     m_socket = new zmq::socket_t (*m_context, ZMQ_REP);
 
-    uint64_t hwm = 50000;
-    m_socket->setsockopt(ZMQ_HWM, &hwm, sizeof (hwm));
+    int hwm = 50000;
+    m_socket->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
+    m_socket->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
     m_socket->bind("tcp://*:5569");
     /**********************************************/
 
@@ -364,7 +365,7 @@ void Ztracker::destructor()
 }
 
 
-
+/*
 Zreceive::Zreceive(zmq::context_t *a_context, zmq::socket_t *a_workers, QString a_inproc) : m_context(a_context), z_workers(a_workers), m_inproc(a_inproc)
 {
     qDebug() << "Zreceive::construct";
@@ -399,7 +400,7 @@ void Zreceive::destructor()
     qDebug() << "Zreceive destructor";
     z_sender->close ();
 }
-
+*/
 
 
 
@@ -413,17 +414,20 @@ Zpull::Zpull(zmq::context_t *a_context) : m_context(a_context)
 
 
     m_socket_http = new zmq::socket_t (*m_context, ZMQ_PULL);
-    uint64_t hwm = 50000;
-    m_socket_http->setsockopt(ZMQ_HWM, &hwm, sizeof (hwm));
+    int hwm = 50000;
+    m_socket_http->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
+    m_socket_http->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
     m_socket_http->connect("ipc:///tmp/nodecast/http");
 
     m_socket_workers = new zmq::socket_t (*m_context, ZMQ_PULL);
-    m_socket_workers->setsockopt(ZMQ_HWM, &hwm, sizeof (hwm));
+    m_socket_workers->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
+    m_socket_workers->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
     m_socket_workers->connect("ipc:///tmp/nodecast/workers");
 
 
     m_socket_zeromq = new zmq::socket_t (*m_context, ZMQ_PULL);
-    m_socket_zeromq->setsockopt(ZMQ_HWM, &hwm, sizeof (hwm));
+    m_socket_zeromq->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
+    m_socket_zeromq->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
     m_socket_zeromq->connect("ipc:///tmp/nodecast/zeromq");
 
 
@@ -873,6 +877,7 @@ void Zdispatch::replay_payload()
     }
 
 
+    //nosql_->Flush("lost_pushpull_payloads", BSON("pushed" << true << "finished" << true));
     nosql_->Flush("lost_pushpull_payloads", BSON("pushed" << true));
     m_mutex_replay_payload->unlock();
 }
@@ -1347,8 +1352,9 @@ Zworker_push::Zworker_push(zmq::context_t *a_context, string a_worker, string a_
 
     z_sender = new zmq::socket_t(*m_context, ZMQ_PUSH);
     //uint64_t hwm = 50000;
-    uint64_t hwm = 0;
-    z_sender->setsockopt(ZMQ_HWM, &hwm, sizeof (hwm));
+    int hwm = 0;
+    z_sender->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
+    z_sender->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
 
     string addr = "tcp://*:" + m_port;
     std::cout << "ADDR : " << addr << std::endl;
@@ -1388,6 +1394,7 @@ void Zworker_push::push_payload(bson::bo a_payload)
 
         QDateTime timestamp = QDateTime::currentDateTime();
 
+        //BSONObj payload = BSON("worker" << m_worker << "timestamp" << timestamp.toTime_t() << "data" << a_payload << "pushed" << false << "finished" << false);
         BSONObj payload = BSON("worker" << m_worker << "timestamp" << timestamp.toTime_t() << "data" << a_payload << "pushed" << false);
         //nosql_->Insert("lost_pushpull_payloads", payload);
         // UPDATE WITH UPSERT AT ON : INSERT IF NOT FOUND
@@ -1421,8 +1428,9 @@ Zstream_push::Zstream_push(zmq::context_t *a_context) : m_context(a_context)
     nosql_ = Nosql::getInstance_front();
 
     z_stream = new zmq::socket_t(*m_context, ZMQ_REP);
-    uint64_t hwm = 50000;
-    z_stream->setsockopt(ZMQ_HWM, &hwm, sizeof (hwm));
+    int hwm = 50000;
+    z_stream->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
+    z_stream->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
 
     z_stream->bind("tcp://*:5556");
     z_message = new zmq::message_t(2);

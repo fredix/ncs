@@ -24,7 +24,6 @@
 #include "ncs_global.h"
 #include "nosql.h"
 #include "zeromq.h"
-#include <zmq.hpp>
 #include <QxtWeb/QxtWebSlotService>
 #include <QxtWeb/QxtWebPageEvent>
 #include <QxtWeb/QxtWebContent>

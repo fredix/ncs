@@ -39,8 +39,9 @@ Tracker::Tracker(QxtAbstractWebSessionManager * sm, QObject * parent): QxtWebSlo
     //m_context = new zmq::context_t(1);
     z_push_api = new zmq::socket_t(*zeromq_->m_context, ZMQ_PUSH);
 
-    uint64_t hwm = 50000;
-    zmq_setsockopt (z_push_api, ZMQ_HWM, &hwm, sizeof (hwm));
+    int hwm = 50000;
+    z_push_api->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
+    z_push_api->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
 
     z_push_api->bind("ipc:///tmp/nodecast/tracker");
 }
@@ -98,19 +99,93 @@ void Tracker::announce_get(QxtWebRequestEvent* event)
 
     QDateTime timestamp = QDateTime::currentDateTime();    
     QUrl url = event->url;
+    bool error=false;
 
-    QString bodyMessage = "INFO HASH : " + url.queryItemValue("info_hash") + " peer_id : " + url.queryItemValue("peer_id");
+    /*
+    http://some.tracker.com:999/announce
+    ?info_hash=12345678901234567890
+    &peer_id=ABCDEFGHIJKLMNOPQRST
+    &ip=255.255.255.255
+    &port=6881
+    &downloaded=1234
+    &left=98765
+    &event=stopped
+    */
 
-    QString info_hash = url.queryItemValue("info_hash");
-    QString peer_id = url.queryItemValue("peer_id");
-    QString ip = url.queryItemValue("ip");
-    QString port = url.queryItemValue("port");
-    QString downloaded = url.queryItemValue("downloaded");
-    QString left = url.queryItemValue("left");
-    QString l_event = url.queryItemValue("event");
 
 
-    //bodyMessage = buildResponse(action, reply);
+    QString http_user_agent = event->headers.value("User-Agent");
+    if (http_user_agent.isEmpty()) http_user_agent = "N/A";
+
+
+    QString info_hash = getkey(url, "info_hash", error, true);
+    if (error)
+    {
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     info_hash.toUtf8()));
+        return;
+    }
+
+    QString peer_id = getkey(url, "peer_id", error, true);
+    if (error)
+    {
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     peer_id.toUtf8()));
+        return;
+    }
+
+
+    QString port = getkey(url, "port", error);
+    if (error)
+    {
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     port.toUtf8()));
+        return;
+    }
+
+    error = true;
+
+    QString ip = getkey(url, "ip", error);
+    QString downloaded = getkey(url, "downloaded", error);
+    QString left = getkey(url, "left", error);
+    QString l_event = getkey(url, "event", error);
+    QString key = getkey(url, "key", error);
+
+    QString bodyMessage = "INFO HASH : " + info_hash + " peer_id : " + peer_id +
+            " port : " + port + " ip : " + ip + " downloaded : " + downloaded +
+            " left : " + left + " event : " + l_event + " key : " + key  +
+            " HTTP_USER_AGENT : " + http_user_agent;
+
+
+
+    BSONObjBuilder peer_builder;
+    peer_builder.genOID();
+    peer_builder.append("hash", info_hash.toStdString());
+    peer_builder.append("user_agent", http_user_agent.toStdString());
+    peer_builder.append("ip_address", ip.toStdString());
+    QByteArray crypt_key = QCryptographicHash::hash(key.toAscii(), QCryptographicHash::Sha1);
+    //std::cout << " CRYPT KEY : " << crypt_key << std::endl;
+
+
+    peer_builder.append("key", QString(crypt_key).toStdString());
+    peer_builder.append("port", port.toInt());
+
+    BSONObj peer = peer_builder.obj();
+
+
+    nosql_->Insert("peers", peer);
+
+    /*
+    mysql_query('INSERT INTO `peer` (`hash`, `user_agent`, `ip_address`, `key`, `port`) '
+            . "VALUES ('" . mysql_real_escape_string(bin2hex($_GET['peer_id'])) . "', '" . mysql_real_escape_string(substr($_SERVER['HTTP_USER_AGENT'], 0, 80))
+            . "', INET_ATON('" . mysql_real_escape_string($_SERVER['REMOTE_ADDR']) . "'), '" . mysql_real_escape_string(sha1($_GET['key'])) . "', " . intval($_GET['port']) . ") "
+            . 'ON DUPLICATE KEY UPDATE `user_agent` = VALUES(`user_agent`), `ip_address` = VALUES(`ip_address`), `port` = VALUES(`port`), `id` = LAST_INSERT_ID(`peer`.`id`)')
+            or die(track('Cannot update peer: '.mysql_error()));
+    */
+
 
     postEvent(new QxtWebPageEvent(event->sessionID,
                                  event->requestID,
@@ -147,17 +222,17 @@ void Tracker::announce(QxtWebRequestEvent* event)
         break;
     case POST:
         qDebug() << "HTTP POST";
-        bodyMessage = buildResponse("error", "HTTP POST not implemented");
+        bodyMessage = "HTTP POST not implemented";
 
         break;
     case PUT:
         qDebug() << "HTTP PUT not implemented";
-        bodyMessage = buildResponse("error", "HTTP PUT not implemented");
+        bodyMessage = "HTTP PUT not implemented";
 
         break;
     case DELETE:
         qDebug() << "HTTP DELETE not implemented";
-        bodyMessage = buildResponse("error", "HTTP DELETE not implemented");
+        bodyMessage = "HTTP DELETE not implemented";
 
         break;
     }
@@ -279,36 +354,56 @@ void Tracker::admin(QxtWebRequestEvent* event, QString action)
 
 
 
+//Do some input validation
+QString Tracker::getkey(QUrl url, QString key, bool &error, bool fixed_size) {
+    QString val = url.queryItemValue(key);
+    QString msg;
 
-QString Tracker::buildResponse(QString action, QString data1, QString data2)
-{
-    QVariantMap data;
-    QString body;
+    if (!error && val.isEmpty ())
+    {
+        error = true;
+        msg = "Invalid request, missing data";
+        msg.prepend("d14:failure reason msg.size():");
+        msg.append("e");
+        return msg;
 
+    }
+    else if (!error && fixed_size && val.size () != 20)
+    {
+        error = true;
+        msg = "Invalid request, length on fixed argument not correct";
+        msg.prepend("d14:failure reason msg.size():");
+        msg.append("e");
+        return msg;
+    }
+    else if (!error && val.size () > 80)
+    { //128 chars should really be enough
+        error = true;
+        msg = "Request too long";
+        msg.prepend("d14:failure reason msg.size():");
+        msg.append("e");
+        return msg;
+    }
 
-    if (action == "update")
-    {
-        data.insert("uuid", data1);
-    }
-    else if (action == "register")
-    {
-        data.insert("node_uuid", data1);
-        data.insert("node_password", data2);
-    }
-    else if (action == "push" || action == "publish" || action == "create")
-    {
-        data.insert("uuid", data1);
-    }
-    else if (action == "file")
-    {
-        data.insert("gridfs", data1);
-    }
-    else if (action == "error")
-    {
-        data.insert("error", data1);
-        data.insert("code", data2);
-    }
-    body = QxtJSON::stringify(data);
+    if (val.isEmpty() && (key == "downloaded" || key == "uploaded" || key == "left"))
+            val="0";
 
-    return body;
+    return val;
 }
+
+
+/*
+QString Tracker::hex2bin(QString peer_id) {
+        QString r = "";
+        bool ok;
+
+
+
+        for (i=0; i < peer_id.size(); i+=2) {
+            //$r .= chr(hexdec($hex{$i}.$hex{($i+1)}));
+
+            uint dec = peer_id.toUInt(&ok, 10);     // dec == 0, ok == false
+        }
+        return r;
+}
+*/

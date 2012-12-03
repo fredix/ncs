@@ -28,8 +28,9 @@ Worker_api::Worker_api()
     z_message_publish = new zmq::message_t(2);
     z_message_publish_replay = new zmq::message_t(2);
     z_receive_api = new zmq::socket_t (*zeromq_->m_context, ZMQ_PULL);
-    uint64_t hwm = 50000;
-    z_receive_api->setsockopt(ZMQ_HWM, &hwm, sizeof (hwm));
+    int hwm = 50000;
+    z_receive_api->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
+    z_receive_api->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
 
     //int linger = 0;
     //z_receive_api->setsockopt (ZMQ_LINGER, &linger, sizeof (linger));
@@ -64,6 +65,13 @@ Worker_api::Worker_api()
 
     int linger_push = 0;
     z_push_api->setsockopt (ZMQ_LINGER, &linger_push, sizeof (linger_push));
+
+
+
+    //replay_payload_timer = new QTimer();
+    //connect(replay_payload_timer, SIGNAL(timeout()), this, SLOT(replay_pushpull_payload ()), Qt::DirectConnection);
+    //replay_payload_timer->start (60000);
+    //replay_payload_timer->start (60000);
 }
 
 
@@ -175,6 +183,23 @@ void Worker_api::replay_pubsub_payload(bson::bo a_payload)
         //delete(z_message_publish_replay);
         /************************/
     }
+}
+
+
+
+/********** RESEND PAYLOAD PAYLOAD ************/
+void Worker_api::replay_pushpull_payload(bson::bo a_payload)
+{
+    // TODO : REPLAY PAYLOAD IS ON ERROR
+
+
+    std::cout << "Worker_api::replay_pushpull_payload : " << a_payload << std::endl;
+
+
+
+
+
+
 }
 
 /********** CREATE PAYLOAD ************/
@@ -461,6 +486,7 @@ void Worker_api::receive_payload()
                 if (tmp.hasField("data")) b_payload.append(payload.getFieldDotted("payload.data"));
                 if (tmp.hasField("exitcode")) b_payload.append(payload.getFieldDotted("payload.exitcode"));
                 if (tmp.hasField("exitstatus")) b_payload.append(payload.getFieldDotted("payload.exitstatus"));
+                //if (tmp.hasField("replay")) b_payload.append(payload.getFieldDotted("payload.replay"));
 
                 BSONObj l_payload = b_payload.obj();
 

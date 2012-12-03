@@ -31,6 +31,7 @@ LIBS += /usr/local/lib/libmongoclient.a \
         -lqxmpp
 
 INCLUDEPATH += /usr/include/
+INCLUDEPATH += ./externals/cppzmq/
 INCLUDEPATH += ./externals/libqxt/
 INCLUDEPATH += ./externals/libqxt/src/core
 INCLUDEPATH += ./externals/libqxt/src/web

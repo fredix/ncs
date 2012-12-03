@@ -39,8 +39,9 @@ Http_api::Http_api(QxtAbstractWebSessionManager * sm, QObject * parent): QxtWebS
     //m_context = new zmq::context_t(1);
     z_push_api = new zmq::socket_t(*zeromq_->m_context, ZMQ_PUSH);
 
-    uint64_t hwm = 50000;
-    zmq_setsockopt (z_push_api, ZMQ_HWM, &hwm, sizeof (hwm));
+    int hwm = 50000;
+    z_push_api->setsockopt (ZMQ_SNDHWM, &hwm, sizeof (hwm));
+    z_push_api->setsockopt (ZMQ_RCVHWM, &hwm, sizeof (hwm));
 
     //z_push_api->bind("inproc://http");
     z_push_api->bind("ipc:///tmp/nodecast/http");

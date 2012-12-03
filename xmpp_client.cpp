@@ -44,8 +44,9 @@ Xmpp_client::Xmpp_client(QString a_domain, int a_xmpp_client_port, QObject *pare
     //z_push_api = new zmq::socket_t(*m_context, ZMQ_PUSH);
     //z_push_api->bind("tcp://*:5556");
 
-    uint64_t hwm = 50000;
-    zmq_setsockopt (z_push_api, ZMQ_HWM, &hwm, sizeof (hwm));
+    int hwm = 50000;
+    z_push_api->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
+    z_push_api->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
 
     //z_push_api->bind("inproc://xmpp");
     z_push_api->bind("ipc:///tmp/nodecast/xmpp");

@@ -24,19 +24,33 @@
 #include "ncs_global.h"
 #include "nosql.h"
 #include "zeromq.h"
-#include <zmq.hpp>
 #include <QxtWeb/QxtWebSlotService>
 #include <QxtWeb/QxtWebPageEvent>
 #include <QxtWeb/QxtWebContent>
 #include <QxtWeb/QxtHtmlTemplate>
 #include <QxtJSON>
 #include <QUuid>
+#include <QCryptographicHash>
+#include <QDebug>
 
 using namespace mongo;
 using namespace bson;
 
 typedef QMap<QString, MethodType> StringToEnumMap;
 
+
+//Peer announce interval (Seconds)
+#define __INTERVAL 1800;
+
+//Time out if peer is this late to re-announce (Seconds)
+#define __TIMEOUT 120;
+
+//Minimum announce interval (Seconds)
+//Most clients obey this, but not all
+#define __INTERVAL_MIN 60;
+
+// By default, never encode more than this number of peers in a single request
+#define __MAX_PPR 20;
 
 class Tracker : public QxtWebSlotService
 {
@@ -55,6 +69,7 @@ public slots:
 
 private:
     void announce_get(QxtWebRequestEvent* event);
+    QString getkey(QUrl url, QString key, bool &error, bool fixed_size=false);
 
 
     StringToEnumMap enumToHTTPmethod;
@@ -65,7 +80,6 @@ private:
     Nosql *nosql_;
     Zeromq *zeromq_;
     QBool checkAuth(QString header, BSONObjBuilder &payload, bo &a_user);
-    QString buildResponse(QString action, QString data1, QString data2="");
 };
 
 

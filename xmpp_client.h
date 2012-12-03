@@ -37,7 +37,6 @@
 #include "nosql.h"
 #include "zeromq.h"
 
-#include <zmq.hpp>
 
 class Xmpp_client : public QXmppClient
 {    

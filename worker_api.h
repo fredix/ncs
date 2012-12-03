@@ -23,7 +23,6 @@
 
 #include "nosql.h"
 #include "zeromq.h"
-#include <zmq.hpp>
 
 class Worker_api : public QObject
 {
@@ -53,6 +52,8 @@ public slots:
 
 private slots:
     void receive_payload();
+    void replay_pushpull_payload(bson::bo a_payload);
+
 };
 
 #endif // ZEROMQ_API_H

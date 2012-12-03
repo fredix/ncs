@@ -1,6 +1,6 @@
 /****************************************************************************
 **   ncs is the backend's server of nodecast
-**   Copyright (C) 2010-2011  Frédéric Logier <frederic@logier.org>
+**   Copyright (C) 2010-2012  Frédéric Logier <frederic@logier.org>
 **
 **   https://github.com/nodecast/ncs
 **
@@ -202,7 +202,7 @@ public slots:
 
 };
 
-
+/*
 class Zreceive : public QObject
 {
     Q_OBJECT
@@ -222,7 +222,7 @@ public slots:
     void destructor();
 
 };
-
+*/
 
 
 
