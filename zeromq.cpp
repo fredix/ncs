@@ -1651,7 +1651,7 @@ void Zstream_push::stream_payload()
                     z_message->rebuild(gfsid.objsize());
                     memcpy((void *) z_message->data(), gfsid.objdata(), gfsid.objsize());
 
-                    bool l_res = z_stream->send(*z_message);
+                    bool l_res = z_stream->send(*z_message, 0);
                     if (!l_res)
                     {
                         std::cout << "ERROR ON ERROR DATA" << std::endl;

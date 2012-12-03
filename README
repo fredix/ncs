@@ -3,32 +3,35 @@ ncs is the nodecast server
 
 INSTALL
 
-first, install deb :
-apt-get install g++ make scons libzmq-dev libboost-all-dev libqt4-dev libavahi-compat-libdnssd-dev
+first, install some debs :
+apt-get install g++ make autoconf scons libboost-all-dev libqt4-dev libavahi-compat-libdnssd-dev
 
 
 next, get submodule libraries :
 git submodule update --init
 
-If you prefer to use your system's libraries, you should modify the ncs.pro
+make the zeromq lib :
+cd externals/zeromq
+./configure
+make
+sudo make install
 
-
-second, make the mongodb client :
+make the mongodb client :
 cd externals/mongodb
 scons mongoclient
 sudo cp libmongoclient.a /usr/local/lib
 
-third, make the qxmpp client :
+make the qxmpp client :
 cd externals/qxmpp
 qmake
 make
-make install
+sudo make install
 
-four, make the libqxt library 
+make the libqxt library
 cd externals/libqxt
 ./configure
 make
-make install
+sudo make install
 
 last, make the nodecast server :
 qmake
@@ -38,9 +41,6 @@ make
 Launch NCS
 ncs --mongodb-ip=127.0.0.1 --mongodb-base=nodecast_prod --domain-name=localhost --xmpp-client-port=6222 --xmpp-server-port=6269 --smtp-hostname="your.server.mail" --smtp-username="your-user-account" --smtp-password="your-password" --smtp-sender="your-email-sender" --smtp-recipient="your-email-recipient"
 
-
-Launch a worker
-./ncw --ncs-ip=127.0.0.1 --ncs-port=5569 --node-uuid=your-node-uuid --node-password=your-node-password --worker-type=process --worker-name="ls" --exec="ls"
 
 
 MONGODB
