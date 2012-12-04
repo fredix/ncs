@@ -112,12 +112,9 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
                  "dest" << dest.str() <<
                  "payload_type" << payload_type.str() <<
                  "timestamp" << timestamp.toTime_t() <<
-                 "ttl" << ttl.Date() <<
-                 //"timestamp" << timestamp.date().toString() <<
-                 //BSONObj
-                 //"data" << l_payload.getFieldDotted("payload.data").str();
                  "data" << data_json.toStdString();
 
+    t_payload.appendDate("ttl", timestamp.toMSecsSinceEpoch());
 
     BSONObj tmp_payload = l_payload.getField("payload").Obj();
     BSONElement session_uuid;
