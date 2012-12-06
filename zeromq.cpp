@@ -365,44 +365,6 @@ void Ztracker::destructor()
 }
 
 
-/*
-Zreceive::Zreceive(zmq::context_t *a_context, zmq::socket_t *a_workers, QString a_inproc) : m_context(a_context), z_workers(a_workers), m_inproc(a_inproc)
-{
-    qDebug() << "Zreceive::construct";
-}
-
-
-void Zreceive::init_payload()
-{
-    qDebug() << "Zreceive::init_payload, proc ; " << m_inproc;
-    z_sender = new zmq::socket_t(*m_context, ZMQ_PULL);
-    qDebug() << " INPROC : " << m_inproc;
-
-    uint64_t hwm = 50000;
-    zmq_setsockopt (z_sender, ZMQ_HWM, &hwm, sizeof (hwm));
-
-    z_sender->connect("inproc://" + m_inproc.toAscii());
-
-    //  Connect work threads to client threads via a queue
-    std::cout << "Zreceive::init_payload BEFORE ZMQ_STREAMER" << std::endl;
-    zmq::device (ZMQ_STREAMER, *z_sender, *z_workers);
-    std::cout << "Zreceive::init_payload AFTER ZMQ_STREAMER" << std::endl;
-}
-
-Zreceive::~Zreceive()
-{
-    qDebug() << "Zreceive::~Zreceive";
-    delete(z_sender);
-}
-
-void Zreceive::destructor()
-{
-    qDebug() << "Zreceive destructor";
-    z_sender->close ();
-}
-*/
-
-
 
 Zpull::Zpull(zmq::context_t *a_context) : m_context(a_context)
 {        
@@ -1822,32 +1784,6 @@ void Zeromq::init()
     //connect(pull, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
 
-
-    /**** PULL DATA ON HTTP API ****
-    QThread *thread_http_receive = new QThread;
-    receive_http = new Zreceive(m_context, z_workers, "http");
-    connect(thread_http_receive, SIGNAL(started()), receive_http, SLOT(init_payload()));
-    receive_http->moveToThread(thread_http_receive);
-    thread_http_receive->start();*/
-//    QMetaObject::invokeMethod(receive, "init_payload", Qt::QueuedConnection);
-
-
-
-    /**** PULL DATA ON XMPP API ****
-    QThread *thread_xmpp_receive = new QThread;
-    receive_xmpp = new Zreceive(m_context, z_workers, "xmpp");
-    connect(thread_xmpp_receive, SIGNAL(started()), receive_xmpp, SLOT(init_payload()));
-    receive_xmpp->moveToThread(thread_xmpp_receive);
-    thread_xmpp_receive->start();*/
-
-
-
-    /**** PULL DATA FROM WORKERS ****
-    QThread *thread_zeromq_receive = new QThread;
-    receive_zeromq = new Zreceive(m_context, z_workers, "workers");
-    connect(thread_zeromq_receive, SIGNAL(started()), receive_zeromq, SLOT(init_payload()));
-    receive_zeromq->moveToThread(thread_zeromq_receive);
-    thread_zeromq_receive->start();*/
 
     std::cout << "Zeromq::Zeromq AFTER thread_receive" << std::endl;
 

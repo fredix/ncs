@@ -202,29 +202,6 @@ public slots:
 
 };
 
-/*
-class Zreceive : public QObject
-{
-    Q_OBJECT
-public:
-    Zreceive(zmq::context_t *a_context, zmq::socket_t *a_workers, QString inproc);
-    ~Zreceive();
-
-private:
-    zmq::context_t *m_context;
-    QMutex *m_mutex;
-    QString m_inproc;
-    zmq::socket_t *z_workers;
-    zmq::socket_t *z_sender;
-
-public slots:
-    void init_payload();
-    void destructor();
-
-};
-*/
-
-
 
 
 class Zeromq : public QObject
