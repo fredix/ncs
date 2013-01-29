@@ -1,6 +1,6 @@
 /****************************************************************************
 **   ncs is the backend's server of nodecast
-**   Copyright (C) 2010-2011  Frédéric Logier <frederic@logier.org>
+**   Copyright (C) 2010-2013  Frédéric Logier <frederic@logier.org>
 **
 **   https://github.com/nodecast/ncs
 **
@@ -25,7 +25,8 @@
 #include "mongo/client/dbclient.h"
 #include "mongo/client/gridfs.h"
 #include "mongo/bson/bson.h"
-
+#include "nodetrack/util.h"
+//#include "zeromq.h"
 
 #include <QObject>
 #include <QDomDocument>
@@ -33,7 +34,9 @@
 #include <QDebug>
 #include <QVariant>
 #include <QMutex>
-
+#include <queue>
+#include <vector>
+#include <QStack>
 
 
 using namespace mongo;
@@ -48,6 +51,8 @@ public:
     Nosql(QString instance_type, QString a_server, QString a_database);
     static Nosql *getInstance_front();
     static Nosql *getInstance_back();
+    static Nosql *getInstance_tracker();
+
     static void kill_front();
     static void kill_back();
 
@@ -69,9 +74,47 @@ public:
     QBool ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &chunk_data, int &chunk_length);
     void Flush(string a_document, BSONObj query);
 
+
+    /*****************************
+               BITTORRENT
+    *****************************/
+    void bt_load_torrents(QHash<QString, bt_torrent> &bt_torrents);
+    void bt_load_users(QHash<QString, bt_user> &bt_users);
+    void bt_load_tokens(QHash<QString, bt_torrent> &bt_torrents);
+    void bt_load_whitelist(QVector<QString> &whitelist);
+
+    void bt_record_user(int id, long long uploaded_change, long long downloaded_change); // (id,uploaded_change,downloaded_change)
+    void bt_record_torrent(int tid, int seeders, int leechers, int snatched_change, int balance); // (id,seeders,leechers,snatched_change,balance)
+    void bt_record_snatch(int uid, int tid, time_t tstamp, std::string ip); // (uid,fid,tstamp,ip)
+    void bt_record_peer(int uid, int fid, int active, std::string peerid, std::string useragent, std::string &ip, long long uploaded, long long downloaded, long long upspeed, long long downspeed, long long left, time_t timespent, unsigned int announces);
+    void bt_record_token(int uid, int tid, long long downloaded_change);
+    void bt_record_peer_hist(int uid, long long downloaded, long long left, long long uploaded, long long upspeed, long long downspeed, long long tstamp, std::string &peer_id, int tid);
+    void bt_flush();
+    bool bt_all_clear();
+
+    void bt_flush_users();
+    void bt_flush_torrents();
+    void bt_flush_snatches();
+    void bt_flush_peers();
+    void bt_flush_peer_hist();
+    void bt_flush_tokens();
+
+
+    void bt_do_flush_users();
+    void bt_do_flush_torrents();
+    void bt_do_flush_snatches();
+    void bt_do_flush_peers();
+    void bt_do_flush_peer_hist();
+    void bt_do_flush_tokens();
+
 private:   
     static Nosql *_singleton_front;
     static Nosql *_singleton_back;
+    static Nosql *_singleton_tracker;
+    //zmq::socket_t *m_socket_payload;
+    //QSocketNotifier *check_payload_response;
+
+
     ~Nosql();
 
     QString m_server;
@@ -85,6 +128,51 @@ private:
     BSONObj m_datas;
     QMutex *m_mutex;
     QMutex *m_rf_mutex;
+
+    QMutex *user_buffer_lock;
+    QMutex *torrent_buffer_lock;
+    QMutex *peer_buffer_lock;
+    QMutex *snatch_buffer_lock;
+    QMutex *user_token_lock;
+    QMutex *peer_hist_buffer_lock;
+
+    bool u_active, t_active, p_active, s_active, tok_active, hist_active;
+
+public:
+    struct mongo_query {
+                      QString document;
+                      mongo::Query query;
+                      mongo::BSONObj data;
+                   };
+
+    QVector<mongo_query> update_user_buffer;
+    QVector<mongo_query> update_torrent_buffer;
+    QVector<mongo_query> update_peer_buffer;
+    QVector<mongo_query> update_snatch_buffer;
+    QVector<mongo_query> update_token_buffer;
+    QVector<mongo_query> update_peer_hist_buffer;
+
+    typedef QVector<mongo_query> qmongo_query;
+
+
+    QStack<qmongo_query> user_queue;
+    QStack<qmongo_query> torrent_queue;
+    QStack<qmongo_query> peer_queue;
+    QStack<qmongo_query> snatch_queue;
+    QStack<qmongo_query> token_queue;
+    QStack<qmongo_query> peer_hist_queue;
+
+    QBool Update_raw(mongo_query a_query);
+
+
+signals:
+    void forward_payload(BSONObj data);
+
+
+private slots:
+    void payload_receive();
+    void push_payload(BSONObj a_payload);
+
 };
 
 

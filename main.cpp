@@ -1,6 +1,6 @@
 /****************************************************************************
 **   ncs is the backend's server of nodecast
-**   Copyright (C) 2010-2012  Frédéric Logier <frederic@logier.org>
+**   Copyright (C) 2010-2013  Frédéric Logier <frederic@logier.org>
 **
 **   https://github.com/nodecast/ncs
 **
@@ -79,17 +79,20 @@ Dispatcher::Dispatcher(params ncs_params)
 
     nosql_front = new Nosql("front", ncs_params.mongodb_ip, ncs_params.mongodb_base);
     nosql_back = new Nosql("back", ncs_params.mongodb_ip, ncs_params.mongodb_base);
+    nosql_tracker = new Nosql("tracker", ncs_params.mongodb_ip, ncs_params.mongodb_base);
+
     zeromq = new Zeromq();
 
-    api = new Api();
-    api->Http_init();
-    //api->Tracker_init();
-    api->Xmpp_init(ncs_params.domain_name, ncs_params.xmpp_client_port, ncs_params.xmpp_server_port);
-    api->Worker_init();
+    service = new Service();
+    service->Http_init();
+    //service->Tracker_init();
+    service->Nodeftp_init(ncs_params.ftp_server_port);
+    service->Xmpp_init(ncs_params.domain_name, ncs_params.xmpp_client_port, ncs_params.xmpp_server_port);
+    service->Worker_init();
 
     zeromq->init();
 
-    connect(zeromq->dispatch, SIGNAL(emit_pubsub(bson::bo)), api->worker_api, SLOT(pubsub_payload(bson::bo)), Qt::QueuedConnection);
+    connect(zeromq->dispatch, SIGNAL(emit_pubsub(bson::bo)), service->worker_api, SLOT(pubsub_payload(bson::bo)), Qt::QueuedConnection);
 
     QThread *thread_alert = new QThread;
     alert = new Alert(ncs_params.alert_email);
@@ -138,7 +141,7 @@ void Dispatcher::handleSigHup()
     std::cout << "Received SIGHUP" << std::endl;
 
     delete(alert);
-    delete(api);
+    delete(service);
     delete(zeromq);
     nosql_front->kill_front ();
     nosql_back->kill_back ();
@@ -180,6 +183,11 @@ int main(int argc, char *argv[])
     options.alias("xmpp-client-port", "xcp");
     options.add("xmpp-server-port", "set the xmpp server port", QxtCommandOptions::Required);
     options.alias("xmpp-server-port", "xsp");
+
+    options.add("ftp-server-port", "set the ftp server port", QxtCommandOptions::Required);
+    options.alias("ftp-server-port", "fsp");
+
+
 
     options.add("smtp-hostname", "set the smtp hostname", QxtCommandOptions::Required);
     options.alias("smtp-hostname", "sph");
@@ -285,6 +293,23 @@ int main(int argc, char *argv[])
     }
 
 
+
+    if(options.count("ftp-server-port")) {
+        ncs_params.ftp_server_port = options.value("ftp-server-port").toInt();
+        settings.setValue("ftp-server-port", ncs_params.ftp_server_port);
+    }
+    else if(settings.contains("ftp-server-port"))
+    {
+        ncs_params.ftp_server_port = settings.value("ftp-server-port").toInt();
+    }
+    else {
+        std::cout << "ncs: --ftp-server-port requires a parameter" << std::endl;
+        options.showUsage();
+        return -1;
+    }
+
+
+
     if(options.count("smtp-hostname")) {
         ncs_params.alert_email.smtp_hostname = options.value("smtp-hostname").toString();
         settings.setValue("smtp-hostname", ncs_params.alert_email.smtp_hostname);
@@ -361,6 +386,7 @@ int main(int argc, char *argv[])
     }
 
     if (!QDir("/tmp/nodecast").exists()) QDir().mkdir("/tmp/nodecast");
+    if (!QDir("/tmp/nodecast/ftp").exists()) QDir().mkdir("/tmp/nodecast/ftp");
 
 
     setup_unix_signal_handlers();

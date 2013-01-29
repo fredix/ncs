@@ -1,6 +1,6 @@
 /****************************************************************************
 **   ncs is the backend's server of nodecast
-**   Copyright (C) 2010-2011  Frédéric Logier <frederic@logier.org>
+**   Copyright (C) 2010-2013  Frédéric Logier <frederic@logier.org>
 **
 **   https://github.com/nodecast/ncs
 **
@@ -28,6 +28,7 @@
 #include <QxtWeb/QxtWebPageEvent>
 #include <QxtWeb/QxtWebContent>
 #include <QxtWeb/QxtHtmlTemplate>
+#include <QxtWebStoreCookieEvent>
 #include <QxtJSON>
 #include <QUuid>
 
@@ -35,7 +36,7 @@ using namespace mongo;
 using namespace bson;
 
 
-typedef QMap<QString, MethodType> StringToEnumMap;
+typedef QMap<QString, HTTPMethodType> StringToHTTPEnumMap;
 
 
 class Http_api : public QxtWebSlotService
@@ -50,17 +51,21 @@ public:
 public slots:        
     void index(QxtWebRequestEvent* event);
     void admin(QxtWebRequestEvent* event, QString action);
-    void payload(QxtWebRequestEvent* event, QString action, QString uuid);
+    void payload(QxtWebRequestEvent* event, QString action, QString uuid="");
+    void session(QxtWebRequestEvent* event, QString uuid);
     void file(QxtWebRequestEvent* event, QString action);
     void node(QxtWebRequestEvent* event, QString action);
     void workflow(QxtWebRequestEvent* event, QString action);
 
 
 private:
-    void payload_post(QxtWebRequestEvent* event, QString action, QString workflow_uuid);
+    void payload_post(QxtWebRequestEvent* event, QString action);
+    void session_get(QxtWebRequestEvent* event, QString uuid);
+    void admin_users_get(QxtWebRequestEvent* event);
+    void admin_login(QxtWebRequestEvent* event);
 
 
-    StringToEnumMap enumToHTTPmethod;
+    StringToHTTPEnumMap enumToHTTPmethod;
 
     zmq::socket_t *z_push_api;
     zmq::message_t *z_message;
@@ -68,6 +73,8 @@ private:
     Nosql *nosql_;
     Zeromq *zeromq_;
     QBool checkAuth(QString header, BSONObjBuilder &payload, bo &a_user);
+    QBool http_auth(QString auth, QHash <QString, QString> &hauth);
+
     QString buildResponse(QString action, QString data1, QString data2="");
 };
 

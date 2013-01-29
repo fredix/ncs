@@ -1,6 +1,6 @@
 /****************************************************************************
 **   ncs is the backend's server of nodecast
-**   Copyright (C) 2010-2012  Frédéric Logier <frederic@logier.org>
+**   Copyright (C) 2010-2013  Frédéric Logier <frederic@logier.org>
 **
 **   https://github.com/nodecast/ncs
 **
@@ -1159,15 +1159,34 @@ void Zdispatch::push_payload(BSONObj a_data)
 
         //BSONObj old_step = nosql_->Find("payloads", search);
 
-        BSONObj step_order = nosql_->Find("payloads", step_id, &field);
+        BSONObj t_step_order = nosql_->Find("payloads", step_id, &field);
 
+        std::cout << "t_step_order: " << t_step_order << std::endl;
+
+
+        BSONObj step_order = t_step_order.getField("steps").Obj();
 
         std::cout << "step_order: " << step_order << std::endl;
 
 
-        /* Gruik ........................... !!*/
-        BSONElement order = step_order.getField("steps").embeddedObject().getFieldDotted("0.order");
-        /**************************************/
+
+        list<be> list_steps;
+        step_order.elems(list_steps);
+        list<be>::iterator i;
+
+        BSONObj l_step;
+
+        for(i = list_steps.begin(); i != list_steps.end(); ++i) {
+            l_step = (*i).embeddedObject ();
+            std::cout << "l_step => " << l_step  << std::endl;
+        }
+
+
+        BSONElement order = l_step.firstElement();
+
+
+
+        std::cout << "ORDER : " << order << std::endl;
 
         int workflow_order = order.numberInt() + 1;
         std::cout << "ORDER YO : " << workflow_order << std::endl;
@@ -1185,7 +1204,12 @@ void Zdispatch::push_payload(BSONObj a_data)
         if (a_data.hasField("exitstatus")) exitstatus = a_data.getField("exitstatus");
 
 
-        be datas = a_data.getField("data");
+        BSONElement datas = a_data.getField("data");
+
+        //string l_datas = datas.jsonString(Strict, false);
+
+        std::cout << "L DATAS : " << datas.toString(false) << std::endl;
+
 
 
         /********** RECORD PAYLOAD STEP *********/
@@ -1195,7 +1219,7 @@ void Zdispatch::push_payload(BSONObj a_data)
 
         step_builder << "steps.$.name" << worker_name.str();
         step_builder << "steps.$.action" << "terminate";
-        step_builder << "steps.$.data" << datas.str();
+        step_builder << "steps.$.data" << datas.jsonString(Strict, false);
         if (a_data.hasField("exitcode")) step_builder << "steps.$.exitcode" << exitcode;
         if (a_data.hasField("exitstatus")) step_builder << "steps.$.exitstatus" << exitstatus;
         step_builder << "steps.$.terminate_timestamp" << timestamp.Number();
@@ -1283,7 +1307,7 @@ void Zdispatch::push_payload(BSONObj a_data)
 
 
             /**** SEND PAYLOAD ****/
-            BSONObj payload = BSON("data" << datas.str() << "session_uuid" << b_session_uuid.str());
+            BSONObj payload = BSON("payload" << BSON("data" << datas.jsonString(Strict, false) << "session_uuid" << b_session_uuid.str()));
             qDebug() << "push_payload : " << w_name;
             workers_push[w_name]->push_payload(payload);
         }

@@ -1,6 +1,6 @@
 /****************************************************************************
 **   ncs is the backend's server of nodecast
-**   Copyright (C) 2010-2012  Frédéric Logier <frederic@logier.org>
+**   Copyright (C) 2010-2013  Frédéric Logier <frederic@logier.org>
 **
 **   https://github.com/nodecast/ncs
 **
@@ -18,18 +18,21 @@
 **   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ****************************************************************************/
 
-#include "api.h"
+#include "service.h"
 
-Api::Api(QObject *parent) : QObject(parent)
+Service::Service(QObject *parent) : QObject(parent)
 {}
 
-Api::~Api()
+Service::~Service()
 {
     qDebug() << "delete http server";
     delete(m_http_api);
 
     qDebug() << "delete tracker";
     delete(m_tracker);
+
+    qDebug() << "delete ftp";
+    delete(m_nodeftp);
 
 
     qDebug() << "delete xmpp server";
@@ -44,7 +47,7 @@ Api::~Api()
 }
 
 
-void Api::Http_init()
+void Service::Http_init()
 {
     m_session.setPort(4567);
     m_session.setConnector(&m_connector);
@@ -54,14 +57,41 @@ void Api::Http_init()
     m_http_api = new Http_api(&m_session);
 
     m_session.setStaticContentService(m_http_api);
+
+    m_session.setSessionCookieName("nodecast");
+
     m_session.start();
 }
 
 
 
-void Api::Tracker_init()
+
+void Service::Nodetrack_init()
 {
-    m_tracker_session.setPort(6969);
+    m_nodetrack_session.setPort(6969);
+    m_nodetrack_session.setConnector(&m_nodetrack_connector);
+
+    m_nodetrack = new Nodetrack(&m_nodetrack_session);
+
+    m_nodetrack_session.setStaticContentService(m_nodetrack);
+    m_nodetrack_session.start();
+}
+
+
+
+void Service::Nodeftp_init(int port)
+{      
+   QThread *node_ftp = new QThread;
+   m_nodeftp = new Nodeftp(port);
+   m_nodeftp->moveToThread(node_ftp);
+   node_ftp->start();
+
+   m_nodeftp->connect(node_ftp, SIGNAL(started()), SLOT(ftp_init()));
+}
+
+void Service::Tracker_init()
+{
+    m_tracker_session.setPort(6060);
     m_tracker_session.setConnector(&m_tracker_connector);
 
     m_tracker = new Tracker(&m_tracker_session);
@@ -71,7 +101,7 @@ void Api::Tracker_init()
 }
 
 
-void Api::Xmpp_init(QString domain_name, int xmpp_client_port, int xmpp_server_port)
+void Service::Xmpp_init(QString domain_name, int xmpp_client_port, int xmpp_server_port)
 {
     qRegisterMetaType<QXmppLogger::MessageType>("QXmppLogger::MessageType");
 
@@ -81,7 +111,7 @@ void Api::Xmpp_init(QString domain_name, int xmpp_client_port, int xmpp_server_p
 
 
 
-void Api::Worker_init()
+void Service::Worker_init()
 {
     QThread *worker_pull = new QThread;
     worker_api = new Worker_api();

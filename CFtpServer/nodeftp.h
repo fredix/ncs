@@ -1,6 +1,6 @@
 /****************************************************************************
 **   ncs is the backend's server of nodecast
-**   Copyright (C) 2010-2011  Frédéric Logier <frederic@logier.org>
+**   Copyright (C) 2010-2013  Frédéric Logier <frederic@logier.org>
 **
 **   https://github.com/nodecast/ncs
 **
@@ -18,48 +18,28 @@
 **   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ****************************************************************************/
 
-#ifndef API_H
-#define API_H
+#ifndef NODEFTP_H
+#define NODEFTP_H
 
-#include <QThread>
-#include "nosql.h"
-#include "zeromq.h"
-#include "http_api.h"
-#include "tracker.h"
-#include "worker_api.h"
-#include <QxtHttpServerConnector>
-#include <QxtHttpSessionManager>
-#include "xmpp_server.h"
-#include "xmpp_client.h"
+#include "CFtpServer.h"
+#include <QObject>
 
-class Api : public QObject
+class Nodeftp : public QObject
 {
     Q_OBJECT
 public:
-    Api(QObject *parent = 0);
-    ~Api();
-
-    void Http_init();
-    void Tracker_init();
-    void Xmpp_init(QString domain_name, int xmpp_client_port, int xmpp_server_port);
-    void Worker_init();
-    Worker_api *worker_api;
-
+    Nodeftp(int port);
+    ~Nodeftp();
 
 private:
-    QxtHttpServerConnector m_connector;
-    QxtHttpSessionManager m_session;
-    Http_api *m_http_api;
-    Xmpp_server *m_xmpp_server;
-    Xmpp_client *m_xmpp_client;
+    int m_port;
 
-    QxtHttpServerConnector m_tracker_connector;
-    QxtHttpSessionManager m_tracker_session;
-    Tracker *m_tracker;
+    CFtpServer *FtpServer;
 
-
-signals:
-    void shutdown();
+public slots:
+    void ftp_init();
+    void add_user(QString username, QString userpassword, QString userpath);
+    //void remove_user(QString username);
 };
 
-#endif // API_H
+#endif // NODEFTP_H

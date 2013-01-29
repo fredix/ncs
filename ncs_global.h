@@ -1,6 +1,6 @@
 /****************************************************************************
 **   ncs is the backend's server of nodecast
-**   Copyright (C) 2010-2012  Frédéric Logier <frederic@logier.org>
+**   Copyright (C) 2010-2013  Frédéric Logier <frederic@logier.org>
 **
 **   https://github.com/nodecast/ncs
 **
@@ -23,7 +23,7 @@
 
 
 
-enum MethodType {
+enum HTTPMethodType {
     GET=1,
     POST=2,
     PUT=3,

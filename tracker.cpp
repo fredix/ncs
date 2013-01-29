@@ -1,6 +1,6 @@
 /****************************************************************************
 **   ncs is the backend's server of nodecast
-**   Copyright (C) 2010-2012  Frédéric Logier <frederic@logier.org>
+**   Copyright (C) 2010-2013  Frédéric Logier <frederic@logier.org>
 **
 **   https://github.com/nodecast/ncs
 **
@@ -163,7 +163,13 @@ void Tracker::announce_get(QxtWebRequestEvent* event)
 
     BSONObjBuilder peer_builder;
     peer_builder.genOID();
-    peer_builder.append("hash", info_hash.toStdString());
+
+
+    std::string info_hash_decoded = hex_decode(info_hash.toStdString());
+
+    peer_builder.append("hash", info_hash_decoded);
+
+
     peer_builder.append("user_agent", http_user_agent.toStdString());
     peer_builder.append("ip_address", ip.toStdString());
     QByteArray crypt_key = QCryptographicHash::hash(key.toAscii(), QCryptographicHash::Sha1);
@@ -390,6 +396,41 @@ QString Tracker::getkey(QUrl url, QString key, bool &error, bool fixed_size) {
 
     return val;
 }
+
+
+
+std::string Tracker::hex_decode(const std::string &in) {
+    std::string out;
+    out.reserve(20);
+    unsigned int in_length = in.length();
+    for(unsigned int i = 0; i < in_length; i++) {
+        unsigned char x = '0';
+        if(in[i] == '%' && (i + 2) < in_length) {
+            i++;
+            if(in[i] >= 'a' && in[i] <= 'f') {
+                x = static_cast<unsigned char>((in[i]-87) << 4);
+            } else if(in[i] >= 'A' && in[i] <= 'F') {
+                x = static_cast<unsigned char>((in[i]-55) << 4);
+            } else if(in[i] >= '0' && in[i] <= '9') {
+                x = static_cast<unsigned char>((in[i]-48) << 4);
+            }
+
+            i++;
+            if(in[i] >= 'a' && in[i] <= 'f') {
+                x += static_cast<unsigned char>(in[i]-87);
+            } else if(in[i] >= 'A' && in[i] <= 'F') {
+                x += static_cast<unsigned char>(in[i]-55);
+            } else if(in[i] >= '0' && in[i] <= '9') {
+                x += static_cast<unsigned char>(in[i]-48);
+            }
+        } else {
+            x = in[i];
+        }
+        out.push_back(x);
+    }
+    return out;
+}
+
 
 
 /*

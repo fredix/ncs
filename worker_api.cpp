@@ -1,6 +1,6 @@
 /****************************************************************************
 **   ncs is the backend's server of nodecast
-**   Copyright (C) 2010-2012  Frédéric Logier <frederic@logier.org>
+**   Copyright (C) 2010-2013  Frédéric Logier <frederic@logier.org>
 **
 **   https://github.com/nodecast/ncs
 **
@@ -467,7 +467,7 @@ void Worker_api::receive_payload()
                 /************************/
 
             }
-            else
+            else if (payload_action == "terminate")
             {
                 // WORKER RESPONSE
                 std::cout << "RECEIVE ACTION : " << payload_action.toStdString() << std::endl;

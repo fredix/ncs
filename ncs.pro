@@ -1,6 +1,10 @@
 # -------------------------------------------------
 # Project created by QtCreator 2010-08-29T14:47:00
 # -------------------------------------------------
+
+
+QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
+
 QT += network \
     xml \
     testlib
@@ -16,12 +20,17 @@ SOURCES += main.cpp \
     zeromq.cpp \
     xmpp_server.cpp \
     xmpp_client.cpp \
-    api.cpp \
     http_api.cpp \
     alert.cpp \
     worker_api.cpp \
-    tracker.cpp
+    tracker.cpp \
+    nodetrack/nodetrack.cpp \
+    nodetrack/util.cpp \
+    CFtpServer/CFtpServer.cpp \
+    CFtpServer/nodeftp.cpp \
+    service.cpp
 LIBS += /usr/local/lib/libmongoclient.a \
+        -lz \
         -lboost_system \
         -lboost_filesystem-mt \
         -lboost_thread-mt \
@@ -45,9 +54,15 @@ HEADERS += main.h \
     zeromq.h \
     xmpp_server.h \
     xmpp_client.h \
-    api.h \
     http_api.h \
     alert.h \
     worker_api.h \
     tracker.h \
-    ncs_global.h
+    ncs_global.h \
+    nodetrack/nodetrack.h \
+    nodetrack/util.h \
+    CFtpServer/CFtpServer.h \
+    CFtpServer/CFtpServerGlobal.h \
+    CFtpServer/nodeftp.h \
+    CFtpServer/CFtpServerConfig.h \
+    service.h

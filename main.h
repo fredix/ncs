@@ -1,6 +1,6 @@
 /****************************************************************************
 **   ncs is the backend's server of nodecast
-**   Copyright (C) 2010-2011  Frédéric Logier <frederic@logier.org>
+**   Copyright (C) 2010-2013  Frédéric Logier <frederic@logier.org>
 **
 **   https://github.com/nodecast/ncs
 **
@@ -28,7 +28,7 @@
 
 #include "nosql.h"
 #include "zeromq.h"
-#include "api.h"
+#include "service.h"
 #include "alert.h"
 
 
@@ -38,6 +38,7 @@ struct params {
     QString domain_name;
     int xmpp_client_port;
     int xmpp_server_port;
+    int ftp_server_port;
 
     email alert_email;
 };
@@ -51,8 +52,10 @@ public:
 
     Nosql *nosql_front;
     Nosql *nosql_back;
+    Nosql *nosql_tracker;
+
     Zeromq *zeromq;
-    Api *api;
+    Service *service;
     Alert *alert;
 
 

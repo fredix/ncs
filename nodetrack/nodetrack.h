@@ -18,8 +18,11 @@
 **   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ****************************************************************************/
 
-#ifndef TRACKER_H
-#define TRACKER_H
+
+#ifndef NODETRACK_H
+#define NODETRACK_H
+
+#include "util.h"
 
 #include "ncs_global.h"
 #include "nosql.h"
@@ -32,6 +35,7 @@
 #include <QUuid>
 #include <QCryptographicHash>
 #include <QDebug>
+
 
 using namespace mongo;
 using namespace bson;
@@ -52,26 +56,54 @@ typedef QMap<QString, HTTPMethodType> StringToEnumMap;
 // By default, never encode more than this number of peers in a single request
 #define __MAX_PPR 20;
 
-class Tracker : public QxtWebSlotService
+
+enum TorrentUpdateAction {
+    change_passkey=1,
+    add_torrent=2,
+    update_torrent=3,
+    update_torrents=4,
+    add_token=5,
+    remove_token=6,
+    delete_torrent=7,
+    add_user=8,
+    remove_user=9,
+    remove_users=10,
+    update_user=11,
+    add_whitelist=12,
+    remove_whitelist=13,
+    edit_whitelist=14,
+    update_announce_interval=15,
+    info_torrent=16
+};
+typedef QMap<QString, TorrentUpdateAction> StringToTorrentEnumMap;
+
+
+
+class Nodetrack : public QxtWebSlotService
 {
     Q_OBJECT
 
 public:
-    Tracker(QxtAbstractWebSessionManager *sm, QObject * parent = 0);
+    Nodetrack(QxtAbstractWebSessionManager *sm, QObject * parent = 0);
     //Http_api(QxtAbstractWebSessionManager * sm, Nosql& a);
-    ~Tracker();
+    ~Nodetrack();
 
 public slots:
     void index(QxtWebRequestEvent* event);
     void admin(QxtWebRequestEvent* event, QString action);
     void announce(QxtWebRequestEvent* event);
+    void scrape(QxtWebRequestEvent* event, QString key);
+    void update(QxtWebRequestEvent* event, QString action);
+    void reap_peers();
+    void do_reap_peers();
 
 
 private:
-    void announce_get(QxtWebRequestEvent* event);
+    void get_announce(QxtWebRequestEvent* event);
     std::string hex_decode(const std::string &in);
     QString getkey(QUrl url, QString key, bool &error, bool fixed_size=false);
 
+    StringToTorrentEnumMap enumToTorrentUpdate;
 
     StringToEnumMap enumToHTTPmethod;
 
@@ -84,4 +116,8 @@ private:
 };
 
 
-#endif // TRACKER_H
+
+
+
+
+#endif // NODETRACK_H

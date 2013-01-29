@@ -1,6 +1,6 @@
 /****************************************************************************
 **   ncs is the backend's server of nodecast
-**   Copyright (C) 2010-2012  Frédéric Logier <frederic@logier.org>
+**   Copyright (C) 2010-2013  Frédéric Logier <frederic@logier.org>
 **
 **   https://github.com/nodecast/ncs
 **
@@ -48,7 +48,7 @@ public:
     void push_payload(bson::bo a_payload);
     void stream_payload(bson::bo a_payload);
 
-private:
+private:    
     Nosql *nosql_;
     string m_worker;
     string m_port;

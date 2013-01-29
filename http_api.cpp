@@ -1,6 +1,6 @@
 /****************************************************************************
 **   ncs is the backend's server of nodecast
-**   Copyright (C) 2010-2012  Frédéric Logier <frederic@logier.org>
+**   Copyright (C) 2010-2013  Frédéric Logier <frederic@logier.org>
 **
 **   https://github.com/nodecast/ncs
 **
@@ -53,6 +53,46 @@ Http_api::~Http_api()
     qDebug() << "Http_api : close socket";
     z_push_api->close ();
     delete(z_push_api);
+}
+
+
+QBool Http_api::http_auth(QString auth, QHash <QString, QString> &hauth)
+{
+
+    QStringList list_field = auth.split("&");
+   // QHash <QString, QString> hash_fields;
+
+    for (int i = 0; i < list_field.size(); ++i)
+    {
+        QStringList field = list_field.at(i).split("=");
+        hauth[field[0]] = field[1].replace(QString("%40"), QString("@"));
+    }
+
+    qDebug() << "password " << hauth["password"] << " email " << hauth["email"];
+
+
+    BSONObj bauth = BSON("email" << hauth["email"].toStdString() << "authentication_token" << hauth["password"].toStdString());
+
+
+    BSONObj l_user = nosql_->Find("users", bauth);
+
+    if (l_user.nFields() == 0)
+    {
+        qDebug() << "auth failed !";
+        return QBool(false);
+    }
+
+   // be login = user.getField("login");
+    // std::cout << "user : " << login << std::endl;
+
+  //  payload_builder.append("email", email.toStdString());
+//    payload_builder.append("user_id", l_user.getField("_id").OID());
+
+  //  a_user = l_user;
+
+    //hauth = bauth;
+
+    return QBool(true);
 }
 
 
@@ -452,20 +492,21 @@ void Http_api::file(QxtWebRequestEvent* event, QString action)
 
 
 
-void Http_api::payload_post(QxtWebRequestEvent* event, QString action, QString workflow_uuid)
+void Http_api::payload_post(QxtWebRequestEvent* event, QString action)
 {
 
     QDateTime timestamp = QDateTime::currentDateTime();
     QString bodyMessage;
 
 
-
+    // set filename if we want to store data to gridfs (data > 1Mo).
     QString payload_filename = event->headers.value("X-payload-filename");
     QString payload_type = event->headers.value("X-payload-type");
     QString node_uuid = event->headers.value("X-node-uuid");
     QString node_password = event->headers.value("X-node-password");
+    QString workflow_uuid = event->headers.value("X-workflow-uuid");
 
-    qDebug() << "FILENAME : " << payload_filename << " length " << payload_filename.length();
+
     qDebug() << "NODE UUID : " << node_uuid << " length " << node_uuid.length();
     qDebug() << "NODE PASSWORD : " << node_password << " length " << node_password.length();
     qDebug() << "workflow_uuid : " << workflow_uuid << " length " << workflow_uuid.length();
@@ -483,14 +524,6 @@ void Http_api::payload_post(QxtWebRequestEvent* event, QString action, QString w
     }
 
 
-    if (payload_filename.length() == 0)
-    {
-        bodyMessage = buildResponse("error", "headers", "X-payload-filename");
-        postEvent(new QxtWebPageEvent(event->sessionID,
-                                     event->requestID,
-                                     bodyMessage.toUtf8()));
-        return;
-    }
     if (node_uuid.length() == 0)
     {
         bodyMessage = buildResponse("error", "headers", "X-node-uuid");
@@ -524,7 +557,6 @@ void Http_api::payload_post(QxtWebRequestEvent* event, QString action, QString w
                                      bodyMessage.toUtf8()));
         return;
     }
-
 
 
 
@@ -656,66 +688,150 @@ void Http_api::payload_post(QxtWebRequestEvent* event, QString action, QString w
     zfile.write(requestContent);
     zfile.close();*/
 
-    BSONObj gfs_file_struct = nosql_->WriteFile(payload_filename.toStdString(), requestContent.constData (), requestContent.size ());
-
-
-
-    if (gfs_file_struct.nFields() == 0)
+    if (payload_filename.length() != 0)
     {
-        qDebug() << "write on gridFS failed !";
+
+        BSONObj gfs_file_struct = nosql_->WriteFile(payload_filename.toStdString(), requestContent.constData (), requestContent.size ());
+
+
+
+        if (gfs_file_struct.nFields() == 0)
+        {
+            qDebug() << "write on gridFS failed !";
+        }
+        else
+        {
+            std::cout << "writefile : " << gfs_file_struct << std::endl;
+            //std::cout << "writefile id : " << gfs_file_struct.getField("_id") << " date : " << gfs_file_struct.getField("uploadDate") << std::endl;
+
+            be uploaded_at = gfs_file_struct.getField("uploadDate");
+            be filename = gfs_file_struct.getField("filename");
+            be length = gfs_file_struct.getField("length");
+
+            std::cout << "uploaded : " << uploaded_at << std::endl;
+
+
+            payload_builder.append("created_at", uploaded_at.date());
+            payload_builder.append("filename", filename.str());
+            payload_builder.append("length", length.numberLong());
+            payload_builder.append("gfs_id", gfs_file_struct.getField("_id").OID());
+            payload_builder.append("gridfs", true);
+        }
+
     }
+    // SEND a JSON payload
     else
     {
-        std::cout << "writefile : " << gfs_file_struct << std::endl;
-        //std::cout << "writefile id : " << gfs_file_struct.getField("_id") << " date : " << gfs_file_struct.getField("uploadDate") << std::endl;
-
-        be uploaded_at = gfs_file_struct.getField("uploadDate");
-        be filename = gfs_file_struct.getField("filename");
-        be length = gfs_file_struct.getField("length");
-
-        std::cout << "uploaded : " << uploaded_at << std::endl;
-
-
-        payload_builder.append("created_at", uploaded_at.date());
-        payload_builder.append("filename", filename.str());
-        payload_builder.append("length", length.numberLong());
-        payload_builder.append("gfs_id", gfs_file_struct.getField("_id").OID());
-        payload_builder.append("gridfs", true);
-        BSONObj payload = payload_builder.obj();
-
-        nosql_->Insert("payloads", payload);
-
-        std::cout << "payload inserted" << payload << std::endl;
-
-        /********* CREATE SESSION **********/
-
-        BSONObjBuilder session_builder;
-        session_builder.genOID();
-        session_builder.append("uuid", session_uuid.toStdString());
-        session_builder.append("payload_id", payload.getField("_id").OID());
-        session_builder.append("workflow_id", workflow.getField("_id").OID());
-        session_builder.append("start_timestamp", timestamp.toTime_t());
-        BSONObj session = session_builder.obj();
-        nosql_->Insert("sessions", session);
-        /***********************************/
-        std::cout << "session inserted : " << session << std::endl;
-
-        BSONObj l_payload = BSON("action" << action.toStdString() <<
-                                 "payload_type" << payload_type.toStdString()<<
-                                 //"publish" << (!publish.isEmpty() && publish == "true")? "true" : "false" <<
-                                 "session_uuid" << session_uuid.toStdString() <<
-                                 "timestamp" << timestamp.toTime_t());
-
-        /****** PUSH API PAYLOAD *******/
-        qDebug() << "PUSH HTTP API PAYLOAD";
-        z_message->rebuild(l_payload.objsize());
-        memcpy(z_message->data(), (char*)l_payload.objdata(), l_payload.objsize());
-        //z_push_api->send(*z_message, ZMQ_NOBLOCK);
-        z_push_api->send(*z_message);
-        /************************/
+        payload_builder.append("gridfs", false);
+        payload_builder.append("data", requestContent.constData ());
     }
 
+    BSONObj payload = payload_builder.obj();
+
+    nosql_->Insert("payloads", payload);
+
+    std::cout << "payload inserted" << payload << std::endl;
+
+    /********* CREATE SESSION **********/
+
+    BSONObjBuilder session_builder;
+    session_builder.genOID();
+    session_builder.append("uuid", session_uuid.toStdString());
+    session_builder.append("payload_id", payload.getField("_id").OID());
+    session_builder.append("workflow_id", workflow.getField("_id").OID());
+    session_builder.append("start_timestamp", timestamp.toTime_t());
+    BSONObj session = session_builder.obj();
+    nosql_->Insert("sessions", session);
+    /***********************************/
+    std::cout << "session inserted : " << session << std::endl;
+
+    BSONObj l_payload = BSON("action" << action.toStdString() <<
+                             "payload_type" << payload_type.toStdString()<<
+                             //"publish" << (!publish.isEmpty() && publish == "true")? "true" : "false" <<
+                             "session_uuid" << session_uuid.toStdString() <<
+                             "timestamp" << timestamp.toTime_t());
+
+    /****** PUSH API PAYLOAD *******/
+    qDebug() << "PUSH HTTP API PAYLOAD";
+    z_message->rebuild(l_payload.objsize());
+    memcpy(z_message->data(), (char*)l_payload.objdata(), l_payload.objsize());
+    //z_push_api->send(*z_message, ZMQ_NOBLOCK);
+    z_push_api->send(*z_message);
+    /************************/
+
 }
+
+
+
+
+void Http_api::session_get(QxtWebRequestEvent* event, QString uuid)
+{
+
+    QDateTime timestamp = QDateTime::currentDateTime();
+    QString bodyMessage;
+
+
+    qDebug() << "SESSION UUID : " << uuid;
+
+
+
+
+    BSONObj session_search = BSON("uuid" <<  uuid.toStdString());
+    BSONObj session = nosql_->Find("sessions", session_search);
+    if (session.nFields() == 0)
+    {
+        bodyMessage = buildResponse("status", "session unknown");
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        return;
+    }
+
+    if (!session.hasField("counter"))
+    {
+        bodyMessage = buildResponse("status", "traitement queued");
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        return;
+    }
+
+
+    BSONObj workflow_search = BSON("_id" <<  session.getField("workflow_id"));
+    BSONObj workflow = nosql_->Find("workflows", workflow_search);
+    if (workflow.nFields() == 0)
+    {
+        bodyMessage = buildResponse("status", "workflow unknown");
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        return;
+    }
+
+    BSONObj workers = mongo::fromjson(workflow.getField("workers").toString(false));
+
+
+    for( BSONObj::iterator i = workers.begin(); i.more();)
+    {
+        BSONElement worker = i.next();
+        qDebug() << "WORKER : " <<  QString::fromStdString(worker.toString());
+
+
+    }
+
+
+
+    QString last_worker = QString::fromStdString(session.getField("last_worker").valuestr());
+
+    bodyMessage = buildResponse("status", last_worker);
+    postEvent(new QxtWebPageEvent(event->sessionID,
+                                 event->requestID,
+                                 bodyMessage.toUtf8()));
+    return;
+
+}
+
+
 
 
 
@@ -742,8 +858,58 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action, QString uuid)
 
         break;
     case POST:
-        qDebug() << "HTTP POST";
-        payload_post(event, action.toLower(), uuid);
+        qDebug() << "HTTP POST : " << uuid;
+        payload_post(event, action.toLower());
+
+        break;
+    case PUT:
+        qDebug() << "HTTP PUT not implemented";
+        bodyMessage = buildResponse("error", "HTTP PUT not implemented");
+
+        break;
+    case DELETE:
+        qDebug() << "HTTP DELETE not implemented";
+        bodyMessage = buildResponse("error", "HTTP DELETE not implemented");
+
+        break;
+    }
+
+
+    if (!bodyMessage.isEmpty())
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                 event->requestID,
+                                 bodyMessage.toUtf8()));
+
+
+
+}
+
+
+
+/**************************************************
+PAYLOAD ACTION :
+    METHOD POST => push/publish payload, workflow uuid
+    METHOD PUT => update payload, payload uuid
+    DELETE => delete payload, payload uuid
+****************************************************/
+void Http_api::session(QxtWebRequestEvent* event, QString uuid)
+{
+
+    qDebug() << "RECEIVE SESSION : " << "METHOD : " << event->method << " headers : " << event->headers << " UUID " << uuid;
+
+    QString bodyMessage="";
+
+
+    switch (enumToHTTPmethod[event->method.toUpper()])
+    {
+    case GET:
+        qDebug() << "HTTP GET : " << uuid;
+        session_get(event, uuid.toLower());
+
+        break;
+    case POST:
+        qDebug() << "HTTP POST not implemented";
+        bodyMessage = buildResponse("error", "HTTP POST not implemented");
 
         break;
     case PUT:
@@ -819,17 +985,116 @@ void Http_api::index(QxtWebRequestEvent* event)
 /********** ADMIN PAGE ************/
 void Http_api::admin(QxtWebRequestEvent* event, QString action)
 {
-/*    QString bodyMessage;
-    bodyMessage = buildResponse("error", "ncs version 0.9.1");
 
-    qDebug() << bodyMessage;
+        qDebug() << "ADMIN : " << "METHOD : " << event->method << " headers : " << event->headers << " ACTION " << action;
 
-  */
+        QString bodyMessage="";
+        QBool res = QBool(false);
+        BSONObjBuilder payload_builder;
+        payload_builder.genOID();
+
+        bo user;
+
+
+        switch (enumToHTTPmethod[event->method.toUpper()])
+        {
+        case GET:
+            qDebug() << "HTTP GET : " << action;
+            qDebug() << "HEADERS : " << event->headers.value("Authorization");
+
+/*
+            res = checkAuth(event->headers.value("Authorization"), payload_builder, user);
+            if (!res)
+            {
+                bodyMessage = buildResponse("error", "auth");
+                //bodyMessage = buildResponse("error", "auth");
+            }
+            else
+            {
+                if (action == "users")
+                    admin_users_get(event);
+            }
+            */
+
+
+            if (action == "users")
+            {
+
+                admin_users_get(event);
+            }
+            if (action == "login")
+            {
+                admin_login(event);
+            }
+
+
+            break;
+        case POST:
+            //qDebug() << "HTTP POST not implemented";
+            //bodyMessage = buildResponse("error", "HTTP POST not implemented");
+
+            if (action == "login")
+            {
+                admin_login(event);
+                return;
+            }
+
+            break;
+        case PUT:
+            qDebug() << "HTTP PUT not implemented";
+            bodyMessage = buildResponse("error", "HTTP PUT not implemented");
+
+            break;
+        case DELETE:
+            qDebug() << "HTTP DELETE not implemented";
+            bodyMessage = buildResponse("error", "HTTP DELETE not implemented");
+
+            break;
+        }
+
+
+
+        if (!bodyMessage.isEmpty())
+        {
+            postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        }
+     /*   else
+        {
+            QxtHtmlTemplate index;
+            index["content"]="error 404";
+            QxtWebPageEvent *page = new QxtWebPageEvent(event->sessionID,
+                                       event->requestID,
+                                       index.render().toUtf8());
+            page->status = 404;
+            qDebug() << "error 404";
+
+            postEvent(page);
+        }
+        */
+
+}
+
+
+
+
+/********** ADMIN PAGE ************/
+void Http_api::admin_login(QxtWebRequestEvent* event)
+{
 
     QxtHtmlTemplate index;
     QxtWebPageEvent *page;
+    QxtWebContent *form;
 
-        if(!index.open("html_templates/admin.html"))
+    QxtWebStoreCookieEvent *cookie_mail;
+    QxtWebStoreCookieEvent *cookie_pass;
+
+
+    switch (enumToHTTPmethod[event->method.toUpper()])
+    {
+    case GET:
+        if(!index.open("html_templates/login.html"))
         {
             index["content"]="error 404";
             page = new QxtWebPageEvent(event->sessionID,
@@ -840,7 +1105,7 @@ void Http_api::admin(QxtWebRequestEvent* event, QString action)
         }
         else
         {
-            index["content"]="Ncs admin pages";
+            index["content"]="Ncs admin users";
 
 
             QString html;
@@ -870,10 +1135,165 @@ void Http_api::admin(QxtWebRequestEvent* event, QString action)
                                       index.render().toUtf8()));
 
         */
+        break;
+    case POST:
+        if(!index.open("html_templates/login.html"))
+        {
+            index["content"]="error 404";
+            page = new QxtWebPageEvent(event->sessionID,
+                                       event->requestID,
+                                       index.render().toUtf8());
+            page->status = 404;
+            qDebug() << "error 404";
+        }
+        else
+        {
+            form = event->content;
+            form->waitForAllContent();
+
+            QByteArray requestContent = form->readAll();
+            //RECEIVE :  "firstname=fred&lastname=ix&email=fredix%40gmail.com"
+
+            qDebug() << "RECEIVE : " << requestContent;
+
+            QHash <QString, QString> hauth;
+            QBool res = http_auth(QString::fromUtf8(requestContent), hauth);
+
+            if (!res)
+            {
+                qDebug() << "AUTH FAILED !";
+                index["content"]="Ncs admin users";
+
+
+                QString html;
+                html.append("<select>");
+
+                for (int i=0; i<5; i++)
+                {
+                    html.append("<option value=\"volvo\">Volvo</option>");
+                }
+
+                html.append("</select>");
+
+                index["prot"]=html;
+
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           index.render().toUtf8());
+
+                page->contentType="text/html";
+
+
+            }
+            else
+            {
+                //QxtWebStoreCookieEvent cookie_mail (event->sessionID, "email", hauth["email"],  QDateTime::currentDateTime().addMonths(1));
+                //QxtWebStoreCookieEvent cookie_pass (event->sessionID, "password", hauth["password"],  QDateTime::currentDateTime().addMonths(1));
+
+                cookie_mail = new QxtWebStoreCookieEvent (event->sessionID, "email", hauth["email"]);
+                cookie_pass = new QxtWebStoreCookieEvent (event->sessionID, "password", hauth["password"]);
+
+
+                index["content"]=" welcome " + hauth["email"];
+
+
+                QString html;
+                html.append("<select>");
+
+                for (int i=0; i<5; i++)
+                {
+                    html.append("<option value=\"ok\">Ok</option>");
+                }
+
+                html.append("</select>");
+
+                index["prot"]=html;
+
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           index.render().toUtf8());
+
+
+                page->contentType="text/html";
+
+                //QxtWebEvent cookie (QxtWebEvent::StoreCookie, event->sessionID);
+
+                //postEvent()
+
+            }
+
+        }
+
+        postEvent(page);
+
+
+        break;
+    }
+
 }
 
 
 
+/********** ADMIN PAGE ************/
+void Http_api::admin_users_get(QxtWebRequestEvent* event)
+{
+
+    /*    QString bodyMessage;
+        bodyMessage = buildResponse("error", "ncs version 0.9.1");
+
+        qDebug() << bodyMessage;
+
+      */
+
+        QxtHtmlTemplate index;
+        QxtWebPageEvent *page;
+
+            if(!index.open("html_templates/admin_users_get.html"))
+            {
+                index["content"]="error 404";
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           index.render().toUtf8());
+                page->status = 404;
+                qDebug() << "error 404";
+            }
+            else
+            {
+                index["content"]="Ncs admin users";
+
+
+                QString html;
+                html.append("<select>");
+
+                for (int i=0; i<5; i++)
+                {
+                    html.append("<option value=\"volvo\">Volvo</option>");
+                }
+
+                html.append("</select>");
+
+                index["prot"]=html;
+
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           index.render().toUtf8());
+
+                page->contentType="text/html";
+            }
+
+            postEvent(page);
+
+
+            /* postEvent(new QxtWebPageEvent(event->sessionID,
+                                          event->requestID,
+                                          index.render().toUtf8()));
+
+            */
+
+
+
+
+}
 
 
 QString Http_api::buildResponse(QString action, QString data1, QString data2)
@@ -903,6 +1323,10 @@ QString Http_api::buildResponse(QString action, QString data1, QString data2)
     {
         data.insert("error", data1);
         data.insert("code", data2);
+    }
+    else if (action == "status")
+    {
+        data.insert("status", data1);
     }
     body = QxtJSON::stringify(data);
 
