@@ -29,7 +29,19 @@ Http_api::Http_api(QxtAbstractWebSessionManager * sm, QObject * parent): QxtWebS
     enumToHTTPmethod.insert(QString("PUT"), PUT);
     enumToHTTPmethod.insert(QString("DELETE"), DELETE);
 
+/*
 
+    //QxtWebServiceDirectory* top = new QxtWebServiceDirectory(sm, sm);
+    QxtWebServiceDirectory* service_admin = new QxtWebServiceDirectory(sm, this);
+  //  QxtWebServiceDirectory* service2 = new QxtWebServiceDirectory(sm, this);
+    QxtWebServiceDirectory* service_admin_login = new QxtWebServiceDirectory(sm, service_admin);
+ //   QxtWebServiceDirectory* service1b = new QxtWebServiceDirectory(sm, service1);
+    this->addService("admin", service_admin);
+//    this->addService("2", service2);
+    service_admin->addService("login", service_admin_login);
+ //   service1->addService("b", service1b);
+
+*/
 
     nosql_ = Nosql::getInstance_front();
     //nosql_ = Nosql::getInstance_back();
@@ -55,6 +67,24 @@ Http_api::~Http_api()
     delete(z_push_api);
 }
 
+void Http_api::check_user_login(QxtWebRequestEvent *event, QString &user)
+{
+    QxtWebRedirectEvent *redir;
+    QString user_uuid = event->cookies.value("nodecast");
+
+    if (user_session.contains(user_uuid))
+    {
+        user = user_session[user_uuid];
+        qDebug() << "USER FOUND : " << user;
+    }
+    else
+    {
+        qDebug() << "USER NOT CONNECTED, REDIR !";
+        redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "login", 302 );
+        postEvent(redir);
+    }
+
+}
 
 QBool Http_api::http_auth(QString auth, QHash <QString, QString> &hauth)
 {
@@ -71,7 +101,14 @@ QBool Http_api::http_auth(QString auth, QHash <QString, QString> &hauth)
     qDebug() << "password " << hauth["password"] << " email " << hauth["email"];
 
 
-    BSONObj bauth = BSON("email" << hauth["email"].toStdString() << "authentication_token" << hauth["password"].toStdString());
+
+    QCryptographicHash cipher( QCryptographicHash::Sha1 );
+    cipher.addData(hauth["password"].simplified().toAscii());
+    QByteArray password_hash = cipher.result();
+
+    qDebug() << "password_hash : " << password_hash.toHex();
+
+    BSONObj bauth = BSON("email" << hauth["email"].toStdString() << "password" << QString::fromLatin1(password_hash.toHex()).toStdString());
 
 
     BSONObj l_user = nosql_->Find("users", bauth);
@@ -96,11 +133,11 @@ QBool Http_api::http_auth(QString auth, QHash <QString, QString> &hauth)
 }
 
 
-QBool Http_api::checkAuth(QString header, BSONObjBuilder &payload_builder, bo &a_user)
+QBool Http_api::checkAuth(QString token, BSONObjBuilder &payload_builder, bo &a_user)
 {
-    QString b64 = header.section("Basic ", 1 ,1);
-    qDebug() << "auth : " << b64;
-
+ //   QString b64 = header.section("Basic ", 1 ,1);
+ //   qDebug() << "auth : " << b64;
+/*
     QByteArray tmp_auth_decode = QByteArray::fromBase64(b64.toAscii());
     QString auth_decode =  tmp_auth_decode.data();
     QStringList arr_auth =  auth_decode.split(":");
@@ -110,11 +147,14 @@ QBool Http_api::checkAuth(QString header, BSONObjBuilder &payload_builder, bo &a
 
     qDebug() << "email : " << email << " key : " << key;
 
-    bo auth = BSON("email" << email.toStdString() << "authentication_token" << key.toStdString());
+    bo auth = BSON("email" << email.toStdString() << "token" << key.toStdString());
+*/
 
+    BSONObj auth = BSON("token" << token.toStdString());
 
-    bo l_user = nosql_->Find("users", auth);
+    std::cout << "USER TOKEN : " << auth << std::endl;
 
+    BSONObj l_user = nosql_->Find("users", auth);
     if (l_user.nFields() == 0)
     {
         qDebug() << "auth failed !";
@@ -124,7 +164,7 @@ QBool Http_api::checkAuth(QString header, BSONObjBuilder &payload_builder, bo &a
    // be login = user.getField("login");
     // std::cout << "user : " << login << std::endl;
 
-    payload_builder.append("email", email.toStdString());
+    payload_builder << l_user.getField("email");
     payload_builder.append("user_id", l_user.getField("_id").OID());
 
     a_user = l_user;
@@ -136,80 +176,145 @@ QBool Http_api::checkAuth(QString header, BSONObjBuilder &payload_builder, bo &a
 
 
 /********** REGISTER API ************/
-void Http_api::node(QxtWebRequestEvent* event, QString action)
+void Http_api::node(QxtWebRequestEvent* event, QString token)
 {
-    qDebug() << "CREATE NODE : " << "action : " << action << " headers : " << event->headers;
-    QString bodyMessage;
+    QxtWebPageEvent *page;
+    QxtHtmlTemplate body;
 
-    //QString uuid = QUuid::createUuid().toString();
-    //QString uuid = QUuid::createUuid().toString().mid(1,36).toUpper();
-
-    QString nodename = event->headers.value("X-nodename");
-    if (nodename.length() == 0)
+    switch (enumToHTTPmethod[event->method.toUpper()])
     {
-        bodyMessage = buildResponse("error", "headers", "X-nodename");
+    case POST:
+    {
+        // POST create a new node
+        // Token is the user's token
+        qDebug() << "CREATE NODE : " << "token : " << token << " headers : " << event->headers;
+        QString bodyMessage;
+
+        //QString uuid = QUuid::createUuid().toString();
+        //QString uuid = QUuid::createUuid().toString().mid(1,36).toUpper();
+
+
+        if (event->content.isNull())
+        {
+            bodyMessage = buildResponse("error", "data", "empty payload");
+            postEvent(new QxtWebPageEvent(event->sessionID,
+                                         event->requestID,
+                                         bodyMessage.toUtf8()));
+            return;
+        }
+
+
+
+        QxtWebContent *myContent = event->content;
+
+        qDebug() << "Bytes to read: " << myContent->unreadBytes();
+        myContent->waitForAllContent();
+
+        //QByteArray requestContent = QByteArray::fromBase64(myContent->readAll());
+        QByteArray requestContent = myContent->readAll();
+
+        QString content = requestContent;
+
+        qDebug() << "requestCONTENT : " << content.toAscii();
+
+        BSONObj b_payload;
+        try {
+            b_payload = mongo::fromjson(content.toAscii());
+            std::cout << "b_payload : " << b_payload << std::endl;
+
+            if (!b_payload.hasField("nodename")) throw QString("nodename");
+            if (b_payload.getField("nodename").size() == 0) throw QString("nodename");
+        }
+        catch (mongo::MsgAssertionException &e)
+            {
+                std::cout << "error on parsing JSON : " << e.what() << std::endl;
+                bodyMessage = buildResponse("error", "error on parsing JSON");
+                postEvent(new QxtWebPageEvent(event->sessionID,
+                                             event->requestID,
+                                             bodyMessage.toUtf8()));
+                return;
+            }
+        catch (QString error)
+            {
+                //std::cout << "JSON field : " << a_error << std::endl;
+                bodyMessage = buildResponse("error", "error on field " + error);
+                postEvent(new QxtWebPageEvent(event->sessionID,
+                                             event->requestID,
+                                             bodyMessage.toUtf8()));
+                return;
+            }
+
+
+
+
+
+        BSONObjBuilder payload_builder;
+        payload_builder.genOID();       
+        payload_builder << b_payload.getField("nodename");
+
+
+        //std::cout << "payload builder : " << payload_builder.obj() << std::cout;
+
+        BSONObj user;
+        QBool res = checkAuth(token, payload_builder, user);
+
+        if (!res)
+        {
+            bodyMessage = buildResponse("error", "auth");
+            //bodyMessage = buildResponse("error", "auth");
+        }
+        else
+        {
+            QUuid node_uuid = QUuid::createUuid();
+            QString str_node_uuid = node_uuid.toString().mid(1,36);
+
+            QUuid node_password = QUuid::createUuid();
+            QString str_node_password = node_password.toString().mid(1,36);
+
+
+            payload_builder.append("node_uuid", str_node_uuid.toStdString());
+            payload_builder.append("node_password", str_node_password.toStdString());
+
+
+            be user_id = user.getField("_id");
+
+            //bo node_uuid = BSON("nodes" << BSON(GENOID << "uuid" << str_uuid.toStdString() <<  "nodename" << nodename.toStdString()));
+            //nosql_.Addtoarray("users", user_id.wrap(), node_uuid);
+
+            bo l_node = payload_builder.obj();
+
+            bo node = BSON("nodes" << l_node);
+            nosql_->Addtoarray("users", user_id.wrap(), node);
+
+            nosql_->Insert("nodes", l_node);
+
+
+            /****** PUSH API PAYLOAD *******
+            std::cout << "NODE API PAYLOAD : " << payload << std::endl;
+            z_message->rebuild(payload.objsize());
+            memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
+            z_push_api->send(*z_message, ZMQ_NOBLOCK);
+            ************************/
+
+            bodyMessage = buildResponse("register", str_node_uuid, str_node_password);
+        }
+        qDebug() << bodyMessage;
+
         postEvent(new QxtWebPageEvent(event->sessionID,
                                      event->requestID,
                                      bodyMessage.toUtf8()));
-        return;
+        break;
     }
-
-    BSONObjBuilder payload_builder;
-    payload_builder.genOID();
-    payload_builder.append("nodename", nodename.toStdString());
-
-
-    //std::cout << "payload builder : " << payload_builder.obj() << std::cout;
-
-    bo user;
-    QBool res = checkAuth(event->headers.value("Authorization"), payload_builder, user);
-
-    if (!res)
-    {
-        bodyMessage = buildResponse("error", "auth");
-        //bodyMessage = buildResponse("error", "auth");
+    case GET:
+        body["content"]="error 404";
+        page = new QxtWebPageEvent(event->sessionID,
+                                   event->requestID,
+                                   body.render().toUtf8());
+        page->status = 404;
+        qDebug() << "error 404";
+        postEvent(page);
+        break;
     }
-    else
-    {
-        QUuid node_uuid = QUuid::createUuid();
-        QString str_node_uuid = node_uuid.toString().mid(1,36);
-
-        QUuid node_password = QUuid::createUuid();
-        QString str_node_password = node_password.toString().mid(1,36);
-
-
-        payload_builder.append("node_uuid", str_node_uuid.toStdString());
-        payload_builder.append("node_password", str_node_password.toStdString());
-
-
-        be user_id = user.getField("_id");
-
-        //bo node_uuid = BSON("nodes" << BSON(GENOID << "uuid" << str_uuid.toStdString() <<  "nodename" << nodename.toStdString()));
-        //nosql_.Addtoarray("users", user_id.wrap(), node_uuid);
-
-        bo l_node = payload_builder.obj();
-
-        bo node = BSON("nodes" << l_node);
-        nosql_->Addtoarray("users", user_id.wrap(), node);
-
-        nosql_->Insert("nodes", l_node);
-
-
-        /****** PUSH API PAYLOAD *******
-        std::cout << "NODE API PAYLOAD : " << payload << std::endl;
-        z_message->rebuild(payload.objsize());
-        memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
-        z_push_api->send(*z_message, ZMQ_NOBLOCK);
-        ************************/
-
-        bodyMessage = buildResponse("register", str_node_uuid, str_node_password);
-    }
-    qDebug() << bodyMessage;
-
-
-    postEvent(new QxtWebPageEvent(event->sessionID,
-                                 event->requestID,
-                                 bodyMessage.toUtf8()));
 }
 
 
@@ -578,6 +683,7 @@ void Http_api::payload_post(QxtWebRequestEvent* event, QString action)
     BSONObj node = nosql_->Find("nodes", auth);
     if (node.nFields() == 0)
     {
+        //std::cout << "node uuid " << node_uuid.toStdString() << " node pass " < node_password.toStdString() << std::endl;
         bodyMessage = buildResponse("error", "node unknown");
         postEvent(new QxtWebPageEvent(event->sessionID,
                                      event->requestID,
@@ -949,25 +1055,35 @@ void Http_api::index(QxtWebRequestEvent* event)
 
   */
 
-    QxtHtmlTemplate index;
+    QxtHtmlTemplate header;
+    QxtHtmlTemplate body;
+    QxtHtmlTemplate footer;
+
     QxtWebPageEvent *page;
 
-        if(!index.open("html_templates/index.html"))
+        if(!body.open("html_templates/index.html"))
         {
-            index["content"]="error 404";
+            body["content"]="error 404";
             page = new QxtWebPageEvent(event->sessionID,
                                        event->requestID,
-                                       index.render().toUtf8());
+                                       body.render().toUtf8());
             page->status=404;
             qDebug() << "error 404";
         }
         else
         {
-            index["ncs_version"]="0.9.6";
+            header.open("html_templates/header.html");
+            footer.open("html_templates/footer.html");
+
+            body["content"]="Ncs admin users";
+
+            body["ncs_version"]="0.9.7";
 
             page = new QxtWebPageEvent(event->sessionID,
                                        event->requestID,
-                                       index.render().toUtf8());
+                                       header.render().toUtf8() +
+                                       body.render().toUtf8() +
+                                       footer.render().toUtf8());
 
             page->contentType="text/html";
         }
@@ -1017,16 +1133,74 @@ void Http_api::admin(QxtWebRequestEvent* event, QString action)
             */
 
 
-            if (action == "users")
+            if (action == "login")
+            {
+                admin_login(event);
+            }            
+            else if (action == "users")
             {
 
                 admin_users_get(event);
             }
-            if (action == "login")
+            else if (action == "createuser")
             {
-                admin_login(event);
+
+                admin_user_post(event);
+            }
+            else if (action == "nodes")
+            {
+
+                admin_nodes_get(event);
+            }
+            else if (action == "createnode")
+            {
+
+                admin_node_post(event);
+            }
+            else if (action == "workflows")
+            {
+
+                admin_workflows_get(event);
+            }
+            else if (action == "createworkflow")
+            {
+
+                admin_workflow_post(event);
+            }
+            else if (action == "workers")
+            {
+
+                admin_workers_get(event);
+            }
+            else if (action == "sessions")
+            {
+
+                admin_sessions_get(event);
             }
 
+            else if (action == "payloads")
+            {
+
+                admin_payloads_get(event);
+            }
+            else if (action == "lost_pushpull_payloads")
+            {
+                admin_lost_pushpull_payloads_get(event);
+            }
+
+            else
+            {
+                QxtHtmlTemplate index;
+                index["content"]="error 404";
+                QxtWebPageEvent *page = new QxtWebPageEvent(event->sessionID,
+                                                            event->requestID,
+                                                            index.render().toUtf8());
+                page->status = 404;
+                qDebug() << "error 404";
+
+                postEvent(page);
+                return;
+            }
 
             break;
         case POST:
@@ -1037,6 +1211,21 @@ void Http_api::admin(QxtWebRequestEvent* event, QString action)
             {
                 admin_login(event);
                 return;
+            }
+            else if (action == "createuser")
+            {
+                admin_user_post(event);
+                return;
+            }
+            else if (action == "createnode")
+            {
+                admin_node_post(event);
+                return;
+            }
+            else if (action == "createworkflow")
+            {
+
+                admin_workflow_post(event);
             }
 
             break;
@@ -1078,17 +1267,19 @@ void Http_api::admin(QxtWebRequestEvent* event, QString action)
 
 
 
-
 /********** ADMIN PAGE ************/
 void Http_api::admin_login(QxtWebRequestEvent* event)
 {
 
     QxtHtmlTemplate index;
+    QxtHtmlTemplate header;
+    QxtHtmlTemplate footer;
+
     QxtWebPageEvent *page;
     QxtWebContent *form;
 
-    QxtWebStoreCookieEvent *cookie_mail;
-    QxtWebStoreCookieEvent *cookie_pass;
+    QxtWebStoreCookieEvent *cookie_session;
+    QxtWebRedirectEvent *redir=NULL;
 
 
     switch (enumToHTTPmethod[event->method.toUpper()])
@@ -1107,7 +1298,7 @@ void Http_api::admin_login(QxtWebRequestEvent* event)
         {
             index["content"]="Ncs admin users";
 
-
+            /*
             QString html;
             html.append("<select>");
 
@@ -1119,10 +1310,19 @@ void Http_api::admin_login(QxtWebRequestEvent* event)
             html.append("</select>");
 
             index["prot"]=html;
+            */
+
+            header.open("html_templates/header.html");
+
+            footer.open("html_templates/footer.html");
+
+
 
             page = new QxtWebPageEvent(event->sessionID,
                                        event->requestID,
-                                       index.render().toUtf8());
+                                       header.render().toUtf8() +
+                                       index.render().toUtf8() +
+                                       footer.render().toUtf8());
 
             page->contentType="text/html";
         }
@@ -1162,6 +1362,8 @@ void Http_api::admin_login(QxtWebRequestEvent* event)
             if (!res)
             {
                 qDebug() << "AUTH FAILED !";
+
+                /*
                 index["content"]="Ncs admin users";
 
 
@@ -1182,6 +1384,9 @@ void Http_api::admin_login(QxtWebRequestEvent* event)
                                            index.render().toUtf8());
 
                 page->contentType="text/html";
+                */
+
+                redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "login", 302 );
 
 
             }
@@ -1190,10 +1395,16 @@ void Http_api::admin_login(QxtWebRequestEvent* event)
                 //QxtWebStoreCookieEvent cookie_mail (event->sessionID, "email", hauth["email"],  QDateTime::currentDateTime().addMonths(1));
                 //QxtWebStoreCookieEvent cookie_pass (event->sessionID, "password", hauth["password"],  QDateTime::currentDateTime().addMonths(1));
 
-                cookie_mail = new QxtWebStoreCookieEvent (event->sessionID, "email", hauth["email"]);
-                cookie_pass = new QxtWebStoreCookieEvent (event->sessionID, "password", hauth["password"]);
+                QUuid session_uuid = QUuid::createUuid();
+                QString str_session_uuid = session_uuid.toString().mid(1,36);
+
+                user_session[str_session_uuid] = hauth["email"];
 
 
+                cookie_session = new QxtWebStoreCookieEvent (event->sessionID, "nodecast", str_session_uuid, QDateTime::currentDateTime().addMonths(1));
+                qDebug() << "SESSION ID : " << str_session_uuid;
+
+                /*
                 index["content"]=" welcome " + hauth["email"];
 
 
@@ -1215,6 +1426,12 @@ void Http_api::admin_login(QxtWebRequestEvent* event)
 
 
                 page->contentType="text/html";
+                */
+
+                postEvent(cookie_session);
+
+                redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "users", 302 );
+
 
                 //QxtWebEvent cookie (QxtWebEvent::StoreCookie, event->sessionID);
 
@@ -1224,8 +1441,8 @@ void Http_api::admin_login(QxtWebRequestEvent* event)
 
         }
 
-        postEvent(page);
-
+        //postEvent(page);
+        if (redir) postEvent(redir);
 
         break;
     }
@@ -1245,38 +1462,78 @@ void Http_api::admin_users_get(QxtWebRequestEvent* event)
 
       */
 
-        QxtHtmlTemplate index;
-        QxtWebPageEvent *page;
 
-            if(!index.open("html_templates/admin_users_get.html"))
+    QxtHtmlTemplate header;
+    QxtHtmlTemplate body;
+    QxtHtmlTemplate footer;
+    QxtWebPageEvent *page;
+
+//            if(!body.open("html_templates/admin_users_get.html"))
+
+    if(!body.open("html_templates/admin_users_get.html"))
             {
-                index["content"]="error 404";
+                body["content"]="error 404";
                 page = new QxtWebPageEvent(event->sessionID,
                                            event->requestID,
-                                           index.render().toUtf8());
+                                           body.render().toUtf8());
                 page->status = 404;
                 qDebug() << "error 404";
             }
             else
             {
-                index["content"]="Ncs admin users";
+                header.open("html_templates/header.html");
+
+                footer.open("html_templates/footer.html");
 
 
-                QString html;
-                html.append("<select>");
+                body["content"]="Ncs admin users";
 
-                for (int i=0; i<5; i++)
+                qDebug() << "COOKIES : " << event->cookies.value("nodecast");
+                QString l_user;
+                check_user_login(event, l_user);
+
+
+                body["user"]=l_user;
+
+
+
+                BSONObj empty;
+                QList <BSONObj> users = nosql_->FindAll("users", empty);
+
+                QString output;
+                int counter=0;
+                foreach (BSONObj user, users)
                 {
-                    html.append("<option value=\"volvo\">Volvo</option>");
+                    QString trclass = (counter %2 == 0) ? "odd" : "even";
+
+                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id\" value=\"1\"></td><td>1</td><td>" +
+                            QString::fromStdString(user.getField("login").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(user.getField("email").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(user.getField("authentication_token").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(user.getFieldDotted("nodes.payload_counter").str()) + "</td>" +
+                            "<td class=\"last\"><a href=\"#\">show</a> | <a href=\"#\">edit</a> | <a href=\"#\">destroy</a></td></tr>");
+
+                    counter++;
                 }
 
-                html.append("</select>");
 
-                index["prot"]=html;
 
+                body["data"]=output;
+                body["data_count"]=QString::number(counter);
+
+                /*
                 page = new QxtWebPageEvent(event->sessionID,
                                            event->requestID,
-                                           index.render().toUtf8());
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+                */
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+
 
                 page->contentType="text/html";
             }
@@ -1289,10 +1546,1219 @@ void Http_api::admin_users_get(QxtWebRequestEvent* event)
                                           index.render().toUtf8()));
 
             */
+}
+
+
+/********** ADMIN PAGE ************/
+void Http_api::admin_user_post(QxtWebRequestEvent* event)
+{
+
+    /*    QString bodyMessage;
+        bodyMessage = buildResponse("error", "ncs version 0.9.1");
+
+        qDebug() << bodyMessage;
+
+      */
+
+
+    QxtHtmlTemplate header;
+    QxtHtmlTemplate body;
+    QxtHtmlTemplate footer;
+    QxtWebPageEvent *page;
+    QxtWebContent *form;
+    QxtWebRedirectEvent *redir=NULL;
+
+
+//            if(!body.open("html_templates/admin_users_get.html"))
+
+
+
+    switch (enumToHTTPmethod[event->method.toUpper()])
+    {
+    case GET:
+        if(!body.open("html_templates/admin_user_post.html"))
+            {
+                body["content"]="error 404";
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           body.render().toUtf8());
+                page->status = 404;
+                qDebug() << "error 404";
+            }
+            else
+            {
+                header.open("html_templates/header.html");
+
+                footer.open("html_templates/footer.html");
+
+
+                body["content"]="Ncs admin users";
+
+                qDebug() << "COOKIES : " << event->cookies.value("nodecast");
+                QString l_user;
+
+                if (nosql_->Count("users") != 0)
+                    check_user_login(event, l_user);
+
+
+
+                /*
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+                */
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+
+
+                page->contentType="text/html";
+            }
+
+            postEvent(page);
+
+        break;
+    case POST:
+
+        qDebug() << "COOKIES : " << event->cookies.value("nodecast");
+        QString l_user;
+        check_user_login(event, l_user);
+
+        form = event->content;
+        form->waitForAllContent();
+
+        QByteArray requestContent = form->readAll();
+        //RECEIVE :  "firstname=fred&lastname=ix&email=fredix%40gmail.com"
+
+        qDebug() << "RECEIVE : " << requestContent;
+
+        //QxtWebStoreCookieEvent cookie_mail (event->sessionID, "email", hauth["email"],  QDateTime::currentDateTime().addMonths(1));
+        //QxtWebStoreCookieEvent cookie_pass (event->sessionID, "password", hauth["password"],  QDateTime::currentDateTime().addMonths(1));
+
+        QUuid token = QUuid::createUuid();
+        QString str_token = token.toString().mid(1,36);
+
+        QUuid tracker_token = QUuid::createUuid();
+        QString str_tracker_token = tracker_token.toString().remove(QChar('-')).mid(1,32);
+
+        QHash <QString, QString> form_field;
+        QStringList list_field = QString::fromAscii(requestContent).split("&");
+
+        for (int i = 0; i < list_field.size(); ++i)
+        {
+            QStringList field = list_field.at(i).split("=");
+            form_field[field[0]] = field[1].replace(QString("%40"), QString("@"));
+        }
+
+        QCryptographicHash cipher( QCryptographicHash::Sha1 );
+        cipher.addData(form_field["password"].simplified().toAscii());
+        QByteArray password_hash = cipher.result();
+
+        qDebug() << "password_hash : " << password_hash.toHex();
+
+        BSONObj t_user = BSON(GENOID << "login" << form_field["login"].toStdString() << "password" << QString::fromLatin1(password_hash.toHex()).toStdString() << "email" << form_field["email"].toStdString() << "token" << str_token.toStdString() << "tracker" << BSON ("token" << str_tracker_token.toStdString()));
+        nosql_->Insert("users", t_user);
+
+        //doc = { login : 'user', email : 'user@email.com', authentication_token : 'token'}
+        //db.users.insert(doc);
 
 
 
 
+
+        redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "users", 302 );
+        postEvent(redir);
+
+        break;
+    }
+
+}
+
+
+/********** ADMIN PAGE ************/
+void Http_api::admin_nodes_get(QxtWebRequestEvent* event)
+{
+
+    /*    QString bodyMessage;
+        bodyMessage = buildResponse("error", "ncs version 0.9.1");
+
+        qDebug() << bodyMessage;
+
+
+{ "_id" : ObjectId("50f91cbda159811513a8b729"), "nodename" : "samsung@dev", "email" : "fredix@gmail.com", "user_id" : ObjectId("50f91c85a7a5dbe8e2f35b29"), "node_uuid" : "0d7f9bdc-37a2-4290-be41-62598bd7a525", "node_password" : "6786a141-6dff-4f91-891a-a9107915ad76" }
+
+
+      */
+
+
+    QxtHtmlTemplate header;
+    QxtHtmlTemplate body;
+    QxtHtmlTemplate footer;
+    QxtWebPageEvent *page;
+
+//            if(!body.open("html_templates/admin_users_get.html"))
+
+    if(!body.open("html_templates/admin_nodes_get.html"))
+            {
+                body["content"]="error 404";
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           body.render().toUtf8());
+                page->status = 404;
+                qDebug() << "error 404";
+            }
+            else
+            {
+                header.open("html_templates/header.html");
+
+                footer.open("html_templates/footer.html");
+
+
+                body["content"]="Ncs admin users";
+
+                qDebug() << "COOKIES : " << event->cookies.value("nodecast");
+                QString user;
+                check_user_login(event, user);
+
+
+                BSONObj empty;
+                QList <BSONObj> nodes = nosql_->FindAll("nodes", empty);
+
+                QString output;
+                int counter=0;
+                foreach (BSONObj node, nodes)
+                {
+
+                    BSONObj user_id = BSON("_id" << node.getField("user_id"));
+                    BSONObj user = nosql_->Find("users", user_id);
+
+                    QString trclass = (counter %2 == 0) ? "odd" : "even";
+
+                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id\" value=\"1\"></td><td>1</td><td>" +
+                            QString::fromStdString(node.getField("nodename").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(node.getField("email").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(node.getField("node_uuid").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(node.getField("node_password").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(user.getField("email").str()) + "</td>" +
+                            "<td class=\"last\"><a href=\"#\">show</a> | <a href=\"#\">edit</a> | <a href=\"#\">destroy</a></td></tr>");
+
+                    counter++;
+                }
+
+
+
+                body["data"]=output;
+                body["data_count"]=QString::number(counter);
+
+
+                /*
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+                */
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+
+
+                page->contentType="text/html";
+            }
+
+            postEvent(page);
+
+
+            /* postEvent(new QxtWebPageEvent(event->sessionID,
+                                          event->requestID,
+                                          index.render().toUtf8()));
+
+            */
+}
+
+
+/********** ADMIN PAGE ************/
+void Http_api::admin_node_post(QxtWebRequestEvent* event)
+{
+
+    /*    QString bodyMessage;
+        bodyMessage = buildResponse("error", "ncs version 0.9.1");
+
+        qDebug() << bodyMessage;
+
+      */
+
+
+    QxtHtmlTemplate header;
+    QxtHtmlTemplate body;
+    QxtHtmlTemplate footer;
+    QxtWebPageEvent *page;
+    QxtWebContent *form;
+    QxtWebRedirectEvent *redir=NULL;
+
+
+//            if(!body.open("html_templates/admin_users_get.html"))
+
+
+
+    switch (enumToHTTPmethod[event->method.toUpper()])
+    {
+    case GET:
+        if(!body.open("html_templates/admin_node_post.html"))
+            {
+                body["content"]="error 404";
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           body.render().toUtf8());
+                page->status = 404;
+                qDebug() << "error 404";
+            }
+            else
+            {
+                header.open("html_templates/header.html");
+
+                footer.open("html_templates/footer.html");
+
+
+                body["content"]="Ncs admin users";
+
+                qDebug() << "COOKIES : " << event->cookies.value("nodecast");
+                QString l_user;
+                check_user_login(event, l_user);
+
+                QString output;
+
+                BSONObj empty;
+                QList <BSONObj> users = nosql_->FindAll("users", empty);
+
+                output.append("<select name=\"user\">");
+
+                foreach (BSONObj user, users)
+                {
+                    output.append("<option value=\"" + QString::fromStdString(user.getField("_id").OID().str()) + "\">" +  QString::fromStdString(user.getField("login").str()) + "</option>");
+                }
+                output.append("</select>");
+
+
+                body["users"] = output;
+
+                /*
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+                */
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+
+
+                page->contentType="text/html";
+            }
+
+            postEvent(page);
+
+        break;
+    case POST:
+
+        qDebug() << "COOKIES : " << event->cookies.value("nodecast");
+        QString l_user;
+        check_user_login(event, l_user);
+
+        form = event->content;
+        form->waitForAllContent();
+
+        QByteArray requestContent = form->readAll();
+        //RECEIVE :  "firstname=fred&lastname=ix&email=fredix%40gmail.com"
+
+        qDebug() << "RECEIVE : " << requestContent;
+
+        //QxtWebStoreCookieEvent cookie_mail (event->sessionID, "email", hauth["email"],  QDateTime::currentDateTime().addMonths(1));
+        //QxtWebStoreCookieEvent cookie_pass (event->sessionID, "password", hauth["password"],  QDateTime::currentDateTime().addMonths(1));
+
+
+        QUuid node_uuid = QUuid::createUuid();
+        QString str_node_uuid = node_uuid.toString().mid(1,36);
+
+        QUuid node_token = QUuid::createUuid();
+        QString str_node_token = node_token.toString().mid(1,36);
+
+        qDebug() << "str_node_uuid : " << str_node_uuid << " str_node_token : " << str_node_token;
+
+        //RECEIVE :  "login=fredix&email=fredix%40gmail.com"
+
+        QHash <QString, QString> form_field;
+        QStringList list_field = QString::fromAscii(requestContent).split("&");
+
+        for (int i = 0; i < list_field.size(); ++i)
+        {
+            QStringList field = list_field.at(i).split("=");
+            form_field[field[0]] = field[1].replace(QString("%40"), QString("@"));
+        }
+
+        qDebug() << "form field : " << form_field;
+
+        BSONObj user_id = BSON("_id" << mongo::OID(form_field["user"].toStdString()));
+        BSONObj t_user = nosql_->Find("users", user_id);
+
+        std::cout << "T USER : " << t_user.toString() << std::endl;
+
+        BSONObj t_node = BSON(GENOID <<
+                              "nodename" << form_field["nodename"].toStdString()  <<
+                              "email" << t_user.getField("email").str() <<
+                              "user_id" << t_user.getField("_id").OID() <<
+                              "node_uuid" << str_node_uuid.toStdString() <<
+                              "node_password" << str_node_token.toStdString());
+        nosql_->Insert("nodes", t_node);
+
+        //doc = { login : 'user', email : 'user@email.com', authentication_token : 'token'}
+        //db.users.insert(doc);
+
+
+
+
+
+        redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "nodes", 302 );
+        postEvent(redir);
+
+        break;
+    }
+
+}
+
+
+
+/********** ADMIN PAGE ************/
+void Http_api::admin_workflows_get(QxtWebRequestEvent* event)
+{
+
+    /*    QString bodyMessage;
+        bodyMessage = buildResponse("error", "ncs version 0.9.1");
+
+        qDebug() << bodyMessage;
+
+      */
+
+
+    QxtHtmlTemplate header;
+    QxtHtmlTemplate body;
+    QxtHtmlTemplate footer;
+    QxtWebPageEvent *page;
+
+//            if(!body.open("html_templates/admin_users_get.html"))
+
+    if(!body.open("html_templates/admin_workflows_get.html"))
+            {
+                body["content"]="error 404";
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           body.render().toUtf8());
+                page->status = 404;
+                qDebug() << "error 404";
+            }
+            else
+            {
+                header.open("html_templates/header.html");
+
+                footer.open("html_templates/footer.html");
+
+
+                body["content"]="Ncs admin users";
+
+                qDebug() << "COOKIES : " << event->cookies.value("nodecast");
+                QString user;
+                check_user_login(event, user);
+
+
+                BSONObj empty;
+                QList <BSONObj> workflows = nosql_->FindAll("workflows", empty);
+
+                QString output;
+                int counter=0;
+                foreach (BSONObj workflow, workflows)
+                {
+                    BSONObj user_id = BSON("_id" << workflow.getField("user_id"));
+                    BSONObj user = nosql_->Find("users", user_id);
+
+                    QString trclass = (counter %2 == 0) ? "odd" : "even";
+
+                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id\" value=\"1\"></td><td>1</td><td>" +
+                            QString::fromStdString(workflow.getField("workflow").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(workflow.getField("email").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(workflow.getField("uuid").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(workflow.getField("workers").jsonString(Strict, false)) + "</td>" +
+                            "<td>" + QString::fromStdString(user.getField("email").str()) + "</td>" +
+                            "<td class=\"last\"><a href=\"#\">show</a> | <a href=\"#\">edit</a> | <a href=\"#\">destroy</a></td></tr>");
+
+                    counter++;
+                }
+
+
+
+                body["data"]=output;
+                body["data_count"]=QString::number(counter);
+
+
+
+
+                /*
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+                */
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+
+
+                page->contentType="text/html";
+            }
+
+            postEvent(page);
+
+
+            /* postEvent(new QxtWebPageEvent(event->sessionID,
+                                          event->requestID,
+                                          index.render().toUtf8()));
+
+            */
+}
+
+
+
+/********** ADMIN PAGE ************/
+void Http_api::admin_workflow_post(QxtWebRequestEvent* event)
+{
+
+    /*    QString bodyMessage;
+        bodyMessage = buildResponse("error", "ncs version 0.9.1");
+
+        qDebug() << bodyMessage;
+
+      */
+
+
+    QxtHtmlTemplate header;
+    QxtHtmlTemplate body;
+    QxtHtmlTemplate footer;
+    QxtWebPageEvent *page;
+    QxtWebContent *form;
+    QxtWebRedirectEvent *redir=NULL;
+
+
+//            if(!body.open("html_templates/admin_users_get.html"))
+
+
+
+    switch (enumToHTTPmethod[event->method.toUpper()])
+    {
+    case GET:
+        if(!body.open("html_templates/admin_workflow_post.html"))
+            {
+                body["content"]="error 404";
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           body.render().toUtf8());
+                page->status = 404;
+                qDebug() << "error 404";
+            }
+            else
+            {
+                header.open("html_templates/header.html");
+
+                footer.open("html_templates/footer.html");
+
+
+                body["content"]="Ncs admin users";
+
+                qDebug() << "COOKIES : " << event->cookies.value("nodecast");
+                QString l_user;
+                check_user_login(event, l_user);
+
+                QString output;
+
+                BSONObj empty;
+                QList <BSONObj> users = nosql_->FindAll("users", empty);
+
+                output.append("<select name=\"user\">");
+
+                foreach (BSONObj user, users)
+                {
+                    output.append("<option value=\"" + QString::fromStdString(user.getField("_id").OID().str()) + "\">" +  QString::fromStdString(user.getField("login").str()) + "</option>");
+                }
+                output.append("</select>");
+
+
+                body["users"] = output;
+
+                /*
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+                */
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+
+
+                page->contentType="text/html";
+            }
+
+            postEvent(page);
+
+        break;
+    case POST:
+
+        qDebug() << "COOKIES : " << event->cookies.value("nodecast");
+        QString l_user;
+        check_user_login(event, l_user);
+
+        form = event->content;
+        form->waitForAllContent();
+
+        QByteArray requestContent = form->readAll();
+        //RECEIVE :  "firstname=fred&lastname=ix&email=fredix%40gmail.com"
+
+        qDebug() << "RECEIVE : " << requestContent;
+
+        //QxtWebStoreCookieEvent cookie_mail (event->sessionID, "email", hauth["email"],  QDateTime::currentDateTime().addMonths(1));
+        //QxtWebStoreCookieEvent cookie_pass (event->sessionID, "password", hauth["password"],  QDateTime::currentDateTime().addMonths(1));
+
+
+        QUuid workflow_uuid = QUuid::createUuid();
+        QString str_workflow_uuid = workflow_uuid.toString().mid(1,36);
+
+        qDebug() << "str_workflow_uuid : " << str_workflow_uuid;
+
+        //RECEIVE :  "login=fredix&email=fredix%40gmail.com"
+
+        QHash <QString, QString> form_field;
+        QStringList list_field = QString::fromAscii(requestContent).split("&");
+
+        for (int i = 0; i < list_field.size(); ++i)
+        {
+            QStringList field = list_field.at(i).split("=");
+            form_field[field[0]] = field[1].replace(QString("%40"), QString("@"));
+        }
+
+        qDebug() << "form field : " << form_field;
+//      QHash(("workers", "%7B+%22myworkerA%22+%3A+1%2C+%22myworkerB%22+%3A+2%2C+%22myworkerC%22+%3A+3+%7D")("workflow", "test")("user", "51126e85544a4eee6d9521e2"))
+
+
+        QUrl worker = QUrl::fromPercentEncoding(form_field["workers"].toAscii().replace("+", "%20"));
+        qDebug() << "URL : " << worker.toString();
+
+        BSONObj b_workflow;
+        b_workflow = mongo::fromjson(worker.toString().toAscii());
+
+         std::cout << "WORKFLOW : " << b_workflow.toString() << std::endl;
+
+        BSONObj user_id = BSON("_id" << mongo::OID(form_field["user"].toStdString()));
+        BSONObj t_user = nosql_->Find("users", user_id);
+
+        std::cout << "T USER : " << t_user.toString() << std::endl;
+
+        BSONObj t_workflow = BSON(GENOID <<
+                                  "workflow" << form_field["workflow"].toStdString()  <<
+                                  "email" << t_user.getField("email").str() <<
+                                  "user_id" << t_user.getField("_id").OID() <<
+                                  "uuid" << str_workflow_uuid.toStdString() <<
+                                  "workers" << b_workflow);
+        nosql_->Insert("workflows", t_workflow);
+
+        //doc = { login : 'user', email : 'user@email.com', authentication_token : 'token'}
+        //db.users.insert(doc);
+
+
+
+
+
+        redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "workflows", 302 );
+        postEvent(redir);
+
+        break;
+    }
+
+}
+
+
+/********** ADMIN PAGE ************/
+void Http_api::admin_workers_get(QxtWebRequestEvent* event)
+{
+
+    /*    QString bodyMessage;
+        bodyMessage = buildResponse("error", "ncs version 0.9.1");
+
+        qDebug() << bodyMessage;
+
+      */
+
+
+    QxtHtmlTemplate header;
+    QxtHtmlTemplate body;
+    QxtHtmlTemplate footer;
+    QxtWebPageEvent *page;
+
+//            if(!body.open("html_templates/admin_users_get.html"))
+
+    if(!body.open("html_templates/admin_workers_get.html"))
+            {
+                body["content"]="error 404";
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           body.render().toUtf8());
+                page->status = 404;
+                qDebug() << "error 404";
+            }
+            else
+            {
+                header.open("html_templates/header.html");
+
+                footer.open("html_templates/footer.html");
+
+
+                body["content"]="Ncs admin users";
+
+                qDebug() << "COOKIES : " << event->cookies.value("nodecast");
+                QString user;
+                check_user_login(event, user);
+
+
+                body["user"]=user;
+
+                /*
+
+                { "_id" : ObjectId("50fd233983f218b59485e496"), "name" : "deploy",
+"nodes" : [ 	{ 	"_id" : ObjectId("50fd233983f218b59485e497"), 	"node_uuid" : "0d7f9bdc-37a2-4290-be41-62598bd7a525", "pid" : NumberLong(8796), 	"status" : "down", 	"timestamp" : 1358766915, 	"uuid" : "06eaf3fe-f822-4c15-9054-b1d29a666953" }, 	{ 	"_id" : ObjectId("50fe55e3acc09505463e0b5f"), 	"node_uuid" : "0d7f9bdc-37a2-4290-be41-62598bd7a525", 	"pid" : NumberLong(20105), 	"status" : "down",
+"timestamp" : 1358971110, 	"uuid" : "6cb6b594-ccf6-49c3-887f-2239ec64788a" } ],
+"port" : 5562, "type" : "service" }
+
+
+
+                */
+
+
+                BSONObj empty;
+                QList <BSONObj> workers = nosql_->FindAll("workers", empty);
+
+                QString output;
+                int counter=0;
+                foreach (BSONObj worker, workers)
+                {
+
+                    //BSONObj user_id = BSON("_id" << node.getField("user_id"));
+                    //BSONObj user = nosql_->Find("users", user_id);
+
+                    QString trclass = (counter %2 == 0) ? "odd" : "even";
+
+                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id\" value=\"1\"></td><td>1</td><td>" +
+                            QString::fromStdString(worker.getField("name").str()) + "</td>" +
+                            "<td>" + QString::number(worker.getField("port").number()) + "</td>" +
+                            "<td>" + QString::fromStdString(worker.getField("type").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(worker.getField("nodes").str()) + "</td>" +
+                            "<td class=\"last\"><a href=\"#\">show</a> | <a href=\"#\">edit</a> | <a href=\"#\">destroy</a></td></tr>");
+
+                    counter++;
+                }
+
+
+
+                body["data"]=output;
+                body["data_count"]=QString::number(counter);
+
+
+
+
+
+
+                /*
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+                */
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+
+
+                page->contentType="text/html";
+            }
+
+            postEvent(page);
+
+
+            /* postEvent(new QxtWebPageEvent(event->sessionID,
+                                          event->requestID,
+                                          index.render().toUtf8()));
+
+            */
+}
+
+
+
+
+/********** ADMIN PAGE ************/
+void Http_api::admin_sessions_get(QxtWebRequestEvent* event)
+{
+
+    /*    QString bodyMessage;
+        bodyMessage = buildResponse("error", "ncs version 0.9.1");
+
+        qDebug() << bodyMessage;
+
+
+{ "_id" : ObjectId("50f91cbda159811513a8b729"), "nodename" : "samsung@dev", "email" : "fredix@gmail.com", "user_id" : ObjectId("50f91c85a7a5dbe8e2f35b29"), "node_uuid" : "0d7f9bdc-37a2-4290-be41-62598bd7a525", "node_password" : "6786a141-6dff-4f91-891a-a9107915ad76" }
+
+
+      */
+
+
+    QxtHtmlTemplate header;
+    QxtHtmlTemplate body;
+    QxtHtmlTemplate footer;
+    QxtWebPageEvent *page;
+
+//            if(!body.open("html_templates/admin_users_get.html"))
+
+    if(!body.open("html_templates/admin_sessions_get.html"))
+            {
+                body["content"]="error 404";
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           body.render().toUtf8());
+                page->status = 404;
+                qDebug() << "error 404";
+            }
+            else
+            {
+                header.open("html_templates/header.html");
+
+                footer.open("html_templates/footer.html");
+
+
+                body["content"]="Ncs admin users";
+
+                qDebug() << "COOKIES : " << event->cookies.value("nodecast");
+                QString user;
+                check_user_login(event, user);
+
+
+                BSONObj empty;
+                QList <BSONObj> sessions = nosql_->FindAll("sessions", empty);
+
+                QString output;
+                int counter=0;
+                foreach (BSONObj session, sessions)
+                {
+
+                    //BSONObj user_id = BSON("_id" << node.getField("user_id"));
+                    //BSONObj user = nosql_->Find("users", user_id);
+
+                    QString trclass = (counter %2 == 0) ? "odd" : "even";
+
+                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id\" value=\"1\"></td><td>1</td><td>" +
+                            QString::fromStdString(session.getField("uuid").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(session.getField("counter").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(session.getField("last_worker").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(session.getField("start_timestamp").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(session.getField("workflow").str()) + "</td>" +
+                            "<td class=\"last\"><a href=\"#\">show</a> | <a href=\"#\">edit</a> | <a href=\"#\">destroy</a></td></tr>");
+
+                    counter++;
+                }
+
+
+
+                body["data"]=output;
+                body["data_count"]=QString::number(counter);
+
+
+                /*
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+                */
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+
+
+                page->contentType="text/html";
+            }
+
+            postEvent(page);
+
+
+            /* postEvent(new QxtWebPageEvent(event->sessionID,
+                                          event->requestID,
+                                          index.render().toUtf8()));
+
+            */
+}
+
+
+
+/********** ADMIN PAGE ************/
+void Http_api::admin_payloads_get(QxtWebRequestEvent* event)
+{
+
+    /*    QString bodyMessage;
+        bodyMessage = buildResponse("error", "ncs version 0.9.1");
+
+        qDebug() << bodyMessage;
+
+      */
+
+
+    QxtHtmlTemplate header;
+    QxtHtmlTemplate body;
+    QxtHtmlTemplate footer;
+    QxtWebPageEvent *page;
+
+//            if(!body.open("html_templates/admin_users_get.html"))
+
+    if(!body.open("html_templates/admin_payloads_get.html"))
+            {
+                body["content"]="error 404";
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           body.render().toUtf8());
+                page->status = 404;
+                qDebug() << "error 404";
+            }
+            else
+            {
+                header.open("html_templates/header.html");
+
+                footer.open("html_templates/footer.html");
+
+
+                body["content"]="Ncs admin users";
+
+                qDebug() << "COOKIES : " << event->cookies.value("nodecast");
+                QString user;
+                check_user_login(event, user);
+
+
+                BSONObj empty;
+                QList <BSONObj> payloads = nosql_->FindAll("payloads", empty);
+
+                QString output;
+                int counter=0;
+                foreach (BSONObj payload, payloads)
+                {
+
+                    //BSONObj user_id = BSON("_id" << node.getField("user_id"));
+                    //BSONObj user = nosql_->Find("users", user_id);
+
+                    QString trclass = (counter %2 == 0) ? "odd" : "even";
+                    QDateTime timestamp;
+                    timestamp.setTime_t(payload.getField("timestamp").Number());
+
+
+                    BSONObj steps = payload.getField("steps").Obj();
+                    list <BSONElement> list_steps;
+                    steps.elems(list_steps);
+
+                    BSONObj l_step;
+                    list<be>::iterator i;
+                    QString li_step;
+
+                    li_step.append("<table class=\"table\">");
+
+
+                    for(i = list_steps.begin(); i != list_steps.end(); ++i) {
+                        l_step = (*i).embeddedObject ();
+                        //std::cout << "l_step => " << l_step  << std::endl;
+                        li_step.append("<tr>");
+
+                        li_step.append("<td>" + QString::fromStdString(l_step.getField("action").str()) + "</td>");
+                        li_step.append("<td>" + QString::fromStdString(l_step.getField("name").str()) + "</td>");
+                        li_step.append("<td>" + QString::number(l_step.getField("order").Number()) + "</td>");
+                        li_step.append("<td>" + QString::fromStdString(l_step.getField("data").str()) + "</td>");
+
+                        li_step.append("</tr>");
+
+                    }
+                    li_step.append("</table>");
+
+
+
+                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id\" value=\"1\"></td><td>1</td><td>" +                                                              
+                                  QString::fromStdString(payload.getField("action").str()) + "</td>" +
+                                  "<td>" + QString::fromStdString(payload.getField("counter").str()) + "</td>" +
+                                  "<td>" + timestamp.toString(Qt::SystemLocaleLongDate) + "</td>" +
+                                  "<td>" + QString::fromStdString(payload.getField("workflow_uuid").str()) + "</td>" +
+                                  "<td>" + QString::fromStdString(payload.getField("data").str()) + "</td>" +
+                                  "<td>" + li_step + "</td>" +
+                                  "<td class=\"last\"><a href=\"#\">show</a> | <a href=\"#\">edit</a> | <a href=\"#\">destroy</a></td></tr>");
+
+                    counter++;
+                }
+
+
+
+                body["data"]=output;
+                body["data_count"]=QString::number(counter);
+
+
+
+
+                /*
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+                */
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+
+
+                page->contentType="text/html";
+            }
+
+            postEvent(page);
+
+
+            /* postEvent(new QxtWebPageEvent(event->sessionID,
+                                          event->requestID,
+                                          index.render().toUtf8()));
+
+            */
+}
+
+
+//{ "_id" : ObjectId("5110f4667b30b3ebd41fce64"),
+//  "data" : { "payload" : { "data" : "{ \"command\" : \"get_file\", \"filename\" : \"ftest\", \"payload_type\" : \"test\", \"session_uuid\" : \"e2329bc3-2be1-4209-8dd6-ead2cacb76e9\" }", "action" : "push", "session_uuid" : "e2329bc3-2be1-4209-8dd6-ead2cacb76e9" } },
+//  "pushed" : false, "timestamp" : 1360065638, "worker" : "transcode" }
+
+
+/********** ADMIN PAGE ************/
+void Http_api::admin_lost_pushpull_payloads_get(QxtWebRequestEvent* event)
+{
+
+    /*    QString bodyMessage;
+        bodyMessage = buildResponse("error", "ncs version 0.9.1");
+
+        qDebug() << bodyMessage;
+
+      */
+
+
+    QxtHtmlTemplate header;
+    QxtHtmlTemplate body;
+    QxtHtmlTemplate footer;
+    QxtWebPageEvent *page;
+
+//            if(!body.open("html_templates/admin_users_get.html"))
+
+    if(!body.open("html_templates/admin_lost_pushpull_payloads_get.html"))
+            {
+                body["content"]="error 404";
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           body.render().toUtf8());
+                page->status = 404;
+                qDebug() << "error 404";
+            }
+            else
+            {
+                header.open("html_templates/header.html");
+
+                footer.open("html_templates/footer.html");
+
+
+                body["content"]="Ncs admin users";
+
+                qDebug() << "COOKIES : " << event->cookies.value("nodecast");
+                QString user;
+                check_user_login(event, user);
+
+
+                BSONObj empty;
+                QList <BSONObj> lost_pushpull_payloads = nosql_->FindAll("lost_pushpull_payloads", empty);
+
+                QString output;
+                int counter=0;
+                foreach (BSONObj lost_pushpull_payload, lost_pushpull_payloads)
+                {
+                    //BSONObj user_id = BSON("_id" << node.getField("user_id"));
+                    //BSONObj user = nosql_->Find("users", user_id);
+
+
+                    QString trclass = (counter %2 == 0) ? "odd" : "even";
+                    QDateTime timestamp;
+                    timestamp.setTime_t(lost_pushpull_payload.getField("timestamp").Number());
+
+
+
+                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id\" value=\"1\"></td><td>1</td><td>" +
+                            QString::fromStdString(lost_pushpull_payload.getFieldDotted("data.payload.action").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(lost_pushpull_payload.getFieldDotted("data.payload.session_uuid").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(lost_pushpull_payload.getField("pushed").boolean()==true? "true" : "false") + "</td>" +
+                            "<td>" + timestamp.toString(Qt::SystemLocaleLongDate) + "</td>" +
+                            "<td>" + QString::fromStdString(lost_pushpull_payload.getField("worker").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(lost_pushpull_payload.getFieldDotted("data.payload.data").jsonString(Strict, false)) + "</td>" +
+                            "<td class=\"last\"><a href=\"#\">show</a> | <a href=\"#\">edit</a> | <a href=\"#\">destroy</a></td></tr>");
+
+                    counter++;
+                }
+
+
+
+                body["data"]=output;
+                body["data_count"]=QString::number(counter);
+
+
+
+
+                /*
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+                */
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+
+
+                page->contentType="text/html";
+            }
+
+            postEvent(page);
+
+
+            /* postEvent(new QxtWebPageEvent(event->sessionID,
+                                          event->requestID,
+                                          index.render().toUtf8()));
+
+            */
+}
+
+
+
+/********** ADMIN PAGE ************/
+void Http_api::admin_template(QxtWebRequestEvent* event)
+{
+
+    /*    QString bodyMessage;
+        bodyMessage = buildResponse("error", "ncs version 0.9.1");
+
+        qDebug() << bodyMessage;
+
+      */
+
+
+    QxtHtmlTemplate header;
+    QxtHtmlTemplate body;
+    QxtHtmlTemplate footer;
+    QxtWebPageEvent *page;
+
+//            if(!body.open("html_templates/admin_users_get.html"))
+
+    if(!body.open("html_templates/admin_lost_pushpull_payloads_get.html"))
+            {
+                body["content"]="error 404";
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           body.render().toUtf8());
+                page->status = 404;
+                qDebug() << "error 404";
+            }
+            else
+            {
+                header.open("html_templates/header.html");
+                body.open("html_templates/template.html");
+                footer.open("html_templates/footer.html");
+
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                       //    header.render().toUtf8() +
+                                           body.render().toUtf8());
+                                        //   footer.render().toUtf8());
+
+
+                page->contentType="text/html";
+            }
+            postEvent(page);
+}
+
+
+void Http_api::staticfile(QxtWebRequestEvent* event, QString directory, QString filename)
+{
+
+    qDebug() << "URL : " <<event->url;
+
+    QxtWebPageEvent *page;
+    QString response;
+
+    qDebug() << "STATIC FILE " << directory << " filename " << filename;
+    QFile *static_file;
+    static_file = new QFile("html_templates/" + directory + "/" + filename);
+
+    if (!static_file->open(QIODevice::ReadOnly))
+    {
+        response = "FILE NOT FOUND";
+
+        page = new QxtWebPageEvent(event->sessionID,
+                                   event->requestID,
+                                   response.toUtf8());
+        page->contentType="text/html";
+    }
+    else
+    {
+        QFileInfo fi(static_file->fileName());
+        QString ext = fi.suffix();
+        qDebug() << "EXTENSION : " << ext;
+
+        page = new QxtWebPageEvent(event->sessionID,
+                                   event->requestID,
+                                   static_file);
+        page->chunked = true;
+        page->streaming = false;
+
+        if (ext == "js")
+            page->contentType="text/javascript";
+        else if (ext == "css")
+            page->contentType="text/css";
+        else if (ext == "png")
+            page->contentType="image/png";
+    }
+
+    postEvent(page);
 }
 
 

@@ -4,31 +4,34 @@
     <div class="block" id="block-tables">
       <div class="secondary-navigation">
         <ul class="wat-cf">
-          <li class="active first"><a href="/admin/users">Users</a></li>
+          <li class="first"><a href="/admin/users">Users</a></li>
           <li><a href="/admin/nodes">Nodes</a></li>
           <li><a href="/admin/workflows">Workflows</a></li>
           <li><a href="/admin/workers">Workers</a></li>
           <li><a href="/admin/sessions">Sessions</a></li>
-          <li><a href="/admin/payloads">Payloads</a></li>
+          <li class="active"><a href="/admin/payloads">Payloads</a></li>
           <li><a href="/admin/lost_pushpull_payloads">Lost pushpull payloads</a></li>
         </ul>
       </div>
       <div class="content">
-        <h2 class="title">Users : <?=data_count?></h2>
+        <h2 class="title">Payloads : <?=data_count?></h2>
         <div class="inner">
           <form action="#" class="form">
             <table class="table">
               <tbody><tr>
                 <th class="first"><input type="checkbox" class="checkbox toggle"></th>
                 <th>ID</th>
-                <th>login</th>
-                <th>email</th>
-                <th>token</th>
-                <th>payloads</th>
+                <th>action</th>
+                <th>counter</th>
+                <th>timestamp</th>
+                <th>workflow</th>
+                <th>data</th>
+                <th>steps</th>
                 <th class="last">&nbsp;</th>
               </tr>
 
                <?=data?>
+
 
 <!--
 
@@ -44,16 +47,13 @@
               <tr class="even">
                 <td><input type="checkbox" class="checkbox" name="id" value="1"></td><td>4</td><td>machoman</td><td>Macho Man</td><td>Randy Savage</td><td class="last"><a href="#">show</a> | <a href="#">edit</a> | <a href="#">destroy</a></td>
               </tr>
--->
+              -->
+
 
 
             </tbody></table>
             <div class="actions-bar wat-cf">
               <div class="actions">
-              <a href="/admin/createuser"><button class="button" type="button">
-                <img src="/staticfile/images/tick.png" alt="New"> New
-              </button></a>
-
                 <button class="button" type="submit">
                   <img src="/staticfile/images/cross.png" alt="Delete"> Delete
                 </button>

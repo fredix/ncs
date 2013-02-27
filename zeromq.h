@@ -22,6 +22,7 @@
 #define ZEROMQ_H
 
 #include <QObject>
+#include <QStateMachine>
 #include <QDateTime>
 #include <QThread>
 #include <QDebug>

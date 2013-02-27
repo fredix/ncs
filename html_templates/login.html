@@ -1,24 +1,41 @@
-<html>
-    <head>
-        <title>ncs web interface</title>
-    </head>
-<body>
-
-    <?=content?>
-
-    <form name="connect" method="post" action="login">
-    <P>
-       <LABEL for="email">email: </LABEL>
-                <INPUT type="text" name="email"><BR>
-       <LABEL for="password">password: </LABEL>
-                  <INPUT type="text" name="password"><BR>
-       <INPUT type="submit" value="connect">
-       </P>
-
-    </form>
 
 
-    <?=prot?>
 
-</body>
-</html>
+    <div id="box">
+      <h1>Nodecast</h1>
+      <div class="block" id="block-login">
+        <h2>Login Box</h2>
+        <div class="content login">
+          <div class="flash">
+            <div class="message notice">
+              <p>Logged in successfully</p>
+            </div>
+          </div>
+          <form method="post" action="login" class="form login">
+            <div class="group wat-cf">
+              <div class="left">
+                <label class="label right">Login</label>
+              </div>
+              <div class="right">
+                <input type="text" class="text_field" name="email">
+              </div>
+            </div>
+            <div class="group wat-cf">
+              <div class="left">
+                <label class="label right">Password</label>
+              </div>
+              <div class="right">
+                <input type="password" class="text_field" name="password">
+              </div>
+            </div>
+            <div class="group navform wat-cf">
+              <div class="right">
+                <button class="button" type="submit">
+                  <img src="/staticfile/images/key.png" alt="Save"> Login
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+

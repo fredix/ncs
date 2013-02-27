@@ -1,0 +1,46 @@
+<div id="wrapper" class="wat-cf">
+  <div id="main">
+    <div class="block" id="block-tables">
+
+
+      <div class="content">
+        <h2 class="title">New node</h2>
+        <div class="inner">
+          <form action="/admin/createnode" method="post" class="form">
+          <div class="columns wat-cf">
+            <div class="column left">
+              <div class="group">
+                <label class="label">Node name (i.e hostname@ip or hostname@prod1)</label>
+                <input type="text" class="text_field" name="nodename">
+              </div>
+
+            </div>
+            <div class="column right">
+              <div class="group">
+                <label class="label">Select user</label>
+                <?=users?>
+<!--
+ <select><option value="1">Choose...</option></select>
+ -->
+              </div>
+
+
+            </div>
+          </div>
+
+
+            <div class="group navform wat-cf">
+              <button class="button" type="submit">
+                <img src="/staticfile/images/tick.png" alt="Save"> Save
+              </button>
+              <span class="text_button_padding">or</span>
+              <a class="text_button_padding link_button" href="#header">Cancel</a>
+            </div>
+          </form>
+        </div>
+      </div>
+
+
+    </div>
+  </div>
+</div>

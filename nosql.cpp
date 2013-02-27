@@ -700,7 +700,7 @@ BSONObj Nosql::WriteFile(const string filename, const char *data, int size)
     return struct_file;
 }
 
-QBool Nosql::Insert(QString a_document, bo a_datas)
+QBool Nosql::Insert(QString a_document, BSONObj a_datas)
 {        
     QMutexLocker locker(m_mutex);
 

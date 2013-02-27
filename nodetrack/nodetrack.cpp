@@ -28,6 +28,12 @@ Nodetrack::Nodetrack(QxtAbstractWebSessionManager * sm, QObject * parent): QxtWe
     zeromq_ = Zeromq::getInstance ();
 
 
+    enumToHTTPmethod.insert(QString("GET"), GET);
+    enumToHTTPmethod.insert(QString("POST"), POST);
+    enumToHTTPmethod.insert(QString("PUT"), PUT);
+    enumToHTTPmethod.insert(QString("DELETE"), DELETE);
+
+
     enumToTorrentUpdate.insert(QString("change_passkey"), change_passkey);
     enumToTorrentUpdate.insert(QString("add_torrent"), add_torrent);
     enumToTorrentUpdate.insert(QString("update_torrent"), update_torrent);
@@ -249,20 +255,69 @@ std::string Nodetrack::error(std::string err) {
 }
 */
 
-void Nodetrack::announce(QxtWebRequestEvent* event)
+
+/**** ANNOUNCE
+
+GET /tq27ols4afs3guh89s3t361sizm7bfzs/announce?info_hash=%ed%40%3fIU%eff%a8%d8%9b%df%1d%93%aa%9c%3f%edm%0c%db&peer_id=-TR2610-85aivt2ar96p&port=51413&uploaded=0&downloaded=0&left=1076965&numwant=80&key=236bcff5&compact=1&supportcrypto=1&event=started
+ MUST TO CHANGE TO :
+GET /u/tq27ols4afs3guh89s3t361sizm7bfzs/announce?info_hash=%ed%40%3fIU%eff%a8%d8%9b%df%1d%93%aa%9c%3f%edm%0c%db&peer_id=-TR2610-85aivt2ar96p&port=51413&uploaded=0&downloaded=0&left=1076965&numwant=80&key=236bcff5&compact=1&supportcrypto=1&event=started
+
+An example of this GET message could be:
+http://some.tracker.com:999/announce
+?info_hash=12345678901234567890
+&peer_id=ABCDEFGHIJKLMNOPQRST
+&ip=255.255.255.255
+&port=6881
+&downloaded=1234
+&left=98765
+&event=stopped
+
+
+*/
+
+//void Nodetrack::u(QxtWebRequestEvent* event, QString user_token, QString action, QString info_hash="", QString peer_id="", QString ip="", QString port="", QString uploaded="", QString downloaded="", QString left="", QString numwant="", QString key="", QString compact="", QString supportcrypto="", QString a_event="")
+void Nodetrack::u(QxtWebRequestEvent* event, QString user_token, QString action)
 {
 
-    qDebug() << "RECEIVE CREATE PAYLOAD : " << "METHOD : " << event->method << " headers : " << event->headers;
+    qDebug() << "RECEIVE ANNOUNCE : " << "METHOD : " << event->method << " headers : " << event->headers;
 
     QString bodyMessage="";
 
+
+//    QHash <QString, QString> params;
+
+    qDebug() << "USER TOKEN : " << user_token;
+
+    qDebug() << "ACTION : " << action;
 
     switch (enumToHTTPmethod[event->method.toUpper()])
     {
     case GET:
         qDebug() << "HTTP GET";
-        get_announce(event);
 
+        if (action == "announce")
+        {
+            /*
+            params["user_token"] = user_token;
+            params["action"] = action;
+            params["info_hash"] = info_hash;
+            params["peer_id"] = peer_id;
+            params["ip"] = ip;
+            params["port"] = port;
+            params["uploaded"] = uploaded;
+            params["downloaded"] = downloaded;
+            params["left"] = left;
+            params["numwant"] = numwant;
+            params["key"] = key;
+            params["numwant"] = numwant;
+            params["compact"] = compact;
+            params["supportcrypto"] = supportcrypto;
+            params["event"] = a_event;
+*/
+            get_announce(event, user_token);
+            return;
+        }
+        else bodyMessage = "NOT ANNOUNCE REQUEST";
         break;
     case POST:
         qDebug() << "HTTP POST";
@@ -280,7 +335,6 @@ void Nodetrack::announce(QxtWebRequestEvent* event)
 
         break;
     }
-
 
     if (!bodyMessage.isEmpty())
         postEvent(new QxtWebPageEvent(event->sessionID,
@@ -336,6 +390,220 @@ void Nodetrack::index(QxtWebRequestEvent* event)
 
         */
 }
+
+
+void Nodetrack::torrent_post(QxtWebRequestEvent* event, QString user_token)
+{
+    QString bodyMessage="";
+
+    if (event->content.isNull())
+    {
+        bodyMessage = buildResponse("error", "data", "empty payload");
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        return;
+    }
+
+
+    BSONObj query = BSON("tracker.token" << user_token.toStdString());
+    BSONObj user = nosql_->Find("users", query);
+
+    if (user.nFields() == 0)
+    {
+        user_token = "passkey not found";
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     user_token.toUtf8()));
+        return;
+    }
+
+
+    QString s_tags = event->headers.value("X-torrent-tags");
+    if (s_tags.isEmpty()) s_tags = "private";
+    QStringList list_tags = s_tags.split(",");
+
+    int counter=0;
+    BSONObjBuilder b_tags;
+
+    foreach (QString tag, list_tags)
+    {
+        b_tags.append(QString::number(counter).toStdString(), tag.simplified().toStdString());
+        counter++;
+    }
+
+    BSONObj tags = b_tags.obj();
+
+
+    QxtWebContent *myContent = event->content;
+    qDebug() << "Bytes to read: " << myContent->unreadBytes();
+    myContent->waitForAllContent();
+
+    //QByteArray requestContent = QByteArray::fromBase64(myContent->readAll());
+    QByteArray requestContent = myContent->readAll();
+
+    BSONObjBuilder b_torrent;
+    b_torrent.genOID();
+    b_torrent.append("user_id", user.getField("_id").OID());
+    b_torrent.appendArray("tags", tags);
+    // mongo::BinDataType(0) == BinDataGeneral
+    b_torrent.appendBinData("data", requestContent.size(), BinDataGeneral, requestContent);
+
+    BSONObj torrent = b_torrent.obj();
+    nosql_->Insert("torrents", torrent);
+
+    postEvent(new QxtWebPageEvent(event->sessionID,
+                                  event->requestID,
+                                  "OK"));
+
+}
+
+
+
+void Nodetrack::torrent(QxtWebRequestEvent* event, QString user_token)
+{
+
+        qDebug() << "ADMIN : " << "METHOD : " << event->method << " headers : " << event->headers << " user_token " << user_token;
+
+        QString bodyMessage="";
+
+
+        switch (enumToHTTPmethod[event->method.toUpper()])
+        {
+        case GET:
+            qDebug() << "HEADERS : " << event->headers.value("Authorization");
+
+/*
+            res = checkAuth(event->headers.value("Authorization"), payload_builder, user);
+            if (!res)
+            {
+                bodyMessage = buildResponse("error", "auth");
+                //bodyMessage = buildResponse("error", "auth");
+            }
+            else
+            {
+                if (action == "users")
+                    admin_users_get(event);
+            }
+            */
+
+
+            /*
+            if (action == "login")
+            {
+                admin_login(event);
+            }
+            else if (action == "users")
+            {
+
+                admin_users_get(event);
+            }
+            else if (action == "createuser")
+            {
+
+                admin_user_post(event);
+            }
+            else if (action == "nodes")
+            {
+
+                admin_nodes_get(event);
+            }
+            else if (action == "createnode")
+            {
+
+                admin_node_post(event);
+            }
+            else if (action == "workflows")
+            {
+
+                admin_workflows_get(event);
+            }
+            else if (action == "createworkflow")
+            {
+
+                admin_workflow_post(event);
+            }
+            else if (action == "workers")
+            {
+
+                admin_workers_get(event);
+            }
+            else if (action == "sessions")
+            {
+
+                admin_sessions_get(event);
+            }
+
+            else if (action == "payloads")
+            {
+
+                admin_payloads_get(event);
+            }
+            else if (action == "lost_pushpull_payloads")
+            {
+                admin_lost_pushpull_payloads_get(event);
+            }
+
+            else
+            {
+                QxtHtmlTemplate index;
+                index["content"]="error 404";
+                QxtWebPageEvent *page = new QxtWebPageEvent(event->sessionID,
+                                                            event->requestID,
+                                                            index.render().toUtf8());
+                page->status = 404;
+                qDebug() << "error 404";
+
+                postEvent(page);
+                return;
+            }
+*/
+            break;
+        case POST:
+            //qDebug() << "HTTP POST not implemented";
+            //bodyMessage = buildResponse("error", "HTTP POST not implemented");
+
+                torrent_post(event, user_token);
+
+            break;
+        case PUT:
+            qDebug() << "HTTP PUT not implemented";
+            bodyMessage = buildResponse("error", "HTTP PUT not implemented");
+
+            break;
+        case DELETE:
+            qDebug() << "HTTP DELETE not implemented";
+            bodyMessage = buildResponse("error", "HTTP DELETE not implemented");
+
+            break;
+        }
+
+
+
+        if (!bodyMessage.isEmpty())
+        {
+            postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        }
+     /*   else
+        {
+            QxtHtmlTemplate index;
+            index["content"]="error 404";
+            QxtWebPageEvent *page = new QxtWebPageEvent(event->sessionID,
+                                       event->requestID,
+                                       index.render().toUtf8());
+            page->status = 404;
+            qDebug() << "error 404";
+
+            postEvent(page);
+        }
+        */
+
+}
+
+
+
 
 /********** ADMIN PAGE ************/
 void Nodetrack::admin(QxtWebRequestEvent* event, QString action)
@@ -398,15 +666,27 @@ void Nodetrack::admin(QxtWebRequestEvent* event, QString action)
 
 GET /tq27ols4afs3guh89s3t361sizm7bfzs/announce?info_hash=%ed%40%3fIU%eff%a8%d8%9b%df%1d%93%aa%9c%3f%edm%0c%db&peer_id=-TR2610-85aivt2ar96p&port=51413&uploaded=0&downloaded=0&left=1076965&numwant=80&key=236bcff5&compact=1&supportcrypto=1&event=started
  MUST TO CHANGE TO :
-GET /announce/announce?user_key=tq27ols4afs3guh89s3t361sizm7bfzs&info_hash=%ed%40%3fIU%eff%a8%d8%9b%df%1d%93%aa%9c%3f%edm%0c%db&peer_id=-TR2610-85aivt2ar96p&port=51413&uploaded=0&downloaded=0&left=1076965&numwant=80&key=236bcff5&compact=1&supportcrypto=1&event=started
+GET /u/tq27ols4afs3guh89s3t361sizm7bfzs/announce?info_hash=%ed%40%3fIU%eff%a8%d8%9b%df%1d%93%aa%9c%3f%edm%0c%db&peer_id=-TR2610-85aivt2ar96p&port=51413&uploaded=0&downloaded=0&left=1076965&numwant=80&key=236bcff5&compact=1&supportcrypto=1&event=started
 
+An example of this GET message could be:
+http://some.tracker.com:999/announce
+?info_hash=12345678901234567890
+&peer_id=ABCDEFGHIJKLMNOPQRST
+&ip=255.255.255.255
+&port=6881
+&downloaded=1234
+&left=98765
+&event=stopped
+
+
+http://localhost:6969/u/tq27ols4afs3guh89s3t361sizm7bfzs/announce?info_hash=12345678901234567890&peer_id=ABCDEFGHIJKLMNOPQRST&ip=255.255.255.255&port=6881&downloaded=1234&left=98765&event=stopped&compact=1
 
 ****************/
 
 //std::string Nodetrack::get_announce(torrent &tor, user &u, std::map<std::string, std::string> &params, std::map<std::string, std::string> &headers, std::string &ip)
-void Nodetrack::get_announce(QxtWebRequestEvent* event)
+void Nodetrack::get_announce(QxtWebRequestEvent* event, QString user_token)
 {
-    /*
+
     bool error = false;
     QUrl url = event->url;
 
@@ -421,18 +701,36 @@ void Nodetrack::get_announce(QxtWebRequestEvent* event)
     }
 
 
-    QString user_key = getkey(url, "user_key", error, true);
+    //QString user_key = getkey(url, "user_key", error, true);
 
+   // QString user_token = params["user_token"];
 
-    if (user_key.length() != 32)
+    if (user_token.length() != 32)
     {
-        user_key = "Malformed announce";
+        user_token = "Malformed announce";
         postEvent(new QxtWebPageEvent(event->sessionID,
                                      event->requestID,
-                                     user_key.toUtf8()));
+                                     user_token.toUtf8()));
         return;
 
     }
+
+    BSONObj query = BSON("tracker.token" << user_token.toStdString());
+    BSONObj user = nosql_->Find("users", query);
+
+    if (user.nFields() == 0)
+    {
+        user_token = "passkey not found";
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     user_token.toUtf8()));
+        return;
+    }
+
+
+
+
+
 
     QString info_hash = getkey(url, "info_hash", error, true);
     if (error)
@@ -496,6 +794,32 @@ void Nodetrack::get_announce(QxtWebRequestEvent* event)
     bool update_torrent = false; // Whether or not we should update the torrent in the DB
     bool expire_token = false; // Whether or not to expire a token after torrent completion
 
+
+
+
+
+
+/*
+    string info_hash_decoded = hex_decode(info_hash.toStdString());
+    std::cout << "info_hash_decoded : " << info_hash_decoded << std::endl;
+
+
+
+
+    torrent_list::iterator tor = torrents_list.find(info_hash_decoded);
+
+               //DELETE ME
+                std::cout << "Info hash is " << info_hash_decoded << std::endl;
+
+        if(tor == torrents_list.end()) {
+            return error("unregistered torrent");
+        }
+        return announce(tor->second, u->second, params, headers, ip);
+*/
+
+
+
+    /*
     std::map<QString, QString>::const_iterator peer_id_iterator = peer_id;
     if(peer_id_iterator == params.end()) {       
         postEvent(new QxtWebPageEvent(event->sessionID,
@@ -787,18 +1111,20 @@ void Nodetrack::get_announce(QxtWebRequestEvent* event)
         response += ":";
         response += peers;
     }
+    */
+    QString response = "d8:intervali";
     response += "8:completei";
-    response += inttostr(tor.seeders.size());
+    //response += inttostr(tor.seeders.size());
     response += "e10:incompletei";
-    response += inttostr(tor.leechers.size());
+   // response += inttostr(tor.leechers.size());
     response += "e10:downloadedi";
-    response += inttostr(tor.completed);
+    //response += inttostr(tor.completed);
     response += "ee";
 
     postEvent(new QxtWebPageEvent(event->sessionID,
                                  event->requestID,
                                  response.toUtf8()));
-    */
+
 }
 
 //std::string Nodetrack::scrape(const std::list<std::string> &infohashes) {
@@ -1163,4 +1489,45 @@ void Nodetrack::do_reap_peers() {
     std::cout << "Reaped " << reaped << " peers" << std::endl;
     db->logger_ptr->log("Completed worker::do_reap_peers()");
     */
+}
+
+
+
+
+
+QString Nodetrack::buildResponse(QString action, QString data1, QString data2)
+{
+    QVariantMap data;
+    QString body;
+
+
+    if (action == "update")
+    {
+        data.insert("uuid", data1);
+    }
+    else if (action == "register")
+    {
+        data.insert("node_uuid", data1);
+        data.insert("node_password", data2);
+    }
+    else if (action == "push" || action == "publish" || action == "create")
+    {
+        data.insert("uuid", data1);
+    }
+    else if (action == "file")
+    {
+        data.insert("gridfs", data1);
+    }
+    else if (action == "error")
+    {
+        data.insert("error", data1);
+        data.insert("code", data2);
+    }
+    else if (action == "status")
+    {
+        data.insert("status", data1);
+    }
+    body = QxtJSON::stringify(data);
+
+    return body;
 }

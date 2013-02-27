@@ -2,5 +2,6 @@ ncs
 *.o
 moc*
 core*
+*~
 ncs.pro.user
 Makefile

@@ -24,6 +24,7 @@
 #include "ncs_global.h"
 #include "nosql.h"
 #include "zeromq.h"
+#include <QxtWeb/QxtWebServiceDirectory>
 #include <QxtWeb/QxtWebSlotService>
 #include <QxtWeb/QxtWebPageEvent>
 #include <QxtWeb/QxtWebContent>
@@ -31,6 +32,8 @@
 #include <QxtWebStoreCookieEvent>
 #include <QxtJSON>
 #include <QUuid>
+#include <QFileInfo>
+#include <QCryptographicHash>
 
 using namespace mongo;
 using namespace bson;
@@ -54,25 +57,40 @@ public slots:
     void payload(QxtWebRequestEvent* event, QString action, QString uuid="");
     void session(QxtWebRequestEvent* event, QString uuid);
     void file(QxtWebRequestEvent* event, QString action);
-    void node(QxtWebRequestEvent* event, QString action);
+    void node(QxtWebRequestEvent* event, QString token);
     void workflow(QxtWebRequestEvent* event, QString action);
+    void admin_template(QxtWebRequestEvent* event);
 
+    void staticfile(QxtWebRequestEvent* event, QString directory, QString filename);
 
 private:
     void payload_post(QxtWebRequestEvent* event, QString action);
     void session_get(QxtWebRequestEvent* event, QString uuid);
     void admin_users_get(QxtWebRequestEvent* event);
-    void admin_login(QxtWebRequestEvent* event);
+    void admin_user_post(QxtWebRequestEvent* event);
+    void admin_nodes_get(QxtWebRequestEvent* event);
+    void admin_node_post(QxtWebRequestEvent* event);
+    void admin_workflows_get(QxtWebRequestEvent* event);
+    void admin_workflow_post(QxtWebRequestEvent* event);
+    void admin_workers_get(QxtWebRequestEvent* event);
+    void admin_sessions_get(QxtWebRequestEvent* event);
+    void admin_payloads_get(QxtWebRequestEvent* event);
+    void admin_lost_pushpull_payloads_get(QxtWebRequestEvent* event);
 
+
+    void admin_login(QxtWebRequestEvent* event);
+    void check_user_login(QxtWebRequestEvent* event, QString &user);
 
     StringToHTTPEnumMap enumToHTTPmethod;
+
+    QHash <QString, QString> user_session;
 
     zmq::socket_t *z_push_api;
     zmq::message_t *z_message;
 
     Nosql *nosql_;
     Zeromq *zeromq_;
-    QBool checkAuth(QString header, BSONObjBuilder &payload, bo &a_user);
+    QBool checkAuth(QString token, BSONObjBuilder &payload, bo &a_user);
     QBool http_auth(QString auth, QHash <QString, QString> &hauth);
 
     QString buildResponse(QString action, QString data1, QString data2="");

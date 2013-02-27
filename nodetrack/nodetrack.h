@@ -40,7 +40,7 @@
 using namespace mongo;
 using namespace bson;
 
-typedef QMap<QString, HTTPMethodType> StringToEnumMap;
+typedef QMap<QString, HTTPMethodType> StringToHTTPEnumMap;
 
 
 //Peer announce interval (Seconds)
@@ -91,21 +91,31 @@ public:
 public slots:
     void index(QxtWebRequestEvent* event);
     void admin(QxtWebRequestEvent* event, QString action);
-    void announce(QxtWebRequestEvent* event);
+    //void announce(QxtWebRequestEvent* event);
+    //void u(QxtWebRequestEvent* event, QString user_token, QString action, QString info_hash, QString peer_id, QString ip, QString port, QString uploaded, QString downloaded, QString left, QString numwant, QString key, QString compact, QString supportcrypto, QString a_event);
+    void torrent(QxtWebRequestEvent* event, QString user_token);
+
+    void u(QxtWebRequestEvent* event, QString user_token, QString action);
     void scrape(QxtWebRequestEvent* event, QString key);
-    void update(QxtWebRequestEvent* event, QString action);
     void reap_peers();
     void do_reap_peers();
 
 
 private:
-    void get_announce(QxtWebRequestEvent* event);
-    std::string hex_decode(const std::string &in);
-    QString getkey(QUrl url, QString key, bool &error, bool fixed_size=false);
+    void get_announce(QxtWebRequestEvent* event, QString user_token);
+    void torrent_post(QxtWebRequestEvent* event, QString user_token);
+
+
+
+    void update(QxtWebRequestEvent* event, QString action);
+
+
+    // std::string hex_decode(const std::string &in);
+  //  QString getkey(QUrl url, QString key, bool &error, bool fixed_size=false);
 
     StringToTorrentEnumMap enumToTorrentUpdate;
 
-    StringToEnumMap enumToHTTPmethod;
+    StringToHTTPEnumMap enumToHTTPmethod;
 
     zmq::socket_t *z_push_api;
     zmq::message_t *z_message;
@@ -113,6 +123,7 @@ private:
     Nosql *nosql_;
     Zeromq *zeromq_;
     QBool checkAuth(QString header, BSONObjBuilder &payload, bo &a_user);
+    QString buildResponse(QString action, QString data1, QString data2="");
 };
 
 

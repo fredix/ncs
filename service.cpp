@@ -29,7 +29,7 @@ Service::~Service()
     delete(m_http_api);
 
     qDebug() << "delete tracker";
-    delete(m_tracker);
+    delete(m_nodetrack);
 
     qDebug() << "delete ftp";
     delete(m_nodeftp);
@@ -51,7 +51,7 @@ void Service::Http_init()
 {
     m_session.setPort(4567);
     m_session.setConnector(&m_connector);
-
+    m_session.setAutoCreateSession(false);
     //Http_api s1(&session);
 
     m_http_api = new Http_api(&m_session);
@@ -60,7 +60,7 @@ void Service::Http_init()
 
     m_session.setSessionCookieName("nodecast");
 
-    m_session.start();
+    m_session.start();    
 }
 
 

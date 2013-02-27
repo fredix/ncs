@@ -62,7 +62,7 @@ typedef QHash<QString, bt_torrent> torrent_list;
 typedef QHash<QString, bt_user> user_list;
 
 
-QString getkey(QUrl url, QString key, bool &error, bool fixed_size);
+QString getkey(QUrl url, QString key, bool &error, bool fixed_size=false);
 
 
 #endif // UTIL_H

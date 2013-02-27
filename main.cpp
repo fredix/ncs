@@ -85,9 +85,9 @@ Dispatcher::Dispatcher(params ncs_params)
 
     service = new Service();
     service->Http_init();
-    //service->Tracker_init();
+    //service->Nodetrack_init();
     service->Nodeftp_init(ncs_params.ftp_server_port);
-    service->Xmpp_init(ncs_params.domain_name, ncs_params.xmpp_client_port, ncs_params.xmpp_server_port);
+    //service->Xmpp_init(ncs_params.domain_name, ncs_params.xmpp_client_port, ncs_params.xmpp_server_port);
     service->Worker_init();
 
     zeromq->init();

@@ -47,20 +47,9 @@ ncs --mongodb-ip=127.0.0.1 --mongodb-base=nodecast_prod --domain-name=localhost 
 ```
 
 ### MONGODB
+edit config/ncssetup.js and run :
+mongo nodecast config/ncssetup.js
 
-create user collection
-
-```bash
-doc = { login : 'user', email : 'user@email.com', authentication_token : 'token'}
-db.users.insert(doc);
-```
-
-SET A TTL :
-all publish payloads are store into pubsub_payloads collection. You must have to set a ttl. In this example mongodb flush payloads created after 172800 seconds (48 hours).
-
-```bash
-db.pubsub_payloads.ensureIndex( { "ttl": 1 }, { expireAfterSeconds: 172800 } )
-```
 
 ### API USE
 
