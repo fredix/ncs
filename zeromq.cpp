@@ -808,7 +808,12 @@ void Zdispatch::replay_payload()
 
     // Try to lock lock_collections. Usefull when many ncs try to update the same collection
     QDateTime timestamp = QDateTime::currentDateTime();
-    BSONObj lock_collection = BSON("_id" << "lost_pushpull_payloads" << "ttl" << timestamp.toMSecsSinceEpoch());
+
+    BSONObjBuilder row_lock;
+    row_lock.append("_id", "lost_pushpull_payloads");
+    row_lock.appendDate("ttl", timestamp.toMSecsSinceEpoch());;
+
+    BSONObj lock_collection = row_lock.obj();
 
     // According to this blob http://blog.codecentric.de/en/2012/10/mongodb-pessimistic-locking/
     // I'm using a Pessimistic Locking
