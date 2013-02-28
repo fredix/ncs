@@ -388,6 +388,7 @@ int main(int argc, char *argv[])
     if (!QDir("/tmp/nodecast").exists()) QDir().mkdir("/tmp/nodecast");
     if (!QDir("/tmp/nodecast/ftp").exists()) QDir().mkdir("/tmp/nodecast/ftp");
 
+    settings.sync();
 
     setup_unix_signal_handlers();
 

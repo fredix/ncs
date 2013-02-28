@@ -806,41 +806,57 @@ void Zdispatch::replay_payload()
     qDebug() << "Zdispatch::replay_payload";
     m_mutex_replay_payload->lock();
 
+    // Try to lock lock_collections. Usefull when many ncs try to update the same collection
+    BSONObj empty;
+    BSONObj lock_collection = BSON("lost_pushpull_payloads" << true);
+    BSONObj lost_pushpull_payloads = nosql_->Find("lock_collections", lock_collection);
 
-    BSONObj pushed = BSON("pushed" << false);
-    QList <BSONObj> lost_payload_list = nosql_->FindAll("lost_pushpull_payloads", pushed);
-    //nosql_->Update("lost_pushpull_payloads", BSON("pushed" << false), BSON("pushed" << true), false, true);
-
-
-    // read workers collection and instance workers's server
-    foreach (BSONObj lost_payload, lost_payload_list)
+    if (lost_pushpull_payloads.isEmpty())
     {
-
-        nosql_->Update("lost_pushpull_payloads", BSON("_id" << lost_payload.getField("_id") << "pushed" << false), BSON("pushed" << true));
-
-
-        std::cout << "LIST SIZE : " << lost_payload_list.size() << std::endl;
-
-        /*
-        for (int i = 0; i < lost_payload_list.size(); ++i) {
-            std::cout << "LIST PAYLOADS : " << lost_payload_list.at(i) << std::endl;
-         }
+        lock_collection = BSON("lost_pushpull_payloads" << true);
+        // update or insert
+        nosql_->Update("lock_collections", empty, lock_collection, true);
 
 
-        std::cout << "LOST PAYLOAD : " << lost_payload << std::endl;
-        */
 
-        QString w_name = QString::fromStdString(lost_payload.getField("worker").str());
-        BSONObj payload = BSON("payload" << lost_payload.getFieldDotted("data.payload"));
+        BSONObj pushed = BSON("pushed" << false);
+        QList <BSONObj> lost_payload_list = nosql_->FindAll("lost_pushpull_payloads", pushed);
+        //nosql_->Update("lost_pushpull_payloads", BSON("pushed" << false), BSON("pushed" << true), false, true);
 
 
-        if (workers_push.contains(w_name))
-            workers_push[w_name]->push_payload(payload);
+        // read workers collection and instance workers's server
+        foreach (BSONObj lost_payload, lost_payload_list)
+        {
+
+            nosql_->Update("lost_pushpull_payloads", BSON("_id" << lost_payload.getField("_id") << "pushed" << false), BSON("pushed" << true));
+
+
+            std::cout << "LIST SIZE : " << lost_payload_list.size() << std::endl;
+
+            /*
+            for (int i = 0; i < lost_payload_list.size(); ++i) {
+                std::cout << "LIST PAYLOADS : " << lost_payload_list.at(i) << std::endl;
+             }
+
+
+            std::cout << "LOST PAYLOAD : " << lost_payload << std::endl;
+            */
+
+            QString w_name = QString::fromStdString(lost_payload.getField("worker").str());
+            BSONObj payload = BSON("payload" << lost_payload.getFieldDotted("data.payload"));
+
+
+            if (workers_push.contains(w_name))
+                workers_push[w_name]->push_payload(payload);
+        }
+
+
+        //nosql_->Flush("lost_pushpull_payloads", BSON("pushed" << true << "finished" << true));
+        nosql_->Flush("lost_pushpull_payloads", BSON("pushed" << true));
+
+        lock_collection = BSON("lost_pushpull_payloads" << false);
+        nosql_->Update("lock_collections", empty, lock_collection);
     }
-
-
-    //nosql_->Flush("lost_pushpull_payloads", BSON("pushed" << true << "finished" << true));
-    nosql_->Flush("lost_pushpull_payloads", BSON("pushed" << true));
     m_mutex_replay_payload->unlock();
 }
 
