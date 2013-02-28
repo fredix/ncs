@@ -807,18 +807,13 @@ void Zdispatch::replay_payload()
     m_mutex_replay_payload->lock();
 
     // Try to lock lock_collections. Usefull when many ncs try to update the same collection
-    BSONObj empty;
-    BSONObj lock_collection = BSON("lost_pushpull_payloads" << true);
-    BSONObj lost_pushpull_payloads = nosql_->Find("lock_collections", lock_collection);
+    QDateTime timestamp = QDateTime::currentDateTime();
+    BSONObj lock_collection = BSON("_id" << "lost_pushpull_payloads" << "ttl" << timestamp.toMSecsSinceEpoch());
 
-    if (lost_pushpull_payloads.isEmpty())
+    // According to this blob http://blog.codecentric.de/en/2012/10/mongodb-pessimistic-locking/
+    // I'm using a Pessimistic Locking
+    if (nosql_->Insert("lock_collections", lock_collection))
     {
-        lock_collection = BSON("lost_pushpull_payloads" << true);
-        // update or insert
-        nosql_->Update("lock_collections", empty, lock_collection, true);
-
-
-
         BSONObj pushed = BSON("pushed" << false);
         QList <BSONObj> lost_payload_list = nosql_->FindAll("lost_pushpull_payloads", pushed);
         //nosql_->Update("lost_pushpull_payloads", BSON("pushed" << false), BSON("pushed" << true), false, true);
@@ -853,9 +848,6 @@ void Zdispatch::replay_payload()
 
         //nosql_->Flush("lost_pushpull_payloads", BSON("pushed" << true << "finished" << true));
         nosql_->Flush("lost_pushpull_payloads", BSON("pushed" << true));
-
-        lock_collection = BSON("lost_pushpull_payloads" << false);
-        nosql_->Update("lock_collections", empty, lock_collection);
     }
     m_mutex_replay_payload->unlock();
 }

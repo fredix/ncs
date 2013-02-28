@@ -3,9 +3,13 @@ db.users.save({ login : 'user', email : 'user@email.com', authentication_token :
 
 // SET A TTL
 // all publish payloads are store into pubsub_payloads collection. You must have to set a ttl. In this example mongodb flush payloads created after 172800 seconds (48 hours).
+db.createCollection("pubsub_payloads");
 db.pubsub_payloads.ensureIndex( { "ttl": 1 }, { expireAfterSeconds: 172800 } )
 // http connections in the admin web interface will expire after 24 hours
+db.createCollection("http_sessions_payloads");
 db.http_sessions_payloads.ensureIndex( { "ttl": 1 }, { expireAfterSeconds: 86400 } )
+db.createCollection("lock_collections");
+db.lock_collections.ensureIndex( { "ttl": 1 }, { expireAfterSeconds: 120 } )
 
 
 // SET permission about bittorrent tracker
