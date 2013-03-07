@@ -33,7 +33,7 @@
 #include <QxtCore/QxtCommandOptions>
 
 #include <zmq.hpp>
-#include "nosql.h"
+#include "mongodb.h"
 #include "mongo/client/gridfs.h"
 
 using namespace mongo;
@@ -50,7 +50,7 @@ public:
     void stream_payload(bson::bo a_payload);
 
 private:    
-    Nosql *nosql_;
+    Mongodb *mongodb_;
     string m_worker;
     string m_port;
     zmq::context_t *m_context;
@@ -74,7 +74,7 @@ public:
 
 private:
     QSocketNotifier *check_stream;
-    Nosql *nosql_;
+    Mongodb *mongodb_;
     string m_worker;
     string m_port;
     zmq::context_t *m_context;
@@ -109,7 +109,7 @@ private:
     zmq::socket_t *m_data_socket;
     zmq::message_t *m_data_message;
 
-    Nosql *nosql_;     
+    Mongodb *mongodb_;
     QMutex *m_mutex;
 
     zmq::socket_t *z_workers;
@@ -178,7 +178,7 @@ public:
 private:
     zmq::context_t *m_context;
     zmq::socket_t *m_socket;
-    Nosql *nosql_;
+    Mongodb *mongodb_;
     //QHash<QString, Zworker_push*> workers_push;
     QHash<QString, Zworker_pushPtr> workers_push;
     QList <QString> worker_name;
@@ -239,7 +239,7 @@ private:
     static Zeromq *_singleton;
     QMutex *m_http_mutex;
     QMutex *m_xmpp_mutex;
-    Nosql *nosql_;
+    Mongodb *mongodb_;
 
 signals:
     void payload(bo data);

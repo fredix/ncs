@@ -18,87 +18,45 @@
 **   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ****************************************************************************/
 
-#include "nosql.h"
+#include "mongodb.h"
 
-Nosql *Nosql::_singleton_front = NULL;
-Nosql *Nosql::_singleton_back = NULL;
-Nosql *Nosql::_singleton_tracker = NULL;
+Mongodb *Mongodb::_singleton = NULL;
 
 
-Nosql::~Nosql()
+Mongodb::~Mongodb()
 {}
 
 
 
-Nosql* Nosql::getInstance_front() {
+Mongodb* Mongodb::getInstance() {
 /*    if (NULL == _singleton)
         {
           qDebug() << "creating singleton.";
-          _singleton =  new Nosql(mongodb_ip, mongodb_base);
+          _singleton =  new Mongodb(mongodb_ip, mongodb_base);
         }
       else
         {
           qDebug() << "singleton already created!";
         }*/
-      return _singleton_front;
+      return _singleton;
 }
 
 
-Nosql* Nosql::getInstance_back() {
-/*    if (NULL == _singleton)
-        {
-          qDebug() << "creating singleton.";
-          _singleton =  new Nosql(mongodb_ip, mongodb_base);
-        }
-      else
-        {
-          qDebug() << "singleton already created!";
-        }*/
-      return _singleton_back;
-}
-
-
-Nosql* Nosql::getInstance_tracker() {
-/*    if (NULL == _singleton)
-        {
-          qDebug() << "creating singleton.";
-          _singleton =  new Nosql(mongodb_ip, mongodb_base);
-        }
-      else
-        {
-          qDebug() << "singleton already created!";
-        }*/
-      return _singleton_tracker;
-}
-
-void Nosql::kill_front ()
+void Mongodb::kill ()
   {
-    if (NULL != _singleton_front)
+    if (NULL != _singleton)
       {
-        delete _singleton_front;
-        _singleton_front = NULL;
-      }
-  }
-
-
-void Nosql::kill_back ()
-  {
-    if (NULL != _singleton_back)
-      {
-        delete _singleton_back;
-        _singleton_back = NULL;
+        delete _singleton;
+        _singleton = NULL;
       }
   }
 
 
 
-Nosql::Nosql(QString instance_type, QString a_server, QString a_database) : m_server(a_server), m_database(a_database)
+
+Mongodb::Mongodb(QString a_server, QString a_database) : m_server(a_server), m_database(a_database)
 {
-    qDebug() << "Nosql construct param";
-
-
-
-    //mongo::ScopedDbConnection con (this->m_server.toAscii().data());
+    qDebug() << "Mongodb construct param";
 
     m_mutex = new QMutex();
     m_rf_mutex = new QMutex();
@@ -113,11 +71,14 @@ Nosql::Nosql(QString instance_type, QString a_server, QString a_database) : m_se
 
     u_active = false; t_active = false; p_active = false; s_active = false; tok_active = false; hist_active = false;
 
+    ScopedDbConnection *replicaset;
 
     try {
-        if (!this->m_mongo_connection.connect(this->m_server.toStdString(), m_errmsg))
+        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+
+        if (!replicaset->ok())
         {
-            std::cout << "couldn't connect : " << m_errmsg << std::endl;
+            std::cout << "couldn't connect to mongodb : " << m_server.toStdString() << std::endl;
             exit(1);
         }
 
@@ -127,12 +88,15 @@ Nosql::Nosql(QString instance_type, QString a_server, QString a_database) : m_se
         BSONObj const database_options = BSON("getlasterror" << 1 << "j" << true);
         string const database = this->m_database.toStdString();
         BSONObj info;
-        m_mongo_connection.runCommand(database, database_options, info);
+        //m_mongo_connection.runCommand(database, database_options, info);
+        replicaset->conn().runCommand(database, database_options, info);
+        replicaset->done();
+
         std::cout << "MONGODB OPTIONS : " << info << std::endl;
         /************************************/
 
-        m_gfs = new GridFS(m_mongo_connection, m_database.toAscii().data());
-        std::cout << "init GridFS" << std::endl;
+        //m_gfs = new GridFS(m_mongo_connection, m_database.toAscii().data());
+        //std::cout << "init GridFS" << std::endl;
 
 
     } catch(mongo::DBException &e ) {
@@ -162,37 +126,28 @@ Nosql::Nosql(QString instance_type, QString a_server, QString a_database) : m_se
     check_payload_response = new QSocketNotifier(payload_socket_fd, QSocketNotifier::Read, this);
     connect(check_payload_response, SIGNAL(activated(int)), this, SLOT(payload_receive()));
 */
-    if (instance_type == "front")
-    {
-            _singleton_front = this;
-    }
-    else if (instance_type =="back")
-    {
-            _singleton_back = this;
-    }
-    else if (instance_type =="tracker")
-    {
-            _singleton_tracker = this;
-    }
+
+
+    _singleton = this;
 
 }
 
 
-void Nosql::payload_receive()
+void Mongodb::payload_receive()
 {
 /*    check_payload_response->setEnabled(false);
-    std::cout << "Nosql::payload_response" << std::endl;
+    std::cout << "Mongodb::payload_response" << std::endl;
 
     qint32 events = 0;
     std::size_t eventsSize = sizeof(events);
     m_socket_payload->getsockopt(ZMQ_EVENTS, &events, &eventsSize);
 
-    std::cout << "Nosql::payload_response ZMQ_EVENTS : " <<  events << std::endl;
+    std::cout << "Mongodb::payload_response ZMQ_EVENTS : " <<  events << std::endl;
 
 
     if (events & ZMQ_POLLIN)
     {
-        std::cout << "Nosql::payload_response ZMQ_POLLIN" <<  std::endl;
+        std::cout << "Mongodb::payload_response ZMQ_POLLIN" <<  std::endl;
 
         while (true)
         {
@@ -244,9 +199,9 @@ void Nosql::payload_receive()
 }
 
 
-void Nosql::push_payload(BSONObj a_payload)
+void Mongodb::push_payload(BSONObj a_payload)
 {
-    std::cout << "Nosql::push_payload : " << a_payload << std::endl;
+    std::cout << "Mongodb::push_payload : " << a_payload << std::endl;
 
     BSONElement table = a_payload.getField("table");
     BSONElement query = a_payload.getField("query");
@@ -258,25 +213,31 @@ void Nosql::push_payload(BSONObj a_payload)
 
 
 
-int Nosql::Count(QString a_document)
+int Mongodb::Count(QString a_document)
 {
     QMutexLocker locker(m_mutex);
 
-    qDebug() << "Nosql::Count";
+    qDebug() << "Mongodb::Count";
 
     QString tmp;
     tmp.append(this->m_database).append(".").append(a_document);
-    int counter = this->m_mongo_connection.count(tmp.toStdString());
+    //int counter = this->m_mongo_connection.count(tmp.toStdString());
+
+    ScopedDbConnection *replicaset =  ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+
+    int counter = replicaset->conn().count(tmp.toStdString());
+    replicaset->done();
+
     return counter;
 }
 
 
 
-void Nosql::Flush(string a_document, BSONObj query)
+void Mongodb::Flush(string a_document, BSONObj query)
 {
     QMutexLocker locker(m_mutex);
 
-    std::cout << "Nosql::Flush, query : " << query.toString() << std::endl;
+    std::cout << "Mongodb::Flush, query : " << query.toString() << std::endl;
 
     QString tmp;
     tmp.append(this->m_database).append(".").append(a_document.data());
@@ -297,10 +258,10 @@ void Nosql::Flush(string a_document, BSONObj query)
 
 }
 
-BSONObj Nosql::Find(string a_document, const bo a_query)
+BSONObj Mongodb::Find(string a_document, const bo a_query)
 {
     QMutexLocker locker(m_mutex);
-    qDebug() << "Nosql::Find";
+    qDebug() << "Mongodb::Find";
 
     QString tmp;
     tmp.append(this->m_database).append(".").append(a_document.data());
@@ -309,23 +270,37 @@ BSONObj Nosql::Find(string a_document, const bo a_query)
 
     std::cout << "element : " << a_query.jsonString(Strict) << std::endl;
 
+     ScopedDbConnection *replicaset;
 
     try {        
         qDebug() << "before cursor created";
-        auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toStdString(), mongo::Query(a_query));
+        //auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toStdString(), mongo::Query(a_query));
+
+        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+
+        auto_ptr<DBClientCursor> cursor = replicaset->conn().query(tmp.toStdString(), mongo::Query(a_query));
+
+
+
         qDebug() << "after cursor created";
 /*
         while( cursor->more() ) {
             result = cursor->next();
-            //std::cout << "Nosql::Find pub uuid : " << datas.getField("os_version").valuestr() << std::endl;
-            std::cout << "Nosql::Find _id : " << result.getField("_id").jsonString(Strict) << std::endl;
+            //std::cout << "Mongodb::Find pub uuid : " << datas.getField("os_version").valuestr() << std::endl;
+            std::cout << "Mongodb::Find _id : " << result.getField("_id").jsonString(Strict) << std::endl;
             // pub_uuid.append(host.getField("pub_uuid").valuestr());
         }*/
 
         if ( !cursor->more() ) {
+            replicaset->done();
             return BSONObj();
         }
-        return cursor->nextSafe().copy();
+        else
+        {
+            BSONObj data = cursor->nextSafe().copy();
+            replicaset->done();
+            return data;
+        }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on find into " << m_server.toAscii().data() << "." << a_document.data() << " : " << e.what() << std::endl;
@@ -336,10 +311,10 @@ BSONObj Nosql::Find(string a_document, const bo a_query)
 
 
 
-BSONObj Nosql::Find(string a_document, const BSONObj a_query, BSONObj *a_fields)
+BSONObj Mongodb::Find(string a_document, const BSONObj a_query, BSONObj *a_fields)
 {
     QMutexLocker locker(m_mutex);
-    qDebug() << "Nosql::Find with field's filter";
+    qDebug() << "Mongodb::Find with field's filter";
 
     QString tmp;
     tmp.append(this->m_database).append(".").append(a_document.data());
@@ -349,17 +324,27 @@ BSONObj Nosql::Find(string a_document, const BSONObj a_query, BSONObj *a_fields)
     //std::cout << "element : " << datas.jsonString(TenGen) << std::endl;
 
     std::cout << "element : " << a_query.jsonString(Strict) << std::endl;
+    ScopedDbConnection *replicaset;
 
 
     try {
         qDebug() << "before cursor created";
-        auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toStdString(), mongo::Query(a_query), 0, 0, a_fields);
+        //auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toStdString(), mongo::Query(a_query), 0, 0, a_fields);
+        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+        auto_ptr<DBClientCursor> cursor = replicaset->conn().query(tmp.toStdString(), mongo::Query(a_query), 0, 0, a_fields);
+
         qDebug() << "after cursor created";
 
         if ( !cursor->more() ) {
+            replicaset->done();
             return BSONObj();
         }
-        return cursor->nextSafe().copy();
+        else
+        {
+            BSONObj data = cursor->nextSafe().copy();
+            replicaset->done();
+            return data;
+        }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on find into " << m_server.toAscii().data() << "." << a_document.data() << " : " << e.what() << std::endl;
@@ -370,10 +355,10 @@ BSONObj Nosql::Find(string a_document, const BSONObj a_query, BSONObj *a_fields)
 
 
 
-QList <BSONObj> Nosql::FindAll(string a_document, const bo datas)
+QList <BSONObj> Mongodb::FindAll(string a_document, const bo datas)
 {
     QMutexLocker locker(m_mutex);
-    qDebug() << "Nosql::FindAll";
+    qDebug() << "Mongodb::FindAll";
 
     QString tmp;
     tmp.append(this->m_database).append(".").append(a_document.data());
@@ -382,14 +367,20 @@ QList <BSONObj> Nosql::FindAll(string a_document, const bo datas)
     std::cout << "element : " << datas.jsonString(Strict) << std::endl;
 
     QList <BSONObj> res;
+    ScopedDbConnection *replicaset;
+
     try {
         qDebug() << "before cursor created";
-        auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toAscii().data(), mongo::Query(datas));
+       // auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toAscii().data(), mongo::Query(datas));
+        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+        auto_ptr<DBClientCursor> cursor = replicaset->conn().query(tmp.toStdString(), mongo::Query(datas));
+
         qDebug() << "after cursor created";
 
         while( cursor->more() ) {
             res << cursor->nextSafe().copy();
         }
+        replicaset->done();
         return res;
     }
     catch(mongo::DBException &e ) {
@@ -401,11 +392,11 @@ QList <BSONObj> Nosql::FindAll(string a_document, const bo datas)
 
 
 
-bo Nosql::ExtractJSON(const be &gfs_id)
+bo Mongodb::ExtractJSON(const be &gfs_id)
 {        
     QMutexLocker locker(m_mutex);
 
-    qDebug() << "Nosql::ExtractJSON";
+    qDebug() << "Mongodb::ExtractJSON";
     bo m_bo_json;
 
     cout << "gfs_id : " << gfs_id.jsonString(TenGen) << endl;
@@ -436,7 +427,7 @@ bo Nosql::ExtractJSON(const be &gfs_id)
             }
             catch(mongo::DBException &e ) {
                 std::cout << "caught on parsing json file : " << e.what() << std::endl;
-                qDebug() << "Nosql::ExtractJSON ERROR ON GRIDFS";
+                qDebug() << "Mongodb::ExtractJSON ERROR ON GRIDFS";
             }
 
             //std::cout << "m_bo_json : " << m_bo_json << std::endl;
@@ -459,11 +450,11 @@ bo Nosql::ExtractJSON(const be &gfs_id)
 
 
 
-QBool Nosql::ExtractBinary(const be &gfs_id, string path, QString &filename)
+QBool Mongodb::ExtractBinary(const be &gfs_id, string path, QString &filename)
 {
     QMutexLocker locker(m_mutex);
 
-    qDebug() << "Nosql::ExtractBinary";
+    qDebug() << "Mongodb::ExtractBinary";
 
     bo gfsid = BSON("_id" << gfs_id);
 
@@ -489,130 +480,164 @@ QBool Nosql::ExtractBinary(const be &gfs_id, string path, QString &filename)
     return QBool(false);
 }
 
-QBool Nosql::ReadFile(const be &gfs_id, const mongo::GridFile **a_gf)
+QBool Mongodb::ReadFile(const be &gfs_id, const mongo::GridFile **a_gf)
 {
-    std::cout << "Nosql::ReadFile : " << gfs_id << std::endl;
-    try {
-        for (int i = 0; i < 5; i++)
-        {
-            qDebug() << "Nosql::ReadFile BEFORE GRID";
-            *a_gf = new mongo::GridFile(this->m_gfs->findFile(gfs_id.wrap()));
+    std::cout << "Mongodb::ReadFile : " << gfs_id << std::endl;
+    ScopedDbConnection *replicaset;
 
-            qDebug() << "Nosql::ReadFile OPEN";
-            if (!(*a_gf)->exists()) {
-                std::cout << "file not found, sleep and retry, counter : " << i << std::endl;
-                delete(*a_gf);
-                sleep(1);
+    try {
+        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+        if (!replicaset->ok())
+        {
+            GridFS gfs(replicaset->conn(), m_database.toAscii().data());
+
+            for (int i = 0; i < 5; i++)
+            {
+                qDebug() << "Mongodb::ReadFile BEFORE GRID";
+                *a_gf = new mongo::GridFile(gfs.findFile(gfs_id.wrap()));
+
+                qDebug() << "Mongodb::ReadFile OPEN";
+                if (!(*a_gf)->exists()) {
+                    std::cout << "file not found, sleep and retry, counter : " << i << std::endl;
+                    delete(*a_gf);
+                    sleep(1);
+                }
+                else break;
             }
-            else break;
+            replicaset->done();
+            return QBool(true);
         }
-         return QBool(true);
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on get file : " << e.what() << std::endl;
-        qDebug() << "Nosql::ReadFile ERROR ON GRIDFS";
+        qDebug() << "Mongodb::ReadFile ERROR ON GRIDFS";
         return QBool(false);
     }
 }
 
-int Nosql::GetNumChunck(const be &gfs_id)
+int Mongodb::GetNumChunck(const be &gfs_id)
 {
     QMutexLocker locker(m_mutex);
+    ScopedDbConnection *replicaset;
 
-    std::cout << "Nosql::GetNumChunck : " << gfs_id << std::endl;
+    std::cout << "Mongodb::GetNumChunck : " << gfs_id << std::endl;
     try {
+        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+        if (!replicaset->ok())
+        {
+            GridFS gfs(replicaset->conn(), m_database.toAscii().data());
 
 
-        qDebug() << "Nosql::ExtractByChunck BEFORE GRID";
-            const mongo::GridFile *m_grid_file = new mongo::GridFile(this->m_gfs->findFile(gfs_id.wrap()));
 
-            qDebug() << "Nosql::ExtractByChunck OPEN";
+            qDebug() << "Mongodb::ExtractByChunck BEFORE GRID";
+            const mongo::GridFile *m_grid_file = new mongo::GridFile(gfs.findFile(gfs_id.wrap()));
+
+            qDebug() << "Mongodb::ExtractByChunck OPEN";
             if (!m_grid_file->exists()) {
-                std::cout << "Nosql::ExtractByChunck file not found" << std::endl;
+                std::cout << "Mongodb::ExtractByChunck file not found" << std::endl;
                 delete(m_grid_file);
                 return -1;
             }
             else
             {
                 const int num = m_grid_file->getNumChunks();
-                std::cout << "Nosql::ExtractByChunck FILE NAME : " << m_grid_file->getFilename() << std::endl;
-                std::cout << "Nosql::ExtractByChunck NUM CHUCK : " << num << std::endl;
+                std::cout << "Mongodb::ExtractByChunck FILE NAME : " << m_grid_file->getFilename() << std::endl;
+                std::cout << "Mongodb::ExtractByChunck NUM CHUCK : " << num << std::endl;
 
                 return num;
             }
+        }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on get file : " << e.what() << std::endl;
-        qDebug() << "Nosql::GetNumChunck ERROR ON GRIDFS";
+        qDebug() << "Mongodb::GetNumChunck ERROR ON GRIDFS";
         return -1;
     }
 }
 
 
-string Nosql::GetFilename(const be &gfs_id)
+string Mongodb::GetFilename(const be &gfs_id)
 {
     QMutexLocker locker(m_mutex);
 
-    std::cout << "Nosql::GetFilename : " << gfs_id << std::endl;
+    std::cout << "Mongodb::GetFilename : " << gfs_id << std::endl;
 
+    ScopedDbConnection *replicaset;
 
 
     try {
-        qDebug() << "Nosql::GetFilename BEFORE GRID";
-            const mongo::GridFile *m_grid_file = new mongo::GridFile(this->m_gfs->findFile(gfs_id.wrap()));
+        qDebug() << "Mongodb::GetFilename BEFORE GRID";
+        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+        if (!replicaset->ok())
+        {
+            GridFS gfs(replicaset->conn(), m_database.toAscii().data());
 
-            qDebug() << "Nosql::GetFilename OPEN";
+            //const mongo::GridFile *m_grid_file = new mongo::GridFile(this->m_gfs->findFile(gfs_id.wrap()));
+            const mongo::GridFile *m_grid_file = new mongo::GridFile(gfs.findFile(gfs_id.wrap()));
+
+            qDebug() << "Mongodb::GetFilename OPEN";
             if (!m_grid_file->exists()) {
-                std::cout << "Nosql::ExtractByChunck file not found" << std::endl;
+                std::cout << "Mongodb::GetFilename file not found" << std::endl;
                 delete(m_grid_file);
+                replicaset->done();
                 return "";
             }
             else
             {
                 string filename = m_grid_file->getFilename();
-                std::cout << "Nosql::GetFilename FILE NAME : " << filename << std::endl;
+                std::cout << "Mongodb::GetFilename FILE NAME : " << filename << std::endl;
+                replicaset->done();
                 return filename;
             }
+        }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on get file : " << e.what() << std::endl;
-        qDebug() << "Nosql::GetFilename ERROR ON GRIDFS";
+        qDebug() << "Mongodb::GetFilename ERROR ON GRIDFS";
         return "";
     }
 }
 
 
 
-BSONObj Nosql::GetGfsid(const string filename)
+BSONObj Mongodb::GetGfsid(const string filename)
 {
     QMutexLocker locker(m_mutex);
+    ScopedDbConnection *replicaset;
 
-    std::cout << "Nosql::GetGfsid : " << filename << std::endl;
+    std::cout << "Mongodb::GetGfsid : " << filename << std::endl;
     BSONElement gfsid;
     BSONObj gfsid_;
 
     try {
-        qDebug() << "Nosql::GetFilename BEFORE GRID";
-            const mongo::GridFile *m_grid_file = new mongo::GridFile(this->m_gfs->findFile(filename));
+        qDebug() << "Mongodb::GetFilename BEFORE GRID";
+        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+        if (!replicaset->ok())
+        {
+            GridFS gfs(replicaset->conn(), m_database.toAscii().data());
 
-            qDebug() << "Nosql::GetGfsid OPEN";
+
+            const mongo::GridFile *m_grid_file = new mongo::GridFile(gfs.findFile(filename));
+
+            qDebug() << "Mongodb::GetGfsid OPEN";
             if (!m_grid_file->exists()) {
-                std::cout << "Nosql::GetGfsid file not found" << std::endl;
+                std::cout << "Mongodb::GetGfsid file not found" << std::endl;
                 delete(m_grid_file);
                 return gfsid_;
             }
             else
             {
                 gfsid = m_grid_file->getFileField("_id");
-                std::cout << "Nosql::GetGfsid : " << gfsid << std::endl;
+                std::cout << "Mongodb::GetGfsid : " << gfsid << std::endl;
                 gfsid_ = BSON("_id" << gfsid);
-                std::cout << "Nosql::GetGfsid2 : " << gfsid_ << std::endl;
+                std::cout << "Mongodb::GetGfsid2 : " << gfsid_ << std::endl;
                 return gfsid_;
             }
+        }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on get file : " << e.what() << std::endl;
-        qDebug() << "Nosql::GetGfsid ERROR ON GRIDFS";
+        qDebug() << "Mongodb::GetGfsid ERROR ON GRIDFS";
         return gfsid_;
     }
 }
@@ -620,60 +645,73 @@ BSONObj Nosql::GetGfsid(const string filename)
 
 
 
-QBool Nosql::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &chunk_data, int &chunk_length)
+QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &chunk_data, int &chunk_length)
 {
     QMutexLocker locker(m_mutex);
+    ScopedDbConnection *replicaset;
 
-    std::cout << "Nosql::ExtractByChunck : " << gfs_id << std::endl;
+    std::cout << "Mongodb::ExtractByChunck : " << gfs_id << std::endl;
     try {
-        for (int i = 0; i < 5; i++)
+        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+        if (!replicaset->ok())
         {
-            qDebug() << "Nosql::ExtractByChunck BEFORE GRID";
-            const mongo::GridFile *m_grid_file = new mongo::GridFile(this->m_gfs->findFile(gfs_id.wrap()));
+            GridFS gfs(replicaset->conn(), m_database.toAscii().data());
 
-            qDebug() << "Nosql::ExtractByChunck OPEN";
-            if (!m_grid_file->exists()) {
-                std::cout << "file not found, sleep and retry, counter : " << i << std::endl;
-                delete(m_grid_file);
-                sleep(1);
-            }
-            else
+
+            for (int i = 0; i < 5; i++)
             {
-                std::cout << "Nosql::ExtractByChunck BEFORE GET CHUNCK " << std::endl;
-                GridFSChunk chunk = m_grid_file->getChunk( chunk_index );
-                std::cout << "Nosql::ExtractByChunck AFTER GET CHUNCK " << std::endl;
+                qDebug() << "Mongodb::ExtractByChunck BEFORE GRID";
+                //const mongo::GridFile *m_grid_file = new mongo::GridFile(this->m_gfs->findFile(gfs_id.wrap()));
+                const mongo::GridFile *m_grid_file = new mongo::GridFile(gfs.findFile(gfs_id.wrap()));
 
-                const char *l_chunk_data = chunk.data( chunk_length );
-
-                std::cout << "Nosql::ExtractByChunck CHUNCK LEN : " << chunk_length << std::endl;
-
-
-                if (chunk_length != 0)
-                {
-                    //*chunk_data = (char*) malloc(chunk_length);
-                    //memcpy(*chunk_data, l_chunk_data, chunk_length);
-
-                    //chunk_data.setRawData(l_chunk_data, chunk_length);
-                    chunk_data.append(l_chunk_data, chunk_length);
-
-                    std::cout << "Nosql::ExtractByChunck CHUNCK SIZE : " << chunk_data.size() << std::endl;
-
+                qDebug() << "Mongodb::ExtractByChunck OPEN";
+                if (!m_grid_file->exists()) {
+                    std::cout << "file not found, sleep and retry, counter : " << i << std::endl;
                     delete(m_grid_file);
-                    return QBool(true);
+                    sleep(1);
                 }
                 else
                 {
-                    //*chunk_data = NULL;
-                    chunk_data.clear();
-                    delete(m_grid_file);
-                    return QBool(false);
+                    std::cout << "Mongodb::ExtractByChunck BEFORE GET CHUNCK " << std::endl;
+                    GridFSChunk chunk = m_grid_file->getChunk( chunk_index );
+                    std::cout << "Mongodb::ExtractByChunck AFTER GET CHUNCK " << std::endl;
+
+                    const char *l_chunk_data = chunk.data( chunk_length );
+
+                    std::cout << "Mongodb::ExtractByChunck CHUNCK LEN : " << chunk_length << std::endl;
+
+
+                    if (chunk_length != 0)
+                    {
+                        //*chunk_data = (char*) malloc(chunk_length);
+                        //memcpy(*chunk_data, l_chunk_data, chunk_length);
+
+                        //chunk_data.setRawData(l_chunk_data, chunk_length);
+                        chunk_data.append(l_chunk_data, chunk_length);
+
+                        std::cout << "Mongodb::ExtractByChunck CHUNCK SIZE : " << chunk_data.size() << std::endl;
+
+                        delete(m_grid_file);
+                        replicaset->done();
+                        return QBool(true);
+                    }
+                    else
+                    {
+                        //*chunk_data = NULL;
+                        chunk_data.clear();
+                        delete(m_grid_file);
+                        replicaset->done();
+                        return QBool(false);
+                    }
                 }
             }
+
         }
+
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on get file : " << e.what() << std::endl;
-        qDebug() << "Nosql::ExtractByChunck ERROR ON GRIDFS";
+        qDebug() << "Mongodb::ExtractByChunck ERROR ON GRIDFS";
         return QBool(false);
     }
 }
@@ -685,34 +723,52 @@ QBool Nosql::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &chun
 
 
 
-BSONObj Nosql::WriteFile(const string filename, const char *data, int size)
+BSONObj Mongodb::WriteFile(const string filename, const char *data, int size)
 {        
     QMutexLocker locker(m_mutex);
+    ScopedDbConnection *replicaset;
 
     BSONObj struct_file;
     try {
-        struct_file = this->m_gfs->storeFile(data, size, filename, "application/octet-stream");
+        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+        if (!replicaset->ok())
+        {
+            //struct_file = this->m_gfs->storeFile(data, size, filename, "application/octet-stream");
+            GridFS gfs(replicaset->conn(), m_database.toAscii().data());
+
+            struct_file = gfs.storeFile(data, size, filename, "application/octet-stream");
+
+        }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on write file : " << e.what() << std::endl;
-        qDebug() << "Nosql::WriteFile ERROR ON GRIDFS";
+        qDebug() << "Mongodb::WriteFile ERROR ON GRIDFS";
     }        
+    replicaset->done();
     return struct_file;
 }
 
-QBool Nosql::Insert(QString a_document, BSONObj a_datas)
+QBool Mongodb::Insert(QString a_document, BSONObj a_datas)
 {        
     QMutexLocker locker(m_mutex);
 
-    qDebug() << "Nosql::Insert";
+    qDebug() << "Mongodb::Insert";
     QString tmp;
     tmp.append(m_database).append(".").append(a_document);
 
-    qDebug() << "Nosql::Insert tmp : " << tmp;
+    qDebug() << "Mongodb::Insert tmp : " << tmp;
+    ScopedDbConnection *replicaset;
 
 
  try {
-        this->m_mongo_connection.insert(tmp.toAscii().data(), a_datas);
+        //this->m_mongo_connection.insert(tmp.toAscii().data(), a_datas);
+        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+        if (replicaset->ok())
+        {
+            replicaset->conn().insert(tmp.toAscii().data(), a_datas);
+            replicaset->done();
+            return QBool(true);
+        }
         qDebug() << m_server + "." + a_document + " inserted";
         //return QBool(true);
     }
@@ -720,7 +776,7 @@ QBool Nosql::Insert(QString a_document, BSONObj a_datas)
         std::cout << "caught on insert into " << m_server.toAscii().data() << "." << a_document.toAscii().data() << " : " << e.what() << std::endl;
         //return QBool(false);
     }
-    return QBool(true);
+    return QBool(false);
 }
 
 
@@ -728,37 +784,45 @@ QBool Nosql::Insert(QString a_document, BSONObj a_datas)
 
 
 
-QBool Nosql::Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas, bool upsert, bool multi)
+QBool Mongodb::Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas, bool upsert, bool multi)
 {        
     QMutexLocker locker(m_mutex);
 
-    qDebug() << "Nosql::Update";
+    qDebug() << "Mongodb::Update";
     QString tmp;
     BSONObj data = BSON( "$set" << a_datas);
 
     std::cout << "QUERY DATA : " << data << std::endl;
 
     tmp.append(m_database).append(".").append(a_document);
-    qDebug() << "Nosql::Update tmp : " << tmp;
+    qDebug() << "Mongodb::Update tmp : " << tmp;
+    ScopedDbConnection *replicaset;
 
  try {
-        this->m_mongo_connection.update(tmp.toAscii().data(), mongo::Query(element_id), data, upsert ,multi);
-        qDebug() << m_server + "." + a_document + " updated";
-        return QBool(true);
+        //this->m_mongo_connection.update(tmp.toAscii().data(), mongo::Query(element_id), data, upsert ,multi);
+        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+        if (replicaset->ok())
+        {
+            replicaset->conn().update(tmp.toAscii().data(), mongo::Query(element_id), data, upsert ,multi);
+            replicaset->done();
+            qDebug() << m_server + "." + a_document + " updated";
+            return QBool(true);
+        }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on update into " << m_server.toAscii().data() << "." << a_document.toAscii().data() << " : " << e.what() << std::endl;
         return QBool(false);
     }
+    return QBool(false);
 }
 
 
 
-QBool Nosql::Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas, BSONObj a_options, bool upsert, bool multi)
+QBool Mongodb::Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas, BSONObj a_options, bool upsert, bool multi)
 {
     QMutexLocker locker(m_mutex);
 
-    qDebug() << "Nosql::Update with options";
+    qDebug() << "Mongodb::Update with options";
     QString tmp;
     BSONObjBuilder b_data;
     b_data << "$set" << a_datas;
@@ -768,64 +832,88 @@ QBool Nosql::Update(QString a_document, const BSONObj &element_id, const BSONObj
     std::cout << "QUERY DATA : " << data << std::endl;
 
     tmp.append(m_database).append(".").append(a_document);
-    qDebug() << "Nosql::Update tmp : " << tmp;
+    qDebug() << "Mongodb::Update tmp : " << tmp;
+    ScopedDbConnection *replicaset;
 
  try {
-        this->m_mongo_connection.update(tmp.toAscii().data(), mongo::Query(element_id), data, upsert ,multi);
-        qDebug() << m_server + "." + a_document + " updated";
-        return QBool(true);
+        //this->m_mongo_connection.update(tmp.toAscii().data(), mongo::Query(element_id), data, upsert ,multi);
+        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+        if (replicaset->ok())
+        {
+            replicaset->conn().update(tmp.toAscii().data(), mongo::Query(element_id), data, upsert ,multi);
+            replicaset->done();
+            qDebug() << m_server + "." + a_document + " updated";
+            return QBool(true);
+        }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on update into " << m_server.toAscii().data() << "." << a_document.toAscii().data() << " : " << e.what() << std::endl;
         return QBool(false);
     }
+    return QBool(false);
 }
 
 
-QBool Nosql::Update_raw(mongo_query a_query)
+QBool Mongodb::Update_raw(mongo_query a_query)
 {
     QMutexLocker locker(m_mutex);
 
-    qDebug() << "Nosql::Update_raw";
+    qDebug() << "Mongodb::Update_raw";
     QString db;
 
     //std::cout << "QUERY DATA : " << a_query << std::endl;
 
     db.append(m_database).append(".").append(a_query.document);
-    qDebug() << "Nosql::Update db : " << db;
+    qDebug() << "Mongodb::Update db : " << db;
+    ScopedDbConnection *replicaset;
 
  try {
-        this->m_mongo_connection.update(db.toAscii().data(), a_query.query, a_query.data, true);
-        qDebug() << m_server + "." + a_query.document + " updated";
-        return QBool(true);
+        //this->m_mongo_connection.update(db.toAscii().data(), a_query.query, a_query.data, true);
+        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+        if (replicaset->ok())
+        {
+            replicaset->conn().update(db.toAscii().data(), a_query.query, a_query.data, true);
+            replicaset->done();
+            qDebug() << m_server + "." + a_query.document + " updated";
+            return QBool(true);
+        }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on update into " << db.toAscii().data() << " : " << e.what() << std::endl;
         return QBool(false);
     }
+    return QBool(false);
 }
 
 
-QBool Nosql::Addtoarray(QString a_document, const BSONObj &element_id, const BSONObj &a_datas)
+QBool Mongodb::Addtoarray(QString a_document, const BSONObj &element_id, const BSONObj &a_datas)
 {
     QMutexLocker locker(m_mutex);
 
-    qDebug() << "Nosql::Addtoarray";
+    qDebug() << "Mongodb::Addtoarray";
     QString tmp;
     BSONObj data = BSON( "$addToSet" << a_datas);
 
     tmp.append(m_database).append(".").append(a_document);
-    qDebug() << "Nosql::Addtoarray tmp : " << tmp;
+    qDebug() << "Mongodb::Addtoarray tmp : " << tmp;
+    ScopedDbConnection *replicaset;
 
  try {
-        this->m_mongo_connection.update(tmp.toAscii().data(), mongo::Query(element_id), data);
-        qDebug() << m_server + "." + a_document + " updated";
-        return QBool(true);
+        //this->m_mongo_connection.update(tmp.toAscii().data(), mongo::Query(element_id), data);
+        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+        if (replicaset->ok())
+        {
+            replicaset->conn().update(tmp.toAscii().data(), mongo::Query(element_id), data);
+            replicaset->done();
+            qDebug() << m_server + "." + a_document + " updated";
+            return QBool(true);
+        }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on update into " << m_server.toAscii().data() << "." << a_document.toAscii().data() << " : " << e.what() << std::endl;
         return QBool(false);
     }
+    return QBool(false);
 }
 
 
@@ -836,7 +924,7 @@ QBool Nosql::Addtoarray(QString a_document, const BSONObj &element_id, const BSO
 
 
 
-void Nosql::bt_load_torrents(QHash<QString, bt_torrent> &bt_torrents) {
+void Mongodb::bt_load_torrents(QHash<QString, bt_torrent> &bt_torrents) {
    mongo::BSONObj fields = BSON("id" << 1 << "info_hash" << 1 << "freetorrent" << 1 << "snatched" << 1);
 
    QString db;
@@ -875,7 +963,7 @@ void Nosql::bt_load_torrents(QHash<QString, bt_torrent> &bt_torrents) {
 
 }
 
-void Nosql::bt_load_users(QHash<QString, bt_user> &bt_users) {
+void Mongodb::bt_load_users(QHash<QString, bt_user> &bt_users) {
    //"SELECT ID, can_leech, torrent_pass FROM users_main WHERE Enabled='1';"
    mongo::BSONObj fields = BSON("id" << 1 << "can_leech" << 1 << "torrent_pass" << 1);
    QString db;
@@ -906,7 +994,7 @@ void Nosql::bt_load_users(QHash<QString, bt_user> &bt_users) {
 
 }
 
-void Nosql::bt_load_tokens(QHash<QString, bt_torrent> &bt_torrents) {
+void Mongodb::bt_load_tokens(QHash<QString, bt_torrent> &bt_torrents) {
    //"SELECT uf.UserID, t.info_hash FROM users_freeleeches AS uf JOIN torrents AS t ON t.ID = uf.TorrentID WHERE uf.Expired = '0';"
    //
    mongo::BSONObj fields = BSON("id" << 1 <<  "freeleeches.info_hash" << 1);
@@ -935,7 +1023,7 @@ void Nosql::bt_load_tokens(QHash<QString, bt_torrent> &bt_torrents) {
 }
 
 
-void Nosql::bt_load_whitelist(QVector<QString> &whitelist) {
+void Mongodb::bt_load_whitelist(QVector<QString> &whitelist) {
    //"SELECT peer_id FROM xbt_client_whitelist;"
    mongo::BSONObj fields = BSON("peer_id" << 1);
    QString db;
@@ -957,7 +1045,7 @@ void Nosql::bt_load_whitelist(QVector<QString> &whitelist) {
    }
 }
 
-void Nosql::bt_record_token(int uid, int tid, long long downloaded_change) {
+void Mongodb::bt_record_token(int uid, int tid, long long downloaded_change) {
    QMutexLocker locker(user_token_lock);
 
    mongo_query m;
@@ -968,7 +1056,7 @@ void Nosql::bt_record_token(int uid, int tid, long long downloaded_change) {
    update_token_buffer.push_back(m);
 }
 
-void Nosql::bt_record_user(int id, long long uploaded_change, long long downloaded_change) {
+void Mongodb::bt_record_user(int id, long long uploaded_change, long long downloaded_change) {
    QMutexLocker locker(user_buffer_lock);
 
    mongo_query m;
@@ -983,7 +1071,7 @@ void Nosql::bt_record_user(int id, long long uploaded_change, long long download
 
 
 //TODO: last_action = IF(VALUES(Seeders) > 0, NOW(), last_action);
-void Nosql::bt_record_torrent(int tid, int seeders, int leechers, int snatched_change, int balance) {
+void Mongodb::bt_record_torrent(int tid, int seeders, int leechers, int snatched_change, int balance) {
    QMutexLocker locker(torrent_buffer_lock);
 
    mongo_query m;
@@ -1003,7 +1091,7 @@ void Nosql::bt_record_torrent(int tid, int seeders, int leechers, int snatched_c
 
 // TODO: Double check timespet is correctly upserted and mtime
 // Deal with ip, peer_id, useragent better
-void Nosql::bt_record_peer(int uid, int fid, int active, std::string peerid, std::string useragent, std::string &ip, long long uploaded, long long downloaded, long long upspeed, long long downspeed, long long left, time_t timespent, unsigned int announces) {
+void Mongodb::bt_record_peer(int uid, int fid, int active, std::string peerid, std::string useragent, std::string &ip, long long uploaded, long long downloaded, long long upspeed, long long downspeed, long long left, time_t timespent, unsigned int announces) {
    QMutexLocker locker(peer_buffer_lock);
 
    mongo_query m;
@@ -1014,7 +1102,7 @@ void Nosql::bt_record_peer(int uid, int fid, int active, std::string peerid, std
    update_peer_buffer.push_back(m);
 }
 
-void Nosql::bt_record_peer_hist(int uid, long long downloaded, long long left, long long uploaded, long long upspeed, long long downspeed, long long tstamp, std::string &peer_id, int tid) {
+void Mongodb::bt_record_peer_hist(int uid, long long downloaded, long long left, long long uploaded, long long upspeed, long long downspeed, long long tstamp, std::string &peer_id, int tid) {
    QMutexLocker locker(peer_hist_buffer_lock);
 
    mongo_query m;
@@ -1025,7 +1113,7 @@ void Nosql::bt_record_peer_hist(int uid, long long downloaded, long long left, l
    update_peer_hist_buffer.push_back(m);
 }
 
-void Nosql::bt_record_snatch(int uid, int tid, time_t tstamp, std::string ip) {
+void Mongodb::bt_record_snatch(int uid, int tid, time_t tstamp, std::string ip) {
    QMutexLocker locker(snatch_buffer_lock);
 
    mongo_query m;
@@ -1036,11 +1124,11 @@ void Nosql::bt_record_snatch(int uid, int tid, time_t tstamp, std::string ip) {
    update_snatch_buffer.push_back(m);
 }
 
-bool Nosql::bt_all_clear() {
+bool Mongodb::bt_all_clear() {
    return (user_queue.size() == 0 && torrent_queue.size() == 0 && peer_queue.size() == 0 && snatch_queue.size() == 0 && token_queue.size() == 0 && peer_hist_queue.size() == 0);
 }
 
-void Nosql::bt_flush() {
+void Mongodb::bt_flush() {
    bt_flush_users();
    bt_flush_torrents();
    bt_flush_snatches();
@@ -1049,7 +1137,7 @@ void Nosql::bt_flush() {
    bt_flush_tokens();
 }
 
-void Nosql::bt_flush_users() {
+void Mongodb::bt_flush_users() {
    QMutexLocker locker(user_buffer_lock);
 
    if (update_user_buffer.empty()) {
@@ -1058,11 +1146,11 @@ void Nosql::bt_flush_users() {
    user_queue.push(update_user_buffer);
    update_user_buffer.clear();
    if (user_queue.size() == 1 && u_active == false) {
-      //boost::thread thread(&Nosql::bt_do_flush_users, this);
+      //boost::thread thread(&Mongodb::bt_do_flush_users, this);
    }
 }
 
-void Nosql::bt_flush_torrents() {
+void Mongodb::bt_flush_torrents() {
    QMutexLocker locker(torrent_buffer_lock);
 
    if (update_torrent_buffer.empty()) {
@@ -1072,11 +1160,11 @@ void Nosql::bt_flush_torrents() {
    update_torrent_buffer.clear();
 
    if (torrent_queue.size() == 1 && t_active == false) {
-      //boost::thread thread(&Nosql::bt_do_flush_torrents, this);
+      //boost::thread thread(&Mongodb::bt_do_flush_torrents, this);
    }
 }
 
-void Nosql::bt_flush_snatches() {
+void Mongodb::bt_flush_snatches() {
    QMutexLocker locker(snatch_buffer_lock);
 
    if (update_snatch_buffer.empty()) {
@@ -1085,11 +1173,11 @@ void Nosql::bt_flush_snatches() {
    snatch_queue.push(update_snatch_buffer);
    update_snatch_buffer.clear();
    if (snatch_queue.size() == 1 && s_active == false) {
-      //boost::thread thread(&Nosql::bt_do_flush_snatches, this);
+      //boost::thread thread(&Mongodb::bt_do_flush_snatches, this);
    }
 }
 
-void Nosql::bt_flush_peers() {
+void Mongodb::bt_flush_peers() {
    QMutexLocker locker(peer_buffer_lock);
 
    // because xfu inserts are slow and ram is not infinite we need to
@@ -1110,11 +1198,11 @@ void Nosql::bt_flush_peers() {
    peer_queue.push(update_peer_buffer);
    update_peer_buffer.clear();
    if (peer_queue.size() == 1 && p_active == false) {
-      //boost::thread thread(&Nosql::bt_do_flush_peers, this);
+      //boost::thread thread(&Mongodb::bt_do_flush_peers, this);
    }
 }
 
-void Nosql::bt_flush_peer_hist() {
+void Mongodb::bt_flush_peer_hist() {
    QMutexLocker locker(peer_hist_buffer_lock);
 
    if (update_peer_hist_buffer.empty()) {
@@ -1130,11 +1218,11 @@ void Nosql::bt_flush_peer_hist() {
    peer_hist_queue.push(update_peer_hist_buffer);
    update_peer_hist_buffer.clear();
    if (peer_hist_queue.size() == 1 && hist_active == false) {
-      //boost::thread thread(&Nosql::bt_do_flush_peer_hist, this);
+      //boost::thread thread(&Mongodb::bt_do_flush_peer_hist, this);
    }
 }
 
-void Nosql::bt_flush_tokens() {
+void Mongodb::bt_flush_tokens() {
    std::string sql;
    QMutexLocker locker(user_token_lock);
 
@@ -1144,11 +1232,11 @@ void Nosql::bt_flush_tokens() {
    token_queue.push(update_token_buffer);
    update_token_buffer.clear();
    if (token_queue.size() == 1 && tok_active == false) {
-      //boost::thread(&Nosql::bt_do_flush_tokens, this);
+      //boost::thread(&Mongodb::bt_do_flush_tokens, this);
    }
 }
 
-void Nosql::bt_do_flush_users() {
+void Mongodb::bt_do_flush_users() {
    u_active = true;
    mongo::DBClientConnection c;
   // c.connect(server);
@@ -1177,7 +1265,7 @@ void Nosql::bt_do_flush_users() {
    u_active = false;
 }
 
-void Nosql::bt_do_flush_torrents() {
+void Mongodb::bt_do_flush_torrents() {
    t_active = true;
    mongo::DBClientConnection c;
    //c.connect(server);
@@ -1207,7 +1295,7 @@ void Nosql::bt_do_flush_torrents() {
    t_active = false;
 }
 
-void Nosql::bt_do_flush_peers() {
+void Mongodb::bt_do_flush_peers() {
    p_active = true;
    mongo::DBClientConnection c;
    //c.connect(server);
@@ -1237,7 +1325,7 @@ void Nosql::bt_do_flush_peers() {
    p_active = false;
 }
 
-void Nosql::bt_do_flush_peer_hist() {
+void Mongodb::bt_do_flush_peer_hist() {
    hist_active = true;
    mongo::DBClientConnection c;
    //c.connect(server);
@@ -1267,7 +1355,7 @@ void Nosql::bt_do_flush_peer_hist() {
    hist_active = false;
 }
 
-void Nosql::bt_do_flush_snatches() {
+void Mongodb::bt_do_flush_snatches() {
    s_active = true;
    mongo::DBClientConnection c;
    //c.connect(server);
@@ -1297,7 +1385,7 @@ void Nosql::bt_do_flush_snatches() {
    s_active = false;
 }
 
-void Nosql::bt_do_flush_tokens() {
+void Mongodb::bt_do_flush_tokens() {
    tok_active = true;
    mongo::DBClientConnection c;
    //c.connect(server);

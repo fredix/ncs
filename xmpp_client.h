@@ -34,7 +34,7 @@
 #include "QXmppIncomingClient.h"
 #include <QXmppTransferManager.h>
 
-#include "nosql.h"
+#include "mongodb.h"
 #include "zeromq.h"
 
 
@@ -58,7 +58,7 @@ private:
     zmq::socket_t *z_push_api;
     zmq::message_t *z_message;
 
-    Nosql *nosql_;
+    Mongodb *mongodb_;
     Zeromq *zeromq_;
     bool checkAuth(QString credentials, BSONObjBuilder &payload);
     QString buildResponse(QString action, QString data1, QString data2="");

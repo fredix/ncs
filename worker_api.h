@@ -21,7 +21,7 @@
 #ifndef ZEROMQ_API_H
 #define ZEROMQ_API_H
 
-#include "nosql.h"
+#include "mongodb.h"
 #include "zeromq.h"
 
 class Worker_api : public QObject
@@ -43,7 +43,7 @@ private:
     zmq::message_t *z_message_publish;
     zmq::message_t *z_message_publish_replay;
 
-    Nosql *nosql_;
+    Mongodb *mongodb_;
     Zeromq *zeromq_;
 
 public slots:

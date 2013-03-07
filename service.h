@@ -22,7 +22,7 @@
 #define SERVICE_H
 
 #include <QThread>
-#include "nosql.h"
+#include "mongodb.h"
 #include "zeromq.h"
 #include "http_api.h"
 #include "tracker.h"

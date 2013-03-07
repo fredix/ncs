@@ -43,8 +43,7 @@ Http_api::Http_api(QxtAbstractWebSessionManager * sm, QObject * parent): QxtWebS
 
 */
 
-    nosql_ = Nosql::getInstance_front();
-    //nosql_ = Nosql::getInstance_back();
+    mongodb_ = Mongodb::getInstance ();
     zeromq_ = Zeromq::getInstance ();
 
     z_message = new zmq::message_t(2);
@@ -111,7 +110,7 @@ QBool Http_api::http_auth(QString auth, QHash <QString, QString> &hauth)
     BSONObj bauth = BSON("email" << hauth["email"].toStdString() << "password" << QString::fromLatin1(password_hash.toHex()).toStdString());
 
 
-    BSONObj l_user = nosql_->Find("users", bauth);
+    BSONObj l_user = mongodb_->Find("users", bauth);
 
     if (l_user.nFields() == 0)
     {
@@ -154,7 +153,7 @@ QBool Http_api::checkAuth(QString token, BSONObjBuilder &payload_builder, bo &a_
 
     std::cout << "USER TOKEN : " << auth << std::endl;
 
-    BSONObj l_user = nosql_->Find("users", auth);
+    BSONObj l_user = mongodb_->Find("users", auth);
     if (l_user.nFields() == 0)
     {
         qDebug() << "auth failed !";
@@ -279,14 +278,14 @@ void Http_api::node(QxtWebRequestEvent* event, QString token)
             be user_id = user.getField("_id");
 
             //bo node_uuid = BSON("nodes" << BSON(GENOID << "uuid" << str_uuid.toStdString() <<  "nodename" << nodename.toStdString()));
-            //nosql_.Addtoarray("users", user_id.wrap(), node_uuid);
+            //mongodb_.Addtoarray("users", user_id.wrap(), node_uuid);
 
             bo l_node = payload_builder.obj();
 
             bo node = BSON("nodes" << l_node);
-            nosql_->Addtoarray("users", user_id.wrap(), node);
+            mongodb_->Addtoarray("users", user_id.wrap(), node);
 
-            nosql_->Insert("nodes", l_node);
+            mongodb_->Insert("nodes", l_node);
 
 
             /****** PUSH API PAYLOAD *******
@@ -398,8 +397,8 @@ void Http_api::workflow(QxtWebRequestEvent* event, QString action)
 
             BSONObj workflow = BSON("workflows" << l_workflow);
 
-            nosql_->Addtoarray("users", user_id.wrap(), workflow);
-            nosql_->Insert("workflows", l_workflow);
+            mongodb_->Addtoarray("users", user_id.wrap(), workflow);
+            mongodb_->Insert("workflows", l_workflow);
 
 
             bodyMessage = buildResponse("create", str_workflow_uuid);
@@ -483,7 +482,7 @@ void Http_api::file(QxtWebRequestEvent* event, QString action)
 
 
         BSONObj auth = BSON("node_uuid" << node_uuid.toStdString() << "node_password" << node_password.toStdString());
-        BSONObj res = nosql_->Find("nodes", auth);
+        BSONObj res = mongodb_->Find("nodes", auth);
         if (res.nFields() == 0)
         {
             bodyMessage = buildResponse("error", "node unknown");
@@ -507,7 +506,7 @@ void Http_api::file(QxtWebRequestEvent* event, QString action)
 
     //bo node_search = BSON("_id" << user.getField("_id") <<  "nodes.uuid" << node_uuid.toStdString());
         BSONObj user_search = BSON("_id" << res.getField("user_id"));
-        BSONObj user_nodes = nosql_->Find("users", user_search);
+        BSONObj user_nodes = mongodb_->Find("users", user_search);
 
 
         if (user_nodes.nFields() == 0)
@@ -552,7 +551,7 @@ void Http_api::file(QxtWebRequestEvent* event, QString action)
         zfile.write(requestContent);
         zfile.close();*/
 
-        BSONObj gfs_file_struct = nosql_->WriteFile(filename.toStdString(), requestContent.constData (), requestContent.size ());
+        BSONObj gfs_file_struct = mongodb_->WriteFile(filename.toStdString(), requestContent.constData (), requestContent.size ());
 
 
         if (gfs_file_struct.nFields() == 0)
@@ -668,7 +667,7 @@ void Http_api::payload_post(QxtWebRequestEvent* event, QString action)
 
 
     BSONObj workflow_search = BSON("uuid" <<  workflow_uuid.toStdString());
-    BSONObj workflow = nosql_->Find("workflows", workflow_search);
+    BSONObj workflow = mongodb_->Find("workflows", workflow_search);
     if (workflow.nFields() == 0)
     {
         bodyMessage = buildResponse("error", "workflow unknown");
@@ -680,7 +679,7 @@ void Http_api::payload_post(QxtWebRequestEvent* event, QString action)
 
 
     BSONObj auth = BSON("node_uuid" << node_uuid.toStdString() << "node_password" << node_password.toStdString());
-    BSONObj node = nosql_->Find("nodes", auth);
+    BSONObj node = mongodb_->Find("nodes", auth);
     if (node.nFields() == 0)
     {
         //std::cout << "node uuid " << node_uuid.toStdString() << " node pass " < node_password.toStdString() << std::endl;
@@ -693,7 +692,7 @@ void Http_api::payload_post(QxtWebRequestEvent* event, QString action)
 
 
     BSONObj user_search = BSON("_id" << node.getField("user_id"));
-    BSONObj user_nodes = nosql_->Find("users", user_search);
+    BSONObj user_nodes = mongodb_->Find("users", user_search);
 
 
     if (user_nodes.nFields() == 0)
@@ -785,7 +784,7 @@ void Http_api::payload_post(QxtWebRequestEvent* event, QString action)
     QString str_payload_uuid = payload_uuid.toString().mid(1,36);
     payload_builder.append("payload_uuid", str_payload_uuid.toStdString());
 
-    int counter = nosql_->Count("payloads");
+    int counter = mongodb_->Count("payloads");
     payload_builder.append("counter", counter + 1);
 
 
@@ -797,7 +796,7 @@ void Http_api::payload_post(QxtWebRequestEvent* event, QString action)
     if (payload_filename.length() != 0)
     {
 
-        BSONObj gfs_file_struct = nosql_->WriteFile(payload_filename.toStdString(), requestContent.constData (), requestContent.size ());
+        BSONObj gfs_file_struct = mongodb_->WriteFile(payload_filename.toStdString(), requestContent.constData (), requestContent.size ());
 
 
 
@@ -834,7 +833,7 @@ void Http_api::payload_post(QxtWebRequestEvent* event, QString action)
 
     BSONObj payload = payload_builder.obj();
 
-    nosql_->Insert("payloads", payload);
+    mongodb_->Insert("payloads", payload);
 
     std::cout << "payload inserted" << payload << std::endl;
 
@@ -847,7 +846,7 @@ void Http_api::payload_post(QxtWebRequestEvent* event, QString action)
     session_builder.append("workflow_id", workflow.getField("_id").OID());
     session_builder.append("start_timestamp", timestamp.toTime_t());
     BSONObj session = session_builder.obj();
-    nosql_->Insert("sessions", session);
+    mongodb_->Insert("sessions", session);
     /***********************************/
     std::cout << "session inserted : " << session << std::endl;
 
@@ -883,7 +882,7 @@ void Http_api::session_get(QxtWebRequestEvent* event, QString uuid)
 
 
     BSONObj session_search = BSON("uuid" <<  uuid.toStdString());
-    BSONObj session = nosql_->Find("sessions", session_search);
+    BSONObj session = mongodb_->Find("sessions", session_search);
     if (session.nFields() == 0)
     {
         bodyMessage = buildResponse("status", "session unknown");
@@ -904,7 +903,7 @@ void Http_api::session_get(QxtWebRequestEvent* event, QString uuid)
 
 
     BSONObj workflow_search = BSON("_id" <<  session.getField("workflow_id"));
-    BSONObj workflow = nosql_->Find("workflows", workflow_search);
+    BSONObj workflow = mongodb_->Find("workflows", workflow_search);
     if (workflow.nFields() == 0)
     {
         bodyMessage = buildResponse("status", "workflow unknown");
@@ -1498,7 +1497,7 @@ void Http_api::admin_users_get(QxtWebRequestEvent* event)
 
 
                 BSONObj empty;
-                QList <BSONObj> users = nosql_->FindAll("users", empty);
+                QList <BSONObj> users = mongodb_->FindAll("users", empty);
 
                 QString output;
                 int counter=0;
@@ -1597,7 +1596,7 @@ void Http_api::admin_user_post(QxtWebRequestEvent* event)
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
                 QString l_user;
 
-                if (nosql_->Count("users") != 0)
+                if (mongodb_->Count("users") != 0)
                     check_user_login(event, l_user);
 
 
@@ -1661,7 +1660,7 @@ void Http_api::admin_user_post(QxtWebRequestEvent* event)
         qDebug() << "password_hash : " << password_hash.toHex();
 
         BSONObj t_user = BSON(GENOID << "login" << form_field["login"].toStdString() << "password" << QString::fromLatin1(password_hash.toHex()).toStdString() << "email" << form_field["email"].toStdString() << "token" << str_token.toStdString() << "tracker" << BSON ("token" << str_tracker_token.toStdString()));
-        nosql_->Insert("users", t_user);
+        mongodb_->Insert("users", t_user);
 
         //doc = { login : 'user', email : 'user@email.com', authentication_token : 'token'}
         //db.users.insert(doc);
@@ -1726,7 +1725,7 @@ void Http_api::admin_nodes_get(QxtWebRequestEvent* event)
 
 
                 BSONObj empty;
-                QList <BSONObj> nodes = nosql_->FindAll("nodes", empty);
+                QList <BSONObj> nodes = mongodb_->FindAll("nodes", empty);
 
                 QString output;
                 int counter=0;
@@ -1734,7 +1733,7 @@ void Http_api::admin_nodes_get(QxtWebRequestEvent* event)
                 {
 
                     BSONObj user_id = BSON("_id" << node.getField("user_id"));
-                    BSONObj user = nosql_->Find("users", user_id);
+                    BSONObj user = mongodb_->Find("users", user_id);
 
                     QString trclass = (counter %2 == 0) ? "odd" : "even";
 
@@ -1835,7 +1834,7 @@ void Http_api::admin_node_post(QxtWebRequestEvent* event)
                 QString output;
 
                 BSONObj empty;
-                QList <BSONObj> users = nosql_->FindAll("users", empty);
+                QList <BSONObj> users = mongodb_->FindAll("users", empty);
 
                 output.append("<select name=\"user\">");
 
@@ -1908,7 +1907,7 @@ void Http_api::admin_node_post(QxtWebRequestEvent* event)
         qDebug() << "form field : " << form_field;
 
         BSONObj user_id = BSON("_id" << mongo::OID(form_field["user"].toStdString()));
-        BSONObj t_user = nosql_->Find("users", user_id);
+        BSONObj t_user = mongodb_->Find("users", user_id);
 
         std::cout << "T USER : " << t_user.toString() << std::endl;
 
@@ -1918,7 +1917,7 @@ void Http_api::admin_node_post(QxtWebRequestEvent* event)
                               "user_id" << t_user.getField("_id").OID() <<
                               "node_uuid" << str_node_uuid.toStdString() <<
                               "node_password" << str_node_token.toStdString());
-        nosql_->Insert("nodes", t_node);
+        mongodb_->Insert("nodes", t_node);
 
         //doc = { login : 'user', email : 'user@email.com', authentication_token : 'token'}
         //db.users.insert(doc);
@@ -1980,14 +1979,14 @@ void Http_api::admin_workflows_get(QxtWebRequestEvent* event)
 
 
                 BSONObj empty;
-                QList <BSONObj> workflows = nosql_->FindAll("workflows", empty);
+                QList <BSONObj> workflows = mongodb_->FindAll("workflows", empty);
 
                 QString output;
                 int counter=0;
                 foreach (BSONObj workflow, workflows)
                 {
                     BSONObj user_id = BSON("_id" << workflow.getField("user_id"));
-                    BSONObj user = nosql_->Find("users", user_id);
+                    BSONObj user = mongodb_->Find("users", user_id);
 
                     QString trclass = (counter %2 == 0) ? "odd" : "even";
 
@@ -2091,7 +2090,7 @@ void Http_api::admin_workflow_post(QxtWebRequestEvent* event)
                 QString output;
 
                 BSONObj empty;
-                QList <BSONObj> users = nosql_->FindAll("users", empty);
+                QList <BSONObj> users = mongodb_->FindAll("users", empty);
 
                 output.append("<select name=\"user\">");
 
@@ -2171,7 +2170,7 @@ void Http_api::admin_workflow_post(QxtWebRequestEvent* event)
          std::cout << "WORKFLOW : " << b_workflow.toString() << std::endl;
 
         BSONObj user_id = BSON("_id" << mongo::OID(form_field["user"].toStdString()));
-        BSONObj t_user = nosql_->Find("users", user_id);
+        BSONObj t_user = mongodb_->Find("users", user_id);
 
         std::cout << "T USER : " << t_user.toString() << std::endl;
 
@@ -2181,7 +2180,7 @@ void Http_api::admin_workflow_post(QxtWebRequestEvent* event)
                                   "user_id" << t_user.getField("_id").OID() <<
                                   "uuid" << str_workflow_uuid.toStdString() <<
                                   "workers" << b_workflow);
-        nosql_->Insert("workflows", t_workflow);
+        mongodb_->Insert("workflows", t_workflow);
 
         //doc = { login : 'user', email : 'user@email.com', authentication_token : 'token'}
         //db.users.insert(doc);
@@ -2256,7 +2255,7 @@ void Http_api::admin_workers_get(QxtWebRequestEvent* event)
 
 
                 BSONObj empty;
-                QList <BSONObj> workers = nosql_->FindAll("workers", empty);
+                QList <BSONObj> workers = mongodb_->FindAll("workers", empty);
 
                 QString output;
                 int counter=0;
@@ -2264,7 +2263,7 @@ void Http_api::admin_workers_get(QxtWebRequestEvent* event)
                 {
 
                     //BSONObj user_id = BSON("_id" << node.getField("user_id"));
-                    //BSONObj user = nosql_->Find("users", user_id);
+                    //BSONObj user = mongodb_->Find("users", user_id);
 
                     QString trclass = (counter %2 == 0) ? "odd" : "even";
 
@@ -2365,7 +2364,7 @@ void Http_api::admin_sessions_get(QxtWebRequestEvent* event)
 
 
                 BSONObj empty;
-                QList <BSONObj> sessions = nosql_->FindAll("sessions", empty);
+                QList <BSONObj> sessions = mongodb_->FindAll("sessions", empty);
 
                 QString output;
                 int counter=0;
@@ -2373,7 +2372,7 @@ void Http_api::admin_sessions_get(QxtWebRequestEvent* event)
                 {
 
                     //BSONObj user_id = BSON("_id" << node.getField("user_id"));
-                    //BSONObj user = nosql_->Find("users", user_id);
+                    //BSONObj user = mongodb_->Find("users", user_id);
 
                     QString trclass = (counter %2 == 0) ? "odd" : "even";
 
@@ -2466,7 +2465,7 @@ void Http_api::admin_payloads_get(QxtWebRequestEvent* event)
 
 
                 BSONObj empty;
-                QList <BSONObj> payloads = nosql_->FindAll("payloads", empty);
+                QList <BSONObj> payloads = mongodb_->FindAll("payloads", empty);
 
                 QString output;
                 int counter=0;
@@ -2474,7 +2473,7 @@ void Http_api::admin_payloads_get(QxtWebRequestEvent* event)
                 {
 
                     //BSONObj user_id = BSON("_id" << node.getField("user_id"));
-                    //BSONObj user = nosql_->Find("users", user_id);
+                    //BSONObj user = mongodb_->Find("users", user_id);
 
                     QString trclass = (counter %2 == 0) ? "odd" : "even";
                     QDateTime timestamp;
@@ -2605,14 +2604,14 @@ void Http_api::admin_lost_pushpull_payloads_get(QxtWebRequestEvent* event)
 
 
                 BSONObj empty;
-                QList <BSONObj> lost_pushpull_payloads = nosql_->FindAll("lost_pushpull_payloads", empty);
+                QList <BSONObj> lost_pushpull_payloads = mongodb_->FindAll("lost_pushpull_payloads", empty);
 
                 QString output;
                 int counter=0;
                 foreach (BSONObj lost_pushpull_payload, lost_pushpull_payloads)
                 {
                     //BSONObj user_id = BSON("_id" << node.getField("user_id"));
-                    //BSONObj user = nosql_->Find("users", user_id);
+                    //BSONObj user = mongodb_->Find("users", user_id);
 
 
                     QString trclass = (counter %2 == 0) ? "odd" : "even";

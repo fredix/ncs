@@ -26,7 +26,7 @@
 #include "QXmppServer.h"
 #include "QXmppPasswordChecker.h"
 #include "QXmppIncomingClient.h"
-#include "nosql.h"
+#include "mongodb.h"
 
 
 
@@ -44,7 +44,7 @@ class passwordChecker : public QXmppPasswordChecker
 
 
         // search user through users's collection with the bson object payload
-        bo node = nosql_->Find("nodes", auth);
+        bo node = mongodb_->Find("nodes", auth);
         if (node.nFields() != 0)
         {
             be node_id = node.getField("_id");
@@ -101,7 +101,7 @@ class passwordChecker : public QXmppPasswordChecker
 public:
     QString m_username;
     QString m_password;        
-    Nosql *nosql_;
+    Mongodb *mongodb_;
 };
 
 class Xmpp_server : public QObject
@@ -113,7 +113,7 @@ public:
 
 
 private:
-    //Nosql &nosql_;
+    //Nosql &mongodb_;
     QString m_domain;
     int m_xmpp_client_port;
     int m_xmpp_server_port;

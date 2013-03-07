@@ -25,7 +25,7 @@ Xmpp_client::Xmpp_client(QString a_domain, int a_xmpp_client_port, QObject *pare
 {
     qDebug() << "Xmpp_client::Xmpp_client !!!";
 
-    nosql_ = Nosql::getInstance_front();
+    mongodb_ = Mongodb::getInstance ();
     zeromq_ = Zeromq::getInstance ();
 
 
@@ -168,7 +168,7 @@ bool Xmpp_client::checkAuth(QString credentials, BSONObjBuilder &payload_builder
     bo auth = BSON("email" << email.toStdString() << "authentication_token" << key.toStdString());
 
 
-    bo user = nosql_->Find("users", auth);
+    bo user = mongodb_->Find("users", auth);
     if (user.nFields() == 0)
     {
         qDebug() << "auth failed !";
@@ -268,7 +268,7 @@ void Xmpp_client::messageReceived(const QXmppMessage& message)
      else
      {
 
-         bo gfs_file_struct = nosql_->WriteFile("filename.str()", payload["datas"].valuestr(), payload["datas"].objsize() );
+         bo gfs_file_struct = mongodb_->WriteFile("filename.str()", payload["datas"].valuestr(), payload["datas"].objsize() );
 
 
          if (gfs_file_struct.nFields() == 0)

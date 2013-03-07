@@ -31,8 +31,7 @@ Tracker::Tracker(QxtAbstractWebSessionManager * sm, QObject * parent): QxtWebSlo
 
 
 
-    nosql_ = Nosql::getInstance_front();
-    //nosql_ = Nosql::getInstance_back();
+    mongodb_ = Mongodb::getInstance ();
     zeromq_ = Zeromq::getInstance ();
 
     z_message = new zmq::message_t(2);
@@ -72,7 +71,7 @@ QBool Tracker::checkAuth(QString header, BSONObjBuilder &payload_builder, bo &a_
     bo auth = BSON("email" << email.toStdString() << "authentication_token" << key.toStdString());
 
 
-    bo l_user = nosql_->Find("users", auth);
+    bo l_user = mongodb_->Find("users", auth);
 
     if (l_user.nFields() == 0)
     {
@@ -182,7 +181,7 @@ void Tracker::announce_get(QxtWebRequestEvent* event)
     BSONObj peer = peer_builder.obj();
 
 
-    nosql_->Insert("peers", peer);
+    mongodb_->Insert("peers", peer);
 
     /*
     mysql_query('INSERT INTO `peer` (`hash`, `user_agent`, `ip_address`, `key`, `port`) '

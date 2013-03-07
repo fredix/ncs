@@ -26,7 +26,7 @@ Xmpp_server::Xmpp_server(QString a_domain, int a_xmpp_client_port, int a_xmpp_se
     qDebug() << "Xmpp_server construct param";
 
 
-    m_checker.nosql_ = Nosql::getInstance_front();
+    m_checker.mongodb_ = Mongodb::getInstance();
     m_checker.m_username = "ncs";
     m_checker.m_password = "scn";
 

@@ -24,7 +24,7 @@
 
 Nodetrack::Nodetrack(QxtAbstractWebSessionManager * sm, QObject * parent): QxtWebSlotService(sm,parent)
 {
-    nosql_ = Nosql::getInstance_tracker();
+    mongodb_ = Mongodb::getInstance();
     zeromq_ = Zeromq::getInstance ();
 
 
@@ -407,7 +407,7 @@ void Nodetrack::torrent_post(QxtWebRequestEvent* event, QString user_token)
 
 
     BSONObj query = BSON("tracker.token" << user_token.toStdString());
-    BSONObj user = nosql_->Find("users", query);
+    BSONObj user = mongodb_->Find("users", query);
 
     if (user.nFields() == 0)
     {
@@ -450,7 +450,7 @@ void Nodetrack::torrent_post(QxtWebRequestEvent* event, QString user_token)
     b_torrent.appendBinData("data", requestContent.size(), BinDataGeneral, requestContent);
 
     BSONObj torrent = b_torrent.obj();
-    nosql_->Insert("torrents", torrent);
+    mongodb_->Insert("torrents", torrent);
 
     postEvent(new QxtWebPageEvent(event->sessionID,
                                   event->requestID,
@@ -716,7 +716,7 @@ void Nodetrack::get_announce(QxtWebRequestEvent* event, QString user_token)
     }
 
     BSONObj query = BSON("tracker.token" << user_token.toStdString());
-    BSONObj user = nosql_->Find("users", query);
+    BSONObj user = mongodb_->Find("users", query);
 
     if (user.nFields() == 0)
     {
@@ -832,7 +832,7 @@ void Nodetrack::get_announce(QxtWebRequestEvent* event, QString user_token)
     peer_id = hex_decode(peer_id);
 
     QVector<QString> whitelist;
-    nosql_->bt_load_whitelist(whitelist);
+    mongodb_->bt_load_whitelist(whitelist);
 
 
     if(whitelist.size() > 0) {
@@ -944,7 +944,7 @@ void Nodetrack::get_announce(QxtWebRequestEvent* event, QString user_token)
             }
 
             if(uploaded_change || downloaded_change) {
-                nosql_->bt_record_user(u.id, uploaded_change, downloaded_change);
+                mongodb_->bt_record_user(u.id, uploaded_change, downloaded_change);
             }
         }
     }
@@ -1154,7 +1154,7 @@ void Nodetrack::scrape(QxtWebRequestEvent* event, QString key)
         infohash = hex_decode(infohash);
 
         std::unordered_map<std::string, bt_torrent> torrents_list;
-        nosql_->bt_load_torrents(torrents_list);
+        mongodb_->bt_load_torrents(torrents_list);
 
 
         torrent_list::iterator tor = torrents_list.find(infohash);

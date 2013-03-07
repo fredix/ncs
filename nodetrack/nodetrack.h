@@ -25,7 +25,7 @@
 #include "util.h"
 
 #include "ncs_global.h"
-#include "nosql.h"
+#include "mongodb.h"
 #include "zeromq.h"
 #include <QxtWeb/QxtWebSlotService>
 #include <QxtWeb/QxtWebPageEvent>
@@ -120,7 +120,7 @@ private:
     zmq::socket_t *z_push_api;
     zmq::message_t *z_message;
 
-    Nosql *nosql_;
+    Mongodb *mongodb_;
     Zeromq *zeromq_;
     QBool checkAuth(QString header, BSONObjBuilder &payload, bo &a_user);
     QString buildResponse(QString action, QString data1, QString data2="");

@@ -18,8 +18,8 @@
 **   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ****************************************************************************/
 
-#ifndef NOSQL_H
-#define NOSQL_H
+#ifndef MONGODB_H
+#define MONGODB_H
 
 
 #include "mongo/client/dbclient.h"
@@ -37,6 +37,7 @@
 #include <queue>
 #include <vector>
 #include <QStack>
+#include <QStringList>
 
 
 using namespace mongo;
@@ -44,17 +45,14 @@ using namespace bson;
 
 typedef QVariantHash Hash;
 
-class Nosql : public QObject
+class Mongodb : public QObject
 {
     Q_OBJECT
 public:    
-    Nosql(QString instance_type, QString a_server, QString a_database);
-    static Nosql *getInstance_front();
-    static Nosql *getInstance_back();
-    static Nosql *getInstance_tracker();
+    Mongodb(QString a_server, QString a_database);
+    static Mongodb *getInstance();
 
-    static void kill_front();
-    static void kill_back();
+    static void kill();
 
     BSONObj Find(string a_document, const BSONObj a_datas);        
     BSONObj Find(string a_document, const BSONObj a_query, BSONObj *a_fields);
@@ -108,21 +106,20 @@ public:
     void bt_do_flush_tokens();
 
 private:   
-    static Nosql *_singleton_front;
-    static Nosql *_singleton_back;
-    static Nosql *_singleton_tracker;
+    static Mongodb *_singleton;
     //zmq::socket_t *m_socket_payload;
     //QSocketNotifier *check_payload_response;
 
 
-    ~Nosql();
+    ~Mongodb();
 
     QString m_server;
     QString m_database;
     QString m_document;
     DBClientConnection m_mongo_connection;
+    DBClientReplicaSet *m_mongo_replicaset_connection;
     string m_errmsg;
-    mongo::GridFS *m_gfs;
+    //mongo::GridFS *m_gfs;
     const mongo::GridFile *m_gf;
     BSONObj m_grid_file;
     BSONObj m_datas;
@@ -176,4 +173,4 @@ private slots:
 };
 
 
-#endif // NOSQL_H
+#endif // MONGODB_H

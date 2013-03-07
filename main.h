@@ -26,7 +26,7 @@
 #include <QSettings>
 #include <QDir>
 
-#include "nosql.h"
+#include "mongodb.h"
 #include "zeromq.h"
 #include "service.h"
 #include "alert.h"
@@ -50,9 +50,7 @@ public:
     Dispatcher(params ncs_params);
     ~Dispatcher();
 
-    Nosql *nosql_front;
-    Nosql *nosql_back;
-    Nosql *nosql_tracker;
+    Mongodb *mongodb_;
 
     Zeromq *zeromq;
     Service *service;

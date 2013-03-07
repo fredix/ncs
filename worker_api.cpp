@@ -22,7 +22,7 @@
 
 Worker_api::Worker_api()
 {
-    nosql_ = Nosql::getInstance_front();
+    mongodb_ = Mongodb::getInstance ();
     zeromq_ = Zeromq::getInstance ();
     z_message = new zmq::message_t(2);
     z_message_publish = new zmq::message_t(2);
@@ -125,7 +125,7 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
     }
 
 
-    nosql_->Insert("pubsub_payloads", t_payload.obj());
+    mongodb_->Insert("pubsub_payloads", t_payload.obj());
 
     /****** PUBLISH API PAYLOAD *******/
     qDebug() << "Worker_api::publish_payload PUBLISH PAYLOAD";
@@ -158,7 +158,7 @@ void Worker_api::replay_pubsub_payload(bson::bo a_payload)
     else dest.append(" @");
 
     BSONObj search = BSON("dest" << a_payload.getFieldDotted("payload.from").str() << "payload_type" << a_payload.getFieldDotted("payload.payload_type"));
-    QList <BSONObj> pubsub_payloads_list = nosql_->FindAll("pubsub_payloads", search);
+    QList <BSONObj> pubsub_payloads_list = mongodb_->FindAll("pubsub_payloads", search);
 
     foreach (BSONObj pubsub_payload, pubsub_payloads_list)
     {
@@ -319,7 +319,7 @@ void Worker_api::receive_payload()
 
 
                 BSONObj workflow_search = BSON("uuid" <<  workflow_uuid.str());
-                BSONObj workflow = nosql_->Find("workflows", workflow_search);
+                BSONObj workflow = mongodb_->Find("workflows", workflow_search);
                 if (workflow.nFields() == 0)
                 {
                     std::cout << "ERROR : WORKFLOW NOT FOUND" << std::endl;
@@ -328,7 +328,7 @@ void Worker_api::receive_payload()
 
 
                 BSONObj auth = BSON("node_uuid" << node_uuid.str() << "node_password" << node_password.str());
-                BSONObj node = nosql_->Find("nodes", auth);
+                BSONObj node = mongodb_->Find("nodes", auth);
                 if (node.nFields() == 0)
                 {
                     std::cout << "ERROR : NODE NOT FOUND" << std::endl;
@@ -350,7 +350,7 @@ void Worker_api::receive_payload()
 
             //bo node_search = BSON("_id" << user.getField("_id") <<  "nodes.uuid" << node_uuid.toStdString());
                 BSONObj user_search = BSON("_id" << node.getField("user_id"));
-                BSONObj user_nodes = nosql_->Find("users", user_search);
+                BSONObj user_nodes = mongodb_->Find("users", user_search);
 
 
                 if (user_nodes.nFields() == 0)
@@ -389,7 +389,7 @@ void Worker_api::receive_payload()
                 QString str_payload_uuid = payload_uuid.toString().mid(1,36);
                 payload_builder.append("payload_uuid", str_payload_uuid.toStdString());
 
-                int counter = nosql_->Count("payloads");
+                int counter = mongodb_->Count("payloads");
                 payload_builder.append("counter", counter + 1);
 
 
@@ -409,7 +409,7 @@ void Worker_api::receive_payload()
                 }
                 else
                 {
-                    /*BSONObj gfs_file_struct = nosql_->WriteFile(data_type.str(), datas.valuestr(), datas.objsize());
+                    /*BSONObj gfs_file_struct = mongodb_->WriteFile(data_type.str(), datas.valuestr(), datas.objsize());
                     if (gfs_file_struct.nFields() == 0)
                     {
                         qDebug() << "write on gridFS failed !";
@@ -435,7 +435,7 @@ void Worker_api::receive_payload()
                 }
                 BSONObj s_payload = payload_builder.obj();
 
-                nosql_->Insert("payloads", s_payload);
+                mongodb_->Insert("payloads", s_payload);
                 std::cout << "payload inserted" << s_payload << std::endl;
 
                 /********* CREATE SESSION **********/
@@ -449,7 +449,7 @@ void Worker_api::receive_payload()
                 session_builder.append("workflow_id", workflow.getField("_id").OID());
                 session_builder.append("start_timestamp", timestamp.toTime_t());
                 BSONObj session = session_builder.obj();
-                nosql_->Insert("sessions", session);
+                mongodb_->Insert("sessions", session);
                 /***********************************/
                 std::cout << "session inserted : " << session << std::endl;
 

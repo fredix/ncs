@@ -29,7 +29,7 @@ Ztracker::Ztracker(zmq::context_t *a_context) : m_context(a_context)
     m_mutex = new QMutex();
 
 
-    nosql_ = Nosql::getInstance_front();
+    mongodb_ = Mongodb::getInstance();
 
     /***************** SERVICE SOCKET *************/
     m_message = new zmq::message_t(2);
@@ -68,7 +68,7 @@ Ztracker::Ztracker(zmq::context_t *a_context) : m_context(a_context)
 int Ztracker::get_available_port()
 {
     BSONObj empty;
-    QList <BSONObj> workers_list = nosql_->FindAll("workers", empty);
+    QList <BSONObj> workers_list = mongodb_->FindAll("workers", empty);
 
     int port_counter = 5559;
 
@@ -145,7 +145,7 @@ void Ztracker::receive_payload()
 
 
                 be worker_name = l_payload.getFieldDotted("payload.name");
-                bo worker = nosql_->Find("workers", worker_name.wrap());
+                bo worker = mongodb_->Find("workers", worker_name.wrap());
 
                 int worker_port;
                 if (worker.nFields() == 0)
@@ -156,7 +156,7 @@ void Ztracker::receive_payload()
                                   << "type" << worker_type.toStdString()
                                   << "name" << l_payload.getFieldDotted("payload.name")
                                   << "port" << worker_port);
-                    nosql_->Insert("workers", worker);
+                    mongodb_->Insert("workers", worker);
 
                     // create server
                     qDebug() << "BEFORE EMIT CREATE SERVER";
@@ -185,7 +185,7 @@ void Ztracker::receive_payload()
                 BSONObj node = BSON("nodes" << worker_builder.obj());
 
                 be worker_id = worker.getField("_id");
-                nosql_->Addtoarray("workers", worker_id.wrap(), node);
+                mongodb_->Addtoarray("workers", worker_id.wrap(), node);
 
 
                 m_message->rebuild(payload.objsize());
@@ -200,7 +200,7 @@ void Ztracker::receive_payload()
                    BSONObj workers_node = BSON("nodes.$.timestamp" << timestamp);
 
                    qDebug() << "UPDATE NODE's TIMESTAMP";
-                   nosql_->Update("workers", bo_node_uuid, workers_node);
+                   mongodb_->Update("workers", bo_node_uuid, workers_node);
 
                    BSONObj payload = BSON("status" << "ACK");
                    m_message->rebuild(payload.objsize());
@@ -269,7 +269,7 @@ void Ztracker::worker_update_ticker()
     QDateTime t_timestamp;
 
     BSONObj empty;
-    QList <BSONObj> workers_list = nosql_->FindAll("workers", empty);
+    QList <BSONObj> workers_list = mongodb_->FindAll("workers", empty);
 
     foreach (BSONObj worker, workers_list)
     {
@@ -313,14 +313,14 @@ void Ztracker::worker_update_ticker()
                 std::cout << "node_id.OID() : " << node_id.OID() << std::endl;
 
                 BSONElement node_uuid = l_node.getField("node_uuid");
-                BSONObj node = nosql_->Find("nodes", node_uuid.wrap());
+                BSONObj node = mongodb_->Find("nodes", node_uuid.wrap());
 
                 BSONObj bo_node_id = BSON("nodes._id" << node_id.OID());
 
                 std::cout << "node name : " << node << std::endl;
 
                 BSONObj worker_status = BSON("nodes.$.status" << "down");
-                nosql_->Update("workers", bo_node_id, worker_status);
+                mongodb_->Update("workers", bo_node_id, worker_status);
 
 
                 QString l_worker = "WORKER ";
@@ -728,13 +728,12 @@ Zdispatch::Zdispatch(zmq::context_t *a_context) : m_context(a_context)
     m_mutex_push_payload = new QMutex();
 
     std::cout << "Zdispatch::Zdispatch constructeur" << std::endl;
-    //nosql_ = Nosql::getInstance_back();
-    nosql_ = Nosql::getInstance_front();
+    mongodb_ = Mongodb::getInstance();
 
 
     BSONObj empty;
-    workflow_list = nosql_->FindAll("workflows", empty);
-    worker_list = nosql_->FindAll("workers", empty);
+    workflow_list = mongodb_->FindAll("workflows", empty);
+    worker_list = mongodb_->FindAll("workers", empty);
 
     // read workers collection and instance workers's server
     foreach (BSONObj worker, worker_list)
@@ -779,7 +778,7 @@ void Zdispatch::destructor()
     m_mutex_push_payload->lock();
 
     BSONObj empty;
-    worker_list = nosql_->FindAll("workers", empty);
+    worker_list = mongodb_->FindAll("workers", empty);
 
     // read workers collection and instance workers's server
     foreach (BSONObj worker, worker_list)
@@ -817,18 +816,18 @@ void Zdispatch::replay_payload()
 
     // According to this blob http://blog.codecentric.de/en/2012/10/mongodb-pessimistic-locking/
     // I'm using a Pessimistic Locking
-    if (nosql_->Insert("lock_collections", lock_collection))
+    if (mongodb_->Insert("lock_collections", lock_collection))
     {
         BSONObj pushed = BSON("pushed" << false);
-        QList <BSONObj> lost_payload_list = nosql_->FindAll("lost_pushpull_payloads", pushed);
-        //nosql_->Update("lost_pushpull_payloads", BSON("pushed" << false), BSON("pushed" << true), false, true);
+        QList <BSONObj> lost_payload_list = mongodb_->FindAll("lost_pushpull_payloads", pushed);
+        //mongodb_->Update("lost_pushpull_payloads", BSON("pushed" << false), BSON("pushed" << true), false, true);
 
 
         // read workers collection and instance workers's server
         foreach (BSONObj lost_payload, lost_payload_list)
         {
 
-            nosql_->Update("lost_pushpull_payloads", BSON("_id" << lost_payload.getField("_id") << "pushed" << false), BSON("pushed" << true));
+            mongodb_->Update("lost_pushpull_payloads", BSON("_id" << lost_payload.getField("_id") << "pushed" << false), BSON("pushed" << true));
 
 
             std::cout << "LIST SIZE : " << lost_payload_list.size() << std::endl;
@@ -851,8 +850,8 @@ void Zdispatch::replay_payload()
         }
 
 
-        //nosql_->Flush("lost_pushpull_payloads", BSON("pushed" << true << "finished" << true));
-        nosql_->Flush("lost_pushpull_payloads", BSON("pushed" << true));
+        //mongodb_->Flush("lost_pushpull_payloads", BSON("pushed" << true << "finished" << true));
+        mongodb_->Flush("lost_pushpull_payloads", BSON("pushed" << true));
     }
     m_mutex_replay_payload->unlock();
 }
@@ -866,7 +865,7 @@ void Zdispatch::bind_server(QString name, QString port)
 
     BSONObj empty;
     worker_list.clear();
-    worker_list = nosql_->FindAll("workers", empty);
+    worker_list = mongodb_->FindAll("workers", empty);
 }
 
 
@@ -891,7 +890,7 @@ void Zdispatch::push_payload(BSONObj a_data)
     std::cout << "b_action : " << b_action << std::endl;
 
 
-    BSONObj session = nosql_->Find("sessions", session_uuid);
+    BSONObj session = mongodb_->Find("sessions", session_uuid);
 
     std::cout << "!!!!! session !!!!!! : " << session << std::endl;
 
@@ -903,7 +902,7 @@ void Zdispatch::push_payload(BSONObj a_data)
 
     std::cout << "payload_id : " << payload_id << std::endl;
 
-    BSONObj payload = nosql_->Find("payloads", payload_id);
+    BSONObj payload = mongodb_->Find("payloads", payload_id);
     BSONElement l_payload_id = payload.getField("_id");
 
     BSONElement payload_type = payload.getField("payload_type");
@@ -919,7 +918,7 @@ void Zdispatch::push_payload(BSONObj a_data)
         std::cout << "EXTRACT GFSID : " << gfs_id << std::endl;
         BSONObj gfsid = BSON("_id" << gfs_id);
 
-        filename = nosql_->GetFilename(gfsid.firstElement());
+        filename = mongodb_->GetFilename(gfsid.firstElement());
         std::cout << "EXTRACT PAYLOAD, FILENAME : " << filename << std::endl;
     }
 
@@ -931,7 +930,7 @@ void Zdispatch::push_payload(BSONObj a_data)
 
 
     BSONObj workflow_id = BSON("_id" << session.getField("workflow_id").OID());
-    BSONObj workflow = nosql_->Find("workflows", workflow_id);
+    BSONObj workflow = mongodb_->Find("workflows", workflow_id);
     std::cout << "FIND WORKER'S WORKFLOW : " << workflow << std::endl;
 
     BSONObj w_workers = workflow.getField("workers").Obj();
@@ -1020,7 +1019,7 @@ void Zdispatch::push_payload(BSONObj a_data)
         {
 
 
-                //if (gridfs) nosql_->ExtractBinary(gfs_id, path.toStdString(), filename);
+                //if (gridfs) mongodb_->ExtractBinary(gfs_id, path.toStdString(), filename);
 
 
 
@@ -1042,7 +1041,7 @@ void Zdispatch::push_payload(BSONObj a_data)
 
                 BSONObj step = BSON("steps" << step_builder.obj());
 
-                nosql_->Addtoarray("payloads", l_payload_id.wrap(), step);
+                mongodb_->Addtoarray("payloads", l_payload_id.wrap(), step);
                 /*****************************************/
 
                 /********* UPDATE SESSION **********/
@@ -1054,7 +1053,7 @@ void Zdispatch::push_payload(BSONObj a_data)
 
                 std::cout << "SESSION !!! " << l_session << std::endl;
 
-                nosql_->Update("sessions", session_id, l_session);
+                mongodb_->Update("sessions", session_id, l_session);
                 /***********************************/
 
                 //be step_id;
@@ -1151,7 +1150,7 @@ void Zdispatch::push_payload(BSONObj a_data)
         std::cout << "PAYLOAD RECEIVE !!!" << step << std::endl;
 
 
-        nosql_->Update("payloads", step_id, step);
+        mongodb_->Update("payloads", step_id, step);
         /*****************************************/
     }
     else if (action.compare("terminate") == 0)
@@ -1170,9 +1169,9 @@ void Zdispatch::push_payload(BSONObj a_data)
 
         BSONObj field = BSON("_id" << 0 << "steps.order" << 1);
 
-        //BSONObj old_step = nosql_->Find("payloads", search);
+        //BSONObj old_step = mongodb_->Find("payloads", search);
 
-        BSONObj t_step_order = nosql_->Find("payloads", step_id, &field);
+        BSONObj t_step_order = mongodb_->Find("payloads", step_id, &field);
 
         std::cout << "t_step_order: " << t_step_order << std::endl;
 
@@ -1242,11 +1241,11 @@ void Zdispatch::push_payload(BSONObj a_data)
         std::cout << "UPDATE PAYLOAD STEP !!!" << step << std::endl;
 
 
-        nosql_->Update("payloads", step_id, step);
+        mongodb_->Update("payloads", step_id, step);
         /*****************************************/
 
 
-        payload = nosql_->Find("payloads", payload.getField("_id").wrap());
+        payload = mongodb_->Find("payloads", payload.getField("_id").wrap());
         payload_steps = payload.getField("steps").Obj();
 
         bool worker_never_connected = true;
@@ -1299,7 +1298,7 @@ void Zdispatch::push_payload(BSONObj a_data)
             stepnext_builder.append("send_timestamp", timestamp.Number());
 
             BSONObj stepnext = BSON("steps" << stepnext_builder.obj());
-            nosql_->Addtoarray("payloads", payload.getField("_id").wrap(), stepnext);
+            mongodb_->Addtoarray("payloads", payload.getField("_id").wrap(), stepnext);
             /*****************************************/
 
             qDebug() << "!!!!!!!!!!!!!!!!!  PAYLOAD UPDATE !!!!!!!!!!!!!!!!!!!";
@@ -1314,7 +1313,7 @@ void Zdispatch::push_payload(BSONObj a_data)
             qDebug() << "!!!!!!!!!!!!!!!!!  COUNTER -1 !!!!!!!!!!!!!!!!!!!";
 
             BSONObj l_session = session_builder.obj();
-            nosql_->Update("sessions", session.getField("_id").wrap(), l_session, session_options);
+            mongodb_->Update("sessions", session.getField("_id").wrap(), l_session, session_options);
             /***********************************/
 
 
@@ -1346,7 +1345,7 @@ Zworker_push::Zworker_push(zmq::context_t *a_context, string a_worker, string a_
 
     m_mutex = new QMutex();
 
-    nosql_ = Nosql::getInstance_front();
+    mongodb_ = Mongodb::getInstance();
 
 
     z_sender = new zmq::socket_t(*m_context, ZMQ_PUSH);
@@ -1395,7 +1394,7 @@ void Zworker_push::push_payload(bson::bo a_payload)
 
         //BSONObj payload = BSON("worker" << m_worker << "timestamp" << timestamp.toTime_t() << "data" << a_payload << "pushed" << false << "finished" << false);
         BSONObj payload = BSON("worker" << m_worker << "timestamp" << timestamp.toTime_t() << "data" << a_payload << "pushed" << false);
-        //nosql_->Insert("lost_pushpull_payloads", payload);
+        //mongodb_->Insert("lost_pushpull_payloads", payload);
         // UPDATE WITH UPSERT AT ON : INSERT IF NOT FOUND
 
         std::cout << "Zworker_push::push_payload a_payload : " << a_payload << std::endl;
@@ -1406,7 +1405,7 @@ void Zworker_push::push_payload(bson::bo a_payload)
         std::cout << "Zworker_push::push_payload a_payload session : " << payload_session << std::endl;
 
         std::cout << "Zworker_push::push_payload payload_session_uuid : " << payload_session << std::endl;
-        nosql_->Update("lost_pushpull_payloads", payload_session.copy(), payload, true);
+        mongodb_->Update("lost_pushpull_payloads", payload_session.copy(), payload, true);
     }
 
     std::cout << "Zworker_push::push_payload after send" << std::endl;
@@ -1424,7 +1423,7 @@ Zstream_push::Zstream_push(zmq::context_t *a_context) : m_context(a_context)
     std::cout << "m context : " << *m_context << std::endl;
 
     m_mutex = new QMutex();
-    nosql_ = Nosql::getInstance_front();
+    mongodb_ = Mongodb::getInstance();
 
     z_stream = new zmq::socket_t(*m_context, ZMQ_REP);
     int hwm = 50000;
@@ -1517,20 +1516,20 @@ void Zstream_push::stream_payload()
                 std::cout << "!!!!!! get_filename RECEIVE !!!" << std::endl;
 
                 BSONObj session_uuid = BSON("uuid" << l_payload.getFieldDotted("payload.session_uuid").str());
-                BSONObj session = nosql_->Find("sessions", session_uuid);
+                BSONObj session = mongodb_->Find("sessions", session_uuid);
                 std::cout << "!!!!! session !!!!!! : " << session << std::endl;
 
                 BSONObj payload_id = BSON("_id" << session.getField("payload_id").OID());
                 std::cout << "payload_id : " << payload_id << std::endl;
 
-                BSONObj payload = nosql_->Find("payloads", payload_id);
+                BSONObj payload = mongodb_->Find("payloads", payload_id);
 
                 BSONElement gfs_id = payload.getField("gfs_id");
 
                 std::cout << "EXTRACT GFSID : " << gfs_id << std::endl;
                 BSONObj gfsid = BSON("_id" << gfs_id);
 
-                string filename = nosql_->GetFilename(gfsid.firstElement());
+                string filename = mongodb_->GetFilename(gfsid.firstElement());
                 std::cout << "filename : " << filename << std::endl;
 
 
@@ -1554,20 +1553,20 @@ void Zstream_push::stream_payload()
                 if (t_payload.hasField("filename"))
                 {
 
-                    gfsid = nosql_->GetGfsid(t_payload.getField("filename").str());
+                    gfsid = mongodb_->GetGfsid(t_payload.getField("filename").str());
 
                 }
                 else
                 {
                 /***** retreive through session ******************/
                     BSONObj session_uuid = BSON("uuid" << l_payload.getFieldDotted("payload.session_uuid").str());
-                    BSONObj session = nosql_->Find("sessions", session_uuid);
+                    BSONObj session = mongodb_->Find("sessions", session_uuid);
                     std::cout << "!!!!! session !!!!!! : " << session << std::endl;
 
                     BSONObj payload_id = BSON("_id" << session.getField("payload_id").OID());
                     std::cout << "payload_id : " << payload_id << std::endl;
 
-                    BSONObj payload = nosql_->Find("payloads", payload_id);
+                    BSONObj payload = mongodb_->Find("payloads", payload_id);
 
                     BSONElement gfs_id = payload.getField("gfs_id");
                     gfsid = BSON("_id" << gfs_id);
@@ -1582,7 +1581,7 @@ void Zstream_push::stream_payload()
                 {
 
 
-                    int num_chunck = nosql_->GetNumChunck(gfsid.firstElement());
+                    int num_chunck = mongodb_->GetNumChunck(gfsid.firstElement());
                     std::cout << "NUM CHUCK : " << num_chunck << std::endl;
 
                     //std::fstream out;
@@ -1604,7 +1603,7 @@ void Zstream_push::stream_payload()
 
                         int chunk_length;
 
-                        QBool res = nosql_->ExtractByChunck(gfsid.firstElement(), chunk_index, chunk_data, chunk_length);
+                        QBool res = mongodb_->ExtractByChunck(gfsid.firstElement(), chunk_index, chunk_data, chunk_length);
                         //std::cout << "AFTER GET CHUNCK chunk_data : " << chunk_data << std::endl;
                         if (res)
                         {
@@ -1691,7 +1690,7 @@ Zeromq::Zeromq()
     qRegisterMetaType<bson::bo>("bson::bo");
     qRegisterMetaType<BSONObj>("BSONObj");
 
-    nosql_ = Nosql::getInstance_front();
+    mongodb_ = Mongodb::getInstance();
 
 
     /******* QTHREAD ACCORDING TO

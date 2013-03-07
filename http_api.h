@@ -22,7 +22,7 @@
 #define HTTP_API_H
 
 #include "ncs_global.h"
-#include "nosql.h"
+#include "mongodb.h"
 #include "zeromq.h"
 #include <QxtWeb/QxtWebServiceDirectory>
 #include <QxtWeb/QxtWebSlotService>
@@ -88,7 +88,7 @@ private:
     zmq::socket_t *z_push_api;
     zmq::message_t *z_message;
 
-    Nosql *nosql_;
+    Mongodb *mongodb_;
     Zeromq *zeromq_;
     QBool checkAuth(QString token, BSONObjBuilder &payload, bo &a_user);
     QBool http_auth(QString auth, QHash <QString, QString> &hauth);

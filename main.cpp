@@ -77,9 +77,9 @@ Dispatcher::Dispatcher(params ncs_params)
 
 
 
-    nosql_front = new Nosql("front", ncs_params.mongodb_ip, ncs_params.mongodb_base);
-    nosql_back = new Nosql("back", ncs_params.mongodb_ip, ncs_params.mongodb_base);
-    nosql_tracker = new Nosql("tracker", ncs_params.mongodb_ip, ncs_params.mongodb_base);
+    mongodb_ = new Mongodb(ncs_params.mongodb_ip, ncs_params.mongodb_base);
+    //mongodb_back = new Nosql("back", ncs_params.mongodb_ip, ncs_params.mongodb_base);
+    //mongodb_tracker = new Nosql("tracker", ncs_params.mongodb_ip, ncs_params.mongodb_base);
 
     zeromq = new Zeromq();
 
@@ -143,8 +143,7 @@ void Dispatcher::handleSigHup()
     delete(alert);
     delete(service);
     delete(zeromq);
-    nosql_front->kill_front ();
-    nosql_back->kill_back ();
+    mongodb_->kill ();
 
     snHup->setEnabled(true);
 

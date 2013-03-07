@@ -16,7 +16,6 @@ CONFIG += qxt
 QXT     += core web
 TEMPLATE = app
 SOURCES += main.cpp \
-    nosql.cpp \
     zeromq.cpp \
     xmpp_server.cpp \
     xmpp_client.cpp \
@@ -28,7 +27,8 @@ SOURCES += main.cpp \
     nodetrack/util.cpp \
     CFtpServer/CFtpServer.cpp \
     CFtpServer/nodeftp.cpp \
-    service.cpp
+    service.cpp \
+    mongodb.cpp
 LIBS += /usr/local/lib/libmongoclient.a \
         -lz \
         -lboost_system \
@@ -50,7 +50,6 @@ INCLUDEPATH += ./externals/qxmpp/src/client
 INCLUDEPATH += ./externals/qxmpp/src/server
 
 HEADERS += main.h \
-    nosql.h \
     zeromq.h \
     xmpp_server.h \
     xmpp_client.h \
@@ -65,4 +64,5 @@ HEADERS += main.h \
     CFtpServer/CFtpServerGlobal.h \
     CFtpServer/nodeftp.h \
     CFtpServer/CFtpServerConfig.h \
-    service.h
+    service.h \
+    mongodb.h
