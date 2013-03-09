@@ -242,6 +242,7 @@ void Mongodb::Flush(string a_document, BSONObj query)
     QString tmp;
     tmp.append(this->m_database).append(".").append(a_document.data());
     qDebug() << "m_database.a_document" << tmp;
+    ScopedDbConnection *replicaset;
 
     try {
         qDebug() << "before REMOVE";
@@ -249,7 +250,13 @@ void Mongodb::Flush(string a_document, BSONObj query)
         //auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toStdString(), mongo::Query(a_query));
         //qDebug() << "after cursor created";
 
-        m_mongo_connection.remove(tmp.toStdString(), mongo::Query(query));
+        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+        if (replicaset->ok())
+        {
+            replicaset->conn().remove(tmp.toStdString(), mongo::Query(query));
+            replicaset->done();
+        }
+        //m_mongo_connection.remove(tmp.toStdString(), mongo::Query(query));
         qDebug() << "AFTER REMOVE";
     }
     catch(mongo::DBException &e ) {
@@ -735,16 +742,14 @@ BSONObj Mongodb::WriteFile(const string filename, const char *data, int size)
         {
             //struct_file = this->m_gfs->storeFile(data, size, filename, "application/octet-stream");
             GridFS gfs(replicaset->conn(), m_database.toAscii().data());
-
             struct_file = gfs.storeFile(data, size, filename, "application/octet-stream");
-
+            replicaset->done();
         }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on write file : " << e.what() << std::endl;
         qDebug() << "Mongodb::WriteFile ERROR ON GRIDFS";
     }        
-    replicaset->done();
     return struct_file;
 }
 
