@@ -268,72 +268,91 @@ void Ztracker::worker_update_ticker()
 
     QDateTime t_timestamp;
 
-    BSONObj empty;
-    QList <BSONObj> workers_list = mongodb_->FindAll("workers", empty);
 
-    foreach (BSONObj worker, workers_list)
+
+    // Try to lock lock_collections. Usefull when many ncs try to update the same collection
+    // Maybe try to use mongo::DistributedLock instead (http://api.mongodb.org/cplusplus/2.2.2/classmongo_1_1_distributed_lock.html#details)
+
+    BSONObjBuilder row_lock;
+    row_lock.append("_id", "workers");
+    row_lock.appendDate("ttl", l_timestamp.toMSecsSinceEpoch());;
+
+    BSONObj lock_collection = row_lock.obj();
+
+    // According to this blob http://blog.codecentric.de/en/2012/10/mongodb-pessimistic-locking/
+    // I'm using a Pessimistic Locking
+    if (mongodb_->Insert("lock_collections", lock_collection))
     {
-        //std::cout << "TICKER !!!  workers : " << workers << std::endl;
-
-        BSONObj nodes = worker.getField("nodes").Obj();
 
 
-        list<be> list_nodes;
-        nodes.elems(list_nodes);
-        list<be>::iterator i;
+        BSONObj empty;
+        QList <BSONObj> workers_list = mongodb_->FindAll("workers", empty);
 
-        /********   Iterate over each worker's nodes   *******/
-        /********  find node with uuid and set the node id to payload collection *******/
-        for(i = list_nodes.begin(); i != list_nodes.end(); ++i) {
-            BSONObj l_node = (*i).embeddedObject ();
+        foreach (BSONObj worker, workers_list)
+        {
+            //std::cout << "TICKER !!!  workers : " << workers << std::endl;
 
-            //std::cout << "L_NODE : " << l_node << std::endl;
-
-            BSONElement node_id;
-            l_node.getObjectID (node_id);
-
-            BSONElement node_timestamp = l_node.getField("timestamp");
-            BSONElement status = l_node.getField("status");
-            BSONElement uuid = l_node.getField("uuid");
-
-            t_timestamp.setTime_t(node_timestamp.number());
+            BSONObj nodes = worker.getField("nodes").Obj();
 
 
-            //qDebug() << "QT TIMESTAMP : " << t_timestamp.toString("dd MMMM yyyy hh:mm:ss");
-            //qDebug() << "SECONDES DIFF : " << t_timestamp.secsTo(l_timestamp);
-            //std::cout << "STATUS : " <<  status.str() << std::endl;
+            list<be> list_nodes;
+            nodes.elems(list_nodes);
+            list<be>::iterator i;
+
+            /********   Iterate over each worker's nodes   *******/
+            /********  find node with uuid and set the node id to payload collection *******/
+            for(i = list_nodes.begin(); i != list_nodes.end(); ++i) {
+                BSONObj l_node = (*i).embeddedObject ();
+
+                //std::cout << "L_NODE : " << l_node << std::endl;
+
+                BSONElement node_id;
+                l_node.getObjectID (node_id);
+
+                BSONElement node_timestamp = l_node.getField("timestamp");
+                BSONElement status = l_node.getField("status");
+                BSONElement uuid = l_node.getField("uuid");
+
+                t_timestamp.setTime_t(node_timestamp.number());
 
 
-            if (t_timestamp.secsTo(l_timestamp) > 30 && status.str() == "up")
-            {
-                qDebug() << "SEND ALERT !!!!!!!";
+                //qDebug() << "QT TIMESTAMP : " << t_timestamp.toString("dd MMMM yyyy hh:mm:ss");
+                //qDebug() << "SECONDES DIFF : " << t_timestamp.secsTo(l_timestamp);
+                //std::cout << "STATUS : " <<  status.str() << std::endl;
 
 
-                std::cout << "node_id : " << node_id << std::endl;
-                std::cout << "node_id.OID() : " << node_id.OID() << std::endl;
-
-                BSONElement node_uuid = l_node.getField("node_uuid");
-                BSONObj node = mongodb_->Find("nodes", node_uuid.wrap());
-
-                BSONObj bo_node_id = BSON("nodes._id" << node_id.OID());
-
-                std::cout << "node name : " << node << std::endl;
-
-                BSONObj worker_status = BSON("nodes.$.status" << "down");
-                mongodb_->Update("workers", bo_node_id, worker_status);
+                if (t_timestamp.secsTo(l_timestamp) > 30 && status.str() == "up")
+                {
+                    qDebug() << "SEND ALERT !!!!!!!";
 
 
-                QString l_worker = "WORKER ";
-                l_worker.append(QString::fromStdString(worker.getField("name").str()));
-                l_worker.append(" NODE NAME : ");
-                l_worker.append(QString::fromStdString(node.getField("nodename").str()));
-                l_worker.append(" TYPE : ");
-                l_worker.append(QString::fromStdString(worker.getField("type").str()));
-                l_worker.append (", UUID : ").append (uuid.valuestr()).append (", AT : ").append (t_timestamp.toString("dd MMMM yyyy hh:mm:ss"));
-                qDebug() << "WORKER ALERT ! " << l_worker;
-                emit sendAlert(l_worker);
+                    std::cout << "node_id : " << node_id << std::endl;
+                    std::cout << "node_id.OID() : " << node_id.OID() << std::endl;
+
+                    BSONElement node_uuid = l_node.getField("node_uuid");
+                    BSONObj node = mongodb_->Find("nodes", node_uuid.wrap());
+
+                    BSONObj bo_node_id = BSON("nodes._id" << node_id.OID());
+
+                    std::cout << "node name : " << node << std::endl;
+
+                    BSONObj worker_status = BSON("nodes.$.status" << "down");
+                    mongodb_->Update("workers", bo_node_id, worker_status);
+
+
+                    QString l_worker = "WORKER ";
+                    l_worker.append(QString::fromStdString(worker.getField("name").str()));
+                    l_worker.append(" NODE NAME : ");
+                    l_worker.append(QString::fromStdString(node.getField("nodename").str()));
+                    l_worker.append(" TYPE : ");
+                    l_worker.append(QString::fromStdString(worker.getField("type").str()));
+                    l_worker.append (", UUID : ").append (uuid.valuestr()).append (", AT : ").append (t_timestamp.toString("dd MMMM yyyy hh:mm:ss"));
+                    qDebug() << "WORKER ALERT ! " << l_worker;
+                    emit sendAlert(l_worker);
+                }
             }
         }
+
     }
 
     m_mutex->unlock();
