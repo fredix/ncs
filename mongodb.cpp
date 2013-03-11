@@ -284,36 +284,38 @@ BSONObj Mongodb::Find(string a_document, const bo a_query)
         //auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toStdString(), mongo::Query(a_query));
 
         replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-
-        auto_ptr<DBClientCursor> cursor = replicaset->conn().query(tmp.toStdString(), mongo::Query(a_query));
-
-
-
-        qDebug() << "after cursor created";
-/*
-        while( cursor->more() ) {
-            result = cursor->next();
-            //std::cout << "Mongodb::Find pub uuid : " << datas.getField("os_version").valuestr() << std::endl;
-            std::cout << "Mongodb::Find _id : " << result.getField("_id").jsonString(Strict) << std::endl;
-            // pub_uuid.append(host.getField("pub_uuid").valuestr());
-        }*/
-
-        if ( !cursor->more() ) {
-            replicaset->done();
-            return BSONObj();
-        }
-        else
+        if (replicaset->ok())
         {
-            BSONObj data = cursor->nextSafe().copy();
-            replicaset->done();
-            return data;
+            auto_ptr<DBClientCursor> cursor = replicaset->conn().query(tmp.toStdString(), mongo::Query(a_query));
+
+            qDebug() << "after cursor created";
+    /*
+            while( cursor->more() ) {
+                result = cursor->next();
+                //std::cout << "Mongodb::Find pub uuid : " << datas.getField("os_version").valuestr() << std::endl;
+                std::cout << "Mongodb::Find _id : " << result.getField("_id").jsonString(Strict) << std::endl;
+                // pub_uuid.append(host.getField("pub_uuid").valuestr());
+            }*/
+
+            if ( !cursor->more() ) {
+                replicaset->done();
+                return BSONObj();
+            }
+            else
+            {
+                BSONObj data = cursor->nextSafe().copy();
+                replicaset->done();
+                return data;
+            }
         }
+
+
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on find into " << m_server.toAscii().data() << "." << a_document.data() << " : " << e.what() << std::endl;
         exit(1);
     }
-
+     return BSONObj();
 }
 
 
@@ -338,26 +340,29 @@ BSONObj Mongodb::Find(string a_document, const BSONObj a_query, BSONObj *a_field
         qDebug() << "before cursor created";
         //auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toStdString(), mongo::Query(a_query), 0, 0, a_fields);
         replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        auto_ptr<DBClientCursor> cursor = replicaset->conn().query(tmp.toStdString(), mongo::Query(a_query), 0, 0, a_fields);
-
-        qDebug() << "after cursor created";
-
-        if ( !cursor->more() ) {
-            replicaset->done();
-            return BSONObj();
-        }
-        else
+        if (replicaset->ok())
         {
-            BSONObj data = cursor->nextSafe().copy();
-            replicaset->done();
-            return data;
+            auto_ptr<DBClientCursor> cursor = replicaset->conn().query(tmp.toStdString(), mongo::Query(a_query), 0, 0, a_fields);
+
+            qDebug() << "after cursor created";
+
+            if ( !cursor->more() ) {
+                replicaset->done();
+                return BSONObj();
+            }
+            else
+            {
+                BSONObj data = cursor->nextSafe().copy();
+                replicaset->done();
+                return data;
+            }
         }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on find into " << m_server.toAscii().data() << "." << a_document.data() << " : " << e.what() << std::endl;
         exit(1);
     }
-
+    return BSONObj();
 }
 
 
@@ -380,21 +385,24 @@ QList <BSONObj> Mongodb::FindAll(string a_document, const bo datas)
         qDebug() << "before cursor created";
        // auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toAscii().data(), mongo::Query(datas));
         replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        auto_ptr<DBClientCursor> cursor = replicaset->conn().query(tmp.toStdString(), mongo::Query(datas));
+        if (replicaset->ok())
+        {
+            auto_ptr<DBClientCursor> cursor = replicaset->conn().query(tmp.toStdString(), mongo::Query(datas));
 
-        qDebug() << "after cursor created";
+            qDebug() << "after cursor created";
 
-        while( cursor->more() ) {
-            res << cursor->nextSafe().copy();
+            while( cursor->more() ) {
+                res << cursor->nextSafe().copy();
+            }
+            replicaset->done();
+            return res;
         }
-        replicaset->done();
-        return res;
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on find into " << m_server.toAscii().data() << "." << a_document.data() << " : " << e.what() << std::endl;
         exit(1);
     }
-
+    return res;
 }
 
 
@@ -494,7 +502,7 @@ QBool Mongodb::ReadFile(const be &gfs_id, const mongo::GridFile **a_gf)
 
     try {
         replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (!replicaset->ok())
+        if (replicaset->ok())
         {
             GridFS gfs(replicaset->conn(), m_database.toAscii().data());
 
@@ -520,6 +528,7 @@ QBool Mongodb::ReadFile(const be &gfs_id, const mongo::GridFile **a_gf)
         qDebug() << "Mongodb::ReadFile ERROR ON GRIDFS";
         return QBool(false);
     }
+    return QBool(false);
 }
 
 int Mongodb::GetNumChunck(const be &gfs_id)
@@ -530,7 +539,7 @@ int Mongodb::GetNumChunck(const be &gfs_id)
     std::cout << "Mongodb::GetNumChunck : " << gfs_id << std::endl;
     try {
         replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (!replicaset->ok())
+        if (replicaset->ok())
         {
             GridFS gfs(replicaset->conn(), m_database.toAscii().data());
 
@@ -560,6 +569,7 @@ int Mongodb::GetNumChunck(const be &gfs_id)
         qDebug() << "Mongodb::GetNumChunck ERROR ON GRIDFS";
         return -1;
     }
+    return -1;
 }
 
 
@@ -575,7 +585,7 @@ string Mongodb::GetFilename(const be &gfs_id)
     try {
         qDebug() << "Mongodb::GetFilename BEFORE GRID";
         replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (!replicaset->ok())
+        if (replicaset->ok())
         {
             GridFS gfs(replicaset->conn(), m_database.toAscii().data());
 
@@ -603,6 +613,7 @@ string Mongodb::GetFilename(const be &gfs_id)
         qDebug() << "Mongodb::GetFilename ERROR ON GRIDFS";
         return "";
     }
+    return "";
 }
 
 
@@ -619,7 +630,7 @@ BSONObj Mongodb::GetGfsid(const string filename)
     try {
         qDebug() << "Mongodb::GetFilename BEFORE GRID";
         replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (!replicaset->ok())
+        if (replicaset->ok())
         {
             GridFS gfs(replicaset->conn(), m_database.toAscii().data());
 
@@ -647,6 +658,7 @@ BSONObj Mongodb::GetGfsid(const string filename)
         qDebug() << "Mongodb::GetGfsid ERROR ON GRIDFS";
         return gfsid_;
     }
+    return gfsid_;
 }
 
 
@@ -660,7 +672,7 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
     std::cout << "Mongodb::ExtractByChunck : " << gfs_id << std::endl;
     try {
         replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (!replicaset->ok())
+        if (replicaset->ok())
         {
             GridFS gfs(replicaset->conn(), m_database.toAscii().data());
 
@@ -721,6 +733,7 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
         qDebug() << "Mongodb::ExtractByChunck ERROR ON GRIDFS";
         return QBool(false);
     }
+    return QBool(false);
 }
 
 
@@ -738,7 +751,7 @@ BSONObj Mongodb::WriteFile(const string filename, const char *data, int size)
     BSONObj struct_file;
     try {
         replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (!replicaset->ok())
+        if (replicaset->ok())
         {
             //struct_file = this->m_gfs->storeFile(data, size, filename, "application/octet-stream");
             GridFS gfs(replicaset->conn(), m_database.toAscii().data());
