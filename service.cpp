@@ -21,7 +21,12 @@
 #include "service.h"
 
 Service::Service(QObject *parent) : QObject(parent)
-{}
+{
+    m_nodetrack = NULL;
+    m_nodeftp = NULL;
+    m_xmpp_server = NULL;
+    m_xmpp_client = NULL;
+}
 
 Service::~Service()
 {
@@ -29,17 +34,17 @@ Service::~Service()
     delete(m_http_api);
 
     qDebug() << "delete tracker";
-    delete(m_nodetrack);
+    if (m_nodetrack) delete(m_nodetrack);
 
     qDebug() << "delete ftp";
-    delete(m_nodeftp);
+    if (m_nodeftp) delete(m_nodeftp);
 
 
     qDebug() << "delete xmpp server";
-    delete(m_xmpp_server);
+    if (m_xmpp_server) delete(m_xmpp_server);
 
     qDebug() << "delete xmpp client";
-    delete(m_xmpp_client);
+    if (m_xmpp_client) delete(m_xmpp_client);
 
     qDebug() << "delete worker api";
     emit shutdown();
