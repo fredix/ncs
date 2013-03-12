@@ -1887,22 +1887,23 @@ void Http_api::admin_node_post(QxtWebRequestEvent* event)
                 if (!check_user_login(event, l_alert)) return;
                 if (!l_alert.isEmpty()) header["alert"] = l_alert;
 
-                QString output;
-
-                BSONObj empty;
-                QList <BSONObj> users = mongodb_->FindAll("users", empty);
-
-                output.append("<select name=\"user\">");
-
-                foreach (BSONObj user, users)
+                if (user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
                 {
-                    output.append("<option value=\"" + QString::fromStdString(user.getField("_id").OID().str()) + "\">" +  QString::fromStdString(user.getField("login").str()) + "</option>");
+                    QString output="<label class=\"label\">Choose a owner</label>";
+                    BSONObj empty;
+                    QList <BSONObj> users = mongodb_->FindAll("users", empty);
+
+                    output.append("<select name=\"user\">");
+
+                    foreach (BSONObj user, users)
+                    {
+                        output.append("<option value=\"" + QString::fromStdString(user.getField("_id").OID().str()) + "\">" +  QString::fromStdString(user.getField("login").str()) + "</option>");
+                    }
+                    output.append("</select>");
+
+
+                    body["users"] = output;
                 }
-                output.append("</select>");
-
-
-                body["users"] = output;
-
                 /*
                 page = new QxtWebPageEvent(event->sessionID,
                                            event->requestID,
@@ -1973,8 +1974,13 @@ void Http_api::admin_node_post(QxtWebRequestEvent* event)
 
         qDebug() << "str_node_uuid : " << str_node_uuid << " str_node_token : " << str_node_token;
 
+        BSONObj user_id;
+        if (!user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
+        {
+            user_id = BSON("_id" << user_bson[event->cookies.value("nodecast")].getField("_id"));
+        }
+        else user_id = BSON("_id" << mongo::OID(form_field["user"].toStdString()));
 
-        BSONObj user_id = BSON("_id" << mongo::OID(form_field["user"].toStdString()));
         BSONObj t_user = mongodb_->Find("users", user_id);
 
         std::cout << "T USER : " << t_user.toString() << std::endl;
@@ -2158,22 +2164,23 @@ void Http_api::admin_workflow_post(QxtWebRequestEvent* event)
                 if (!check_user_login(event, l_alert)) return;
                 if (!l_alert.isEmpty()) header["alert"] = l_alert;
 
-                QString output;
-
-                BSONObj empty;
-                QList <BSONObj> users = mongodb_->FindAll("users", empty);
-
-                output.append("<select name=\"user\">");
-
-                foreach (BSONObj user, users)
+                if (user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
                 {
-                    output.append("<option value=\"" + QString::fromStdString(user.getField("_id").OID().str()) + "\">" +  QString::fromStdString(user.getField("login").str()) + "</option>");
+                    QString output="<label class=\"label\">Choose a owner</label>";
+                    BSONObj empty;
+                    QList <BSONObj> users = mongodb_->FindAll("users", empty);
+
+                    output.append("<select name=\"user\">");
+
+                    foreach (BSONObj user, users)
+                    {
+                        output.append("<option value=\"" + QString::fromStdString(user.getField("_id").OID().str()) + "\">" +  QString::fromStdString(user.getField("login").str()) + "</option>");
+                    }
+                    output.append("</select>");
+
+
+                    body["users"] = output;
                 }
-                output.append("</select>");
-
-
-                body["users"] = output;
-
                 /*
                 page = new QxtWebPageEvent(event->sessionID,
                                            event->requestID,
@@ -2258,7 +2265,14 @@ void Http_api::admin_workflow_post(QxtWebRequestEvent* event)
         }
          std::cout << "WORKFLOW : " << b_workflow.toString() << std::endl;
 
-        BSONObj user_id = BSON("_id" << mongo::OID(form_field["user"].toStdString()));
+        BSONObj user_id;
+        if (!user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
+        {
+            user_id = BSON("_id" << user_bson[event->cookies.value("nodecast")].getField("_id"));
+        }
+        else user_id = BSON("_id" << mongo::OID(form_field["user"].toStdString()));
+
+
         BSONObj t_user = mongodb_->Find("users", user_id);
 
         std::cout << "T USER : " << t_user.toString() << std::endl;
