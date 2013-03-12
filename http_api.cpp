@@ -66,14 +66,14 @@ Http_api::~Http_api()
     delete(z_push_api);
 }
 
-bool Http_api::check_user_login(QxtWebRequestEvent *event, QString &user, QString &alert)
+bool Http_api::check_user_login(QxtWebRequestEvent *event, QString &alert)
 {
     QxtWebRedirectEvent *redir;
     QString user_uuid = event->cookies.value("nodecast");
 
-    if (user_session.contains(user_uuid))
+    if (user_bson.contains(user_uuid))
     {
-        user = user_session[user_uuid];
+        //user = user_session[user_uuid];
 
         if (user_alert.contains(user_uuid))
         {
@@ -81,7 +81,7 @@ bool Http_api::check_user_login(QxtWebRequestEvent *event, QString &user, QStrin
             user_alert.remove(user_uuid);
         }
 
-        qDebug() << "USER FOUND : " << user;
+       // qDebug() << "USER FOUND : " << user;
         return true;
     }
     else
@@ -97,14 +97,13 @@ bool Http_api::check_user_login(QxtWebRequestEvent *event, QString &user, QStrin
 
 void Http_api::set_user_alert(QxtWebRequestEvent *event, QString alert)
 {
-    QxtWebRedirectEvent *redir;
     QString user_uuid = event->cookies.value("nodecast");
     user_alert[user_uuid] = alert;
 }
 
 
 
-QBool Http_api::http_auth(QString auth, QHash <QString, QString> &hauth)
+QBool Http_api::http_auth(QString auth, QHash <QString, QString> &hauth, QString &str_session_uuid)
 {
 
     QStringList list_field = auth.split("&");
@@ -136,6 +135,15 @@ QBool Http_api::http_auth(QString auth, QHash <QString, QString> &hauth)
         qDebug() << "auth failed !";
         return QBool(false);
     }
+
+    // create session id
+    QUuid session_uuid = QUuid::createUuid();
+    str_session_uuid = session_uuid.toString().mid(1,36);
+
+    user_bson[str_session_uuid] = l_user.copy();
+
+    //hauth["admin"] = QString::fromStdString(l_user.getField("admin").toString(false));
+    //qDebug() << "IS ADMIN ? : " << hauth["admin"];
 
    // be login = user.getField("login");
     // std::cout << "user : " << login << std::endl;
@@ -1064,6 +1072,17 @@ void Http_api::session(QxtWebRequestEvent* event, QString uuid)
 
 
 /********** INDEX PAGE ************/
+void Http_api::admin_logout(QxtWebRequestEvent* event)
+{
+    QxtWebRedirectEvent *redir;
+
+    user_bson.remove(event->cookies.value("nodecast"));
+
+    redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "/", 302 );
+    postEvent(redir);
+}
+
+/********** INDEX PAGE ************/
 void Http_api::index(QxtWebRequestEvent* event)
 {
 /*    QString bodyMessage;
@@ -1093,7 +1112,13 @@ void Http_api::index(QxtWebRequestEvent* event)
             header.open("html_templates/header.html");
             footer.open("html_templates/footer.html");
 
-            body["content"]="Ncs admin users";
+            if (!event->cookies.value("nodecast").isEmpty() && user_bson.contains(event->cookies.value("nodecast")))
+            {
+                header["connection"] = "<li><a href=\"/admin/logout\">Logout</a></li>";
+
+            }
+            else header["connection"] = "<li><a href=\"/admin/login\">Login</a></li>";
+
 
             body["ncs_version"]="0.9.7";
 
@@ -1154,7 +1179,11 @@ void Http_api::admin(QxtWebRequestEvent* event, QString action)
             if (action == "login")
             {
                 admin_login(event);
-            }            
+            }
+            else if (action == "logout")
+            {
+                admin_logout(event);
+            }
             else if (action == "users")
             {
 
@@ -1314,26 +1343,9 @@ void Http_api::admin_login(QxtWebRequestEvent* event)
         }
         else
         {
-            index["content"]="Ncs admin users";
-
-            /*
-            QString html;
-            html.append("<select>");
-
-            for (int i=0; i<5; i++)
-            {
-                html.append("<option value=\"volvo\">Volvo</option>");
-            }
-
-            html.append("</select>");
-
-            index["prot"]=html;
-            */
-
             header.open("html_templates/header.html");
-
             footer.open("html_templates/footer.html");
-
+            header["connection"] = "<li><a href=\"/admin/login\">Login</a></li>";
 
 
             page = new QxtWebPageEvent(event->sessionID,
@@ -1375,49 +1387,25 @@ void Http_api::admin_login(QxtWebRequestEvent* event)
             qDebug() << "RECEIVE : " << requestContent;
 
             QHash <QString, QString> hauth;
-            QBool res = http_auth(QString::fromUtf8(requestContent), hauth);
+            QString str_session_uuid;
 
-            if (!res)
+            if (!http_auth(QString::fromUtf8(requestContent), hauth, str_session_uuid))
             {
                 qDebug() << "AUTH FAILED !";
-
-                /*
-                index["content"]="Ncs admin users";
-
-
-                QString html;
-                html.append("<select>");
-
-                for (int i=0; i<5; i++)
-                {
-                    html.append("<option value=\"volvo\">Volvo</option>");
-                }
-
-                html.append("</select>");
-
-                index["prot"]=html;
-
-                page = new QxtWebPageEvent(event->sessionID,
-                                           event->requestID,
-                                           index.render().toUtf8());
-
-                page->contentType="text/html";
-                */
-
                 redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "login", 302 );
-
-
             }
             else
             {
                 //QxtWebStoreCookieEvent cookie_mail (event->sessionID, "email", hauth["email"],  QDateTime::currentDateTime().addMonths(1));
                 //QxtWebStoreCookieEvent cookie_pass (event->sessionID, "password", hauth["password"],  QDateTime::currentDateTime().addMonths(1));
 
-                QUuid session_uuid = QUuid::createUuid();
-                QString str_session_uuid = session_uuid.toString().mid(1,36);
+              //  QUuid session_uuid = QUuid::createUuid();
+              //  QString str_session_uuid = session_uuid.toString().mid(1,36);
 
-                user_session[str_session_uuid] = hauth["email"];
+                //user_session[str_session_uuid] = hauth["email"];
+                //user_admin[str_session_uuid] = (hauth["admin"] == "true")? true : false;
 
+                user_alert[str_session_uuid] = errorMessage("Logged in successfully", "notice");
 
                 cookie_session = new QxtWebStoreCookieEvent (event->sessionID, "nodecast", str_session_uuid, QDateTime::currentDateTime().addMonths(1));
                 qDebug() << "SESSION ID : " << str_session_uuid;
@@ -1501,14 +1489,12 @@ void Http_api::admin_users_get(QxtWebRequestEvent* event)
             else
             {
                 header.open("html_templates/header.html");
-
                 footer.open("html_templates/footer.html");
+                header["connection"] = "<li><a href=\"/admin/logout\">Logout</a></li>";
 
-
-                body["content"]="Ncs admin users";
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString l_user, l_alert;
+                QString l_alert;
 
 
                 // redirect to createuser if not users
@@ -1519,19 +1505,20 @@ void Http_api::admin_users_get(QxtWebRequestEvent* event)
                     return;
                 }
 
-
-
-                if (!check_user_login(event, l_user, l_alert)) return;
-
-
+                if (!check_user_login(event, l_alert)) return;
                 if (!l_alert.isEmpty()) header["alert"] = l_alert;
 
+                // only an admin user can go to the users list
+                if (!user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
+                {
+                    set_user_alert(event, errorMessage("you are not an admin user", "error"));
+                    redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "nodes", 302 );
+                    postEvent(redir);
+                    return;
+                }
 
 
-
-
-                body["user"]=l_user;
-
+                header["user_login"] = "connected as " + QString::fromStdString(user_bson[event->cookies.value("nodecast")].getField("login").toString(false));
 
 
                 BSONObj empty;
@@ -1546,7 +1533,7 @@ void Http_api::admin_users_get(QxtWebRequestEvent* event)
                     output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id\" value=\"1\"></td><td>1</td><td>" +
                             QString::fromStdString(user.getField("login").str()) + "</td>" +
                             "<td>" + QString::fromStdString(user.getField("email").str()) + "</td>" +
-                            "<td>" + QString::fromStdString(user.getField("authentication_token").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(user.getField("token").str()) + "</td>" +
                             "<td>" + QString::fromStdString(user.getFieldDotted("nodes.payload_counter").str()) + "</td>" +
                             "<td class=\"last\"><a href=\"#\">show</a> | <a href=\"#\">edit</a> | <a href=\"#\">destroy</a></td></tr>");
 
@@ -1631,14 +1618,25 @@ void Http_api::admin_user_post(QxtWebRequestEvent* event)
 
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString l_user, l_alert;
+                QString l_alert;
 
                 if (mongodb_->Count("users") != 0)
-                    if (!check_user_login(event, l_user, l_alert)) return;
-
+                {
+                    if (!check_user_login(event, l_alert)) return;
+                }
+                else header["alert"] = errorMessage("please create an admin user", "notice");
 
                 if (!l_alert.isEmpty()) header["alert"] = l_alert;
 
+
+                // only an admin user can create new users
+                if (!user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
+                {
+                    set_user_alert(event, errorMessage("you are not an admin user", "error"));
+                    redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "nodes", 302 );
+                    postEvent(redir);
+                    return;
+                }
 
 
                 /*
@@ -1664,8 +1662,10 @@ void Http_api::admin_user_post(QxtWebRequestEvent* event)
     case POST:
 
         qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-        QString l_user, l_alert;
-        if (mongodb_->Count("users") != 0 && !check_user_login(event, l_user, l_alert)) return;
+        QString l_alert;
+
+        bool create_admin = (mongodb_->Count("users") != 0)? false : true;
+        if (!create_admin && !check_user_login(event, l_alert)) return;
 
         form = event->content;
         form->waitForAllContent();
@@ -1712,7 +1712,7 @@ void Http_api::admin_user_post(QxtWebRequestEvent* event)
 
         qDebug() << "password_hash : " << password_hash.toHex();
 
-        BSONObj t_user = BSON(GENOID << "admin" << "" << "login" << form_field["login"].toStdString() << "password" << QString::fromLatin1(password_hash.toHex()).toStdString() << "email" << form_field["email"].toStdString() << "token" << str_token.toStdString() << "tracker" << BSON ("token" << str_tracker_token.toStdString()));
+        BSONObj t_user = BSON(GENOID << "admin" << create_admin << "login" << form_field["login"].toStdString() << "password" << QString::fromLatin1(password_hash.toHex()).toStdString() << "email" << form_field["email"].toStdString() << "token" << str_token.toStdString() << "tracker" << BSON ("token" << str_tracker_token.toStdString()));
         mongodb_->Insert("users", t_user);
 
         //doc = { login : 'user', email : 'user@email.com', authentication_token : 'token'}
@@ -1766,20 +1766,24 @@ void Http_api::admin_nodes_get(QxtWebRequestEvent* event)
             else
             {
                 header.open("html_templates/header.html");
-
                 footer.open("html_templates/footer.html");
+                header["connection"] = "<li><a href=\"/admin/logout\">Logout</a></li>";
 
-
-                body["content"]="Ncs admin users";
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString user, l_alert;
-                if (!check_user_login(event, user, l_alert)) return;
+                QString l_alert;
+                if (!check_user_login(event, l_alert)) return;
                 if (!l_alert.isEmpty()) header["alert"] = l_alert;
+                header["user_login"] = "connected as " + QString::fromStdString(user_bson[event->cookies.value("nodecast")].getField("login").toString(false));
 
 
-                BSONObj empty;
-                QList <BSONObj> nodes = mongodb_->FindAll("nodes", empty);
+                BSONObj filter;
+                if (!user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
+                {
+                    filter = BSON("user_id" << user_bson[event->cookies.value("nodecast")].getField("_id"));
+                }
+
+                QList <BSONObj> nodes = mongodb_->FindAll("nodes", filter);
 
                 QString output;
                 int counter=0;
@@ -1879,8 +1883,8 @@ void Http_api::admin_node_post(QxtWebRequestEvent* event)
                 footer.open("html_templates/footer.html");
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString l_user, l_alert;
-                if (!check_user_login(event, l_user, l_alert)) return;
+                QString l_alert;
+                if (!check_user_login(event, l_alert)) return;
                 if (!l_alert.isEmpty()) header["alert"] = l_alert;
 
                 QString output;
@@ -1922,8 +1926,8 @@ void Http_api::admin_node_post(QxtWebRequestEvent* event)
     case POST:
 
         qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-        QString l_user, l_alert;
-        if (!check_user_login(event, l_user, l_alert)) return;
+        QString l_alert;
+        if (!check_user_login(event, l_alert)) return;
 
         form = event->content;
         form->waitForAllContent();
@@ -2032,16 +2036,23 @@ void Http_api::admin_workflows_get(QxtWebRequestEvent* event)
             {
                 header.open("html_templates/header.html");
                 footer.open("html_templates/footer.html");
+                header["connection"] = "<li><a href=\"/admin/logout\">Logout</a></li>";
 
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString user, l_alert;
-                if (!check_user_login(event, user, l_alert)) return;
+                QString l_alert;
+                if (!check_user_login(event, l_alert)) return;
                 if (!l_alert.isEmpty()) header["alert"] = l_alert;
+                header["user_login"] = "connected as " + QString::fromStdString(user_bson[event->cookies.value("nodecast")].getField("login").toString(false));
 
 
-                BSONObj empty;
-                QList <BSONObj> workflows = mongodb_->FindAll("workflows", empty);
+                BSONObj filter;
+                if (!user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
+                {
+                    filter = BSON("user_id" << user_bson[event->cookies.value("nodecast")].getField("_id"));
+                }
+
+                QList <BSONObj> workflows = mongodb_->FindAll("workflows", filter);
 
                 QString output;
                 int counter=0;
@@ -2143,8 +2154,8 @@ void Http_api::admin_workflow_post(QxtWebRequestEvent* event)
 
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString l_user, l_alert;
-                if (!check_user_login(event, l_user, l_alert)) return;
+                QString l_alert;
+                if (!check_user_login(event, l_alert)) return;
                 if (!l_alert.isEmpty()) header["alert"] = l_alert;
 
                 QString output;
@@ -2186,8 +2197,8 @@ void Http_api::admin_workflow_post(QxtWebRequestEvent* event)
     case POST:
 
         qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-        QString l_user, l_alert;
-        if (!check_user_login(event, l_user, l_alert)) return;
+        QString l_alert;
+        if (!check_user_login(event, l_alert)) return;
 
         form = event->content;
         form->waitForAllContent();
@@ -2307,34 +2318,22 @@ void Http_api::admin_workers_get(QxtWebRequestEvent* event)
             else
             {
                 header.open("html_templates/header.html");
-
                 footer.open("html_templates/footer.html");
+                header["connection"] = "<li><a href=\"/admin/logout\">Logout</a></li>";
 
-
-                body["content"]="Ncs admin users";
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString user, l_alert;
-                if (!check_user_login(event, user, l_alert)) return;
+                QString l_alert;
+                if (!check_user_login(event, l_alert)) return;
                 if (!l_alert.isEmpty()) header["alert"] = l_alert;
+                header["user_login"] = "connected as " + QString::fromStdString(user_bson[event->cookies.value("nodecast")].getField("login").toString(false));
 
-
-                body["user"]=user;
-
-                /*
-
-                { "_id" : ObjectId("50fd233983f218b59485e496"), "name" : "deploy",
-"nodes" : [ 	{ 	"_id" : ObjectId("50fd233983f218b59485e497"), 	"node_uuid" : "0d7f9bdc-37a2-4290-be41-62598bd7a525", "pid" : NumberLong(8796), 	"status" : "down", 	"timestamp" : 1358766915, 	"uuid" : "06eaf3fe-f822-4c15-9054-b1d29a666953" }, 	{ 	"_id" : ObjectId("50fe55e3acc09505463e0b5f"), 	"node_uuid" : "0d7f9bdc-37a2-4290-be41-62598bd7a525", 	"pid" : NumberLong(20105), 	"status" : "down",
-"timestamp" : 1358971110, 	"uuid" : "6cb6b594-ccf6-49c3-887f-2239ec64788a" } ],
-"port" : 5562, "type" : "service" }
-
-
-
-                */
-
-
-                BSONObj empty;
-                QList <BSONObj> workers = mongodb_->FindAll("workers", empty);
+                BSONObj filter;
+                if (!user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
+                {
+                    filter = BSON("user_id" << user_bson[event->cookies.value("nodecast")].getField("_id"));
+                }
+                QList <BSONObj> workers = mongodb_->FindAll("workers", filter);
 
                 QString output;
                 int counter=0;
@@ -2431,20 +2430,23 @@ void Http_api::admin_sessions_get(QxtWebRequestEvent* event)
             else
             {
                 header.open("html_templates/header.html");
-
                 footer.open("html_templates/footer.html");
+                header["connection"] = "<li><a href=\"/admin/logout\">Logout</a></li>";
 
-
-                body["content"]="Ncs admin users";
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString user, l_alert;
-                if (!check_user_login(event, user, l_alert)) return;
+                QString l_alert;
+                if (!check_user_login(event, l_alert)) return;
                 if (!l_alert.isEmpty()) header["alert"] = l_alert;
+                header["user_login"] = "connected as " + QString::fromStdString(user_bson[event->cookies.value("nodecast")].getField("login").toString(false));
 
 
-                BSONObj empty;
-                QList <BSONObj> sessions = mongodb_->FindAll("sessions", empty);
+                BSONObj filter;
+                if (!user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
+                {
+                    filter = BSON("user_id" << user_bson[event->cookies.value("nodecast")].getField("_id"));
+                }
+                QList <BSONObj> sessions = mongodb_->FindAll("sessions", filter);
 
                 QString output;
                 int counter=0;
@@ -2533,20 +2535,22 @@ void Http_api::admin_payloads_get(QxtWebRequestEvent* event)
             else
             {
                 header.open("html_templates/header.html");
-
                 footer.open("html_templates/footer.html");
-
-
-                body["content"]="Ncs admin users";
+                header["connection"] = "<li><a href=\"/admin/logout\">Logout</a></li>";
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString user, l_alert;
-                if (!check_user_login(event, user, l_alert)) return;
+                QString l_alert;
+                if (!check_user_login(event, l_alert)) return;
                 if (!l_alert.isEmpty()) header["alert"] = l_alert;
+                header["user_login"] = "connected as " + QString::fromStdString(user_bson[event->cookies.value("nodecast")].getField("login").toString(false));
 
 
-                BSONObj empty;
-                QList <BSONObj> payloads = mongodb_->FindAll("payloads", empty);
+                BSONObj filter;
+                if (!user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
+                {
+                    filter = BSON("user_id" << user_bson[event->cookies.value("nodecast")].getField("_id"));
+                }
+                QList <BSONObj> payloads = mongodb_->FindAll("payloads", filter);
 
                 QString output;
                 int counter=0;
@@ -2673,20 +2677,22 @@ void Http_api::admin_lost_pushpull_payloads_get(QxtWebRequestEvent* event)
             else
             {
                 header.open("html_templates/header.html");
-
                 footer.open("html_templates/footer.html");
-
-
-                body["content"]="Ncs admin users";
+                header["connection"] = "<li><a href=\"/admin/logout\">Logout</a></li>";
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString user, l_alert;
-                if (!check_user_login(event, user, l_alert)) return;
+                QString l_alert;
+                if (!check_user_login(event, l_alert)) return;
                 if (!l_alert.isEmpty()) header["alert"] = l_alert;
+                header["user_login"] = "connected as " + QString::fromStdString(user_bson[event->cookies.value("nodecast")].getField("login").toString(false));
 
 
-                BSONObj empty;
-                QList <BSONObj> lost_pushpull_payloads = mongodb_->FindAll("lost_pushpull_payloads", empty);
+                BSONObj filter;
+                if (!user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
+                {
+                    filter = BSON("user_id" << user_bson[event->cookies.value("nodecast")].getField("_id"));
+                }
+                QList <BSONObj> lost_pushpull_payloads = mongodb_->FindAll("lost_pushpull_payloads", filter);
 
                 QString output;
                 int counter=0;

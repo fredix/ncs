@@ -50,16 +50,20 @@
       <h1><a href="/">Nodecast</a></h1>
       <div id="user-navigation">
         <ul class="wat-cf">
+
           <li><a href="#">Profile</a></li>
           <li><a href="#">Settings</a></li>
-          <li><a class="logout" href="#">Logout</a></li>
+<!--
+          <li><a class="logout" href="/admin/logout">logout</a></li>
+-->
+          <li><?=user_login?></li>
         </ul>
       </div>
       <div id="main-navigation">
         <ul class="wat-cf">
           <li class="first active"><a href="/admin/users">Admin</a></li>
           <li><a href="#block-text">Stats</a></li>
-          <li><a href="/admin/login">Login</a></li>
+          <?=connection?>
         </ul>
       </div>
     </div>

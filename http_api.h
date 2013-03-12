@@ -79,14 +79,15 @@ private:
 
 
     void admin_login(QxtWebRequestEvent* event);
-    bool check_user_login(QxtWebRequestEvent* event, QString &user, QString &alert);
+    void admin_logout(QxtWebRequestEvent* event);
+    bool check_user_login(QxtWebRequestEvent* event, QString &alert);
     QString errorMessage(QString msg, QString level);
     void set_user_alert(QxtWebRequestEvent *event, QString alert);
 
     StringToHTTPEnumMap enumToHTTPmethod;
 
-    QHash <QString, QString> user_session;
     QHash <QString, QString> user_alert;
+    QHash <QString, BSONObj> user_bson;
 
     zmq::socket_t *z_push_api;
     zmq::message_t *z_message;
@@ -94,7 +95,7 @@ private:
     Mongodb *mongodb_;
     Zeromq *zeromq_;
     QBool checkAuth(QString token, BSONObjBuilder &payload, bo &a_user);
-    QBool http_auth(QString auth, QHash <QString, QString> &hauth);
+    QBool http_auth(QString auth, QHash <QString, QString> &hauth, QString &str_session_uuid);
 
     QString buildResponse(QString action, QString data1, QString data2="");
 };
