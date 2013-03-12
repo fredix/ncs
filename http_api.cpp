@@ -66,7 +66,7 @@ Http_api::~Http_api()
     delete(z_push_api);
 }
 
-void Http_api::check_user_login(QxtWebRequestEvent *event, QString &user)
+bool Http_api::check_user_login(QxtWebRequestEvent *event, QString &user, QString &alert)
 {
     QxtWebRedirectEvent *redir;
     QString user_uuid = event->cookies.value("nodecast");
@@ -74,16 +74,35 @@ void Http_api::check_user_login(QxtWebRequestEvent *event, QString &user)
     if (user_session.contains(user_uuid))
     {
         user = user_session[user_uuid];
+
+        if (user_alert.contains(user_uuid))
+        {
+            alert = user_alert[user_uuid];
+            user_alert.remove(user_uuid);
+        }
+
         qDebug() << "USER FOUND : " << user;
+        return true;
     }
     else
     {
         qDebug() << "USER NOT CONNECTED, REDIR !";
         redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "login", 302 );
         postEvent(redir);
+        return false;
     }
 
 }
+
+
+void Http_api::set_user_alert(QxtWebRequestEvent *event, QString alert)
+{
+    QxtWebRedirectEvent *redir;
+    QString user_uuid = event->cookies.value("nodecast");
+    user_alert[user_uuid] = alert;
+}
+
+
 
 QBool Http_api::http_auth(QString auth, QHash <QString, QString> &hauth)
 {
@@ -1466,6 +1485,7 @@ void Http_api::admin_users_get(QxtWebRequestEvent* event)
     QxtHtmlTemplate body;
     QxtHtmlTemplate footer;
     QxtWebPageEvent *page;
+    QxtWebRedirectEvent *redir=NULL;
 
 //            if(!body.open("html_templates/admin_users_get.html"))
 
@@ -1488,8 +1508,26 @@ void Http_api::admin_users_get(QxtWebRequestEvent* event)
                 body["content"]="Ncs admin users";
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString l_user;
-                check_user_login(event, l_user);
+                QString l_user, l_alert;
+
+
+                // redirect to createuser if not users
+                if (mongodb_->Count("users") == 0)
+                {
+                    redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "createuser", 302 );
+                    postEvent(redir);
+                    return;
+                }
+
+
+
+                if (!check_user_login(event, l_user, l_alert)) return;
+
+
+                if (!l_alert.isEmpty()) header["alert"] = l_alert;
+
+
+
 
 
                 body["user"]=l_user;
@@ -1587,17 +1625,19 @@ void Http_api::admin_user_post(QxtWebRequestEvent* event)
             else
             {
                 header.open("html_templates/header.html");
-
                 footer.open("html_templates/footer.html");
 
 
-                body["content"]="Ncs admin users";
+
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString l_user;
+                QString l_user, l_alert;
 
                 if (mongodb_->Count("users") != 0)
-                    check_user_login(event, l_user);
+                    if (!check_user_login(event, l_user, l_alert)) return;
+
+
+                if (!l_alert.isEmpty()) header["alert"] = l_alert;
 
 
 
@@ -1624,8 +1664,8 @@ void Http_api::admin_user_post(QxtWebRequestEvent* event)
     case POST:
 
         qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-        QString l_user;
-        check_user_login(event, l_user);
+        QString l_user, l_alert;
+        if (mongodb_->Count("users") != 0 && !check_user_login(event, l_user, l_alert)) return;
 
         form = event->content;
         form->waitForAllContent();
@@ -1638,11 +1678,6 @@ void Http_api::admin_user_post(QxtWebRequestEvent* event)
         //QxtWebStoreCookieEvent cookie_mail (event->sessionID, "email", hauth["email"],  QDateTime::currentDateTime().addMonths(1));
         //QxtWebStoreCookieEvent cookie_pass (event->sessionID, "password", hauth["password"],  QDateTime::currentDateTime().addMonths(1));
 
-        QUuid token = QUuid::createUuid();
-        QString str_token = token.toString().mid(1,36);
-
-        QUuid tracker_token = QUuid::createUuid();
-        QString str_tracker_token = tracker_token.toString().remove(QChar('-')).mid(1,32);
 
         QHash <QString, QString> form_field;
         QStringList list_field = QString::fromAscii(requestContent).split("&");
@@ -1650,8 +1685,26 @@ void Http_api::admin_user_post(QxtWebRequestEvent* event)
         for (int i = 0; i < list_field.size(); ++i)
         {
             QStringList field = list_field.at(i).split("=");
+
+            if (field[1].isEmpty())
+            {
+                set_user_alert(event, errorMessage("field " + field[0] + " is empty", "error"));
+                redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "createuser", 302 );
+                postEvent(redir);
+                return;
+            }
             form_field[field[0]] = field[1].replace(QString("%40"), QString("@"));
         }
+
+
+
+
+
+        QUuid token = QUuid::createUuid();
+        QString str_token = token.toString().mid(1,36);
+
+        QUuid tracker_token = QUuid::createUuid();
+        QString str_tracker_token = tracker_token.toString().remove(QChar('-')).mid(1,32);
 
         QCryptographicHash cipher( QCryptographicHash::Sha1 );
         cipher.addData(form_field["password"].simplified().toAscii());
@@ -1659,7 +1712,7 @@ void Http_api::admin_user_post(QxtWebRequestEvent* event)
 
         qDebug() << "password_hash : " << password_hash.toHex();
 
-        BSONObj t_user = BSON(GENOID << "login" << form_field["login"].toStdString() << "password" << QString::fromLatin1(password_hash.toHex()).toStdString() << "email" << form_field["email"].toStdString() << "token" << str_token.toStdString() << "tracker" << BSON ("token" << str_tracker_token.toStdString()));
+        BSONObj t_user = BSON(GENOID << "admin" << "" << "login" << form_field["login"].toStdString() << "password" << QString::fromLatin1(password_hash.toHex()).toStdString() << "email" << form_field["email"].toStdString() << "token" << str_token.toStdString() << "tracker" << BSON ("token" << str_tracker_token.toStdString()));
         mongodb_->Insert("users", t_user);
 
         //doc = { login : 'user', email : 'user@email.com', authentication_token : 'token'}
@@ -1720,8 +1773,9 @@ void Http_api::admin_nodes_get(QxtWebRequestEvent* event)
                 body["content"]="Ncs admin users";
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString user;
-                check_user_login(event, user);
+                QString user, l_alert;
+                if (!check_user_login(event, user, l_alert)) return;
+                if (!l_alert.isEmpty()) header["alert"] = l_alert;
 
 
                 BSONObj empty;
@@ -1824,12 +1878,10 @@ void Http_api::admin_node_post(QxtWebRequestEvent* event)
 
                 footer.open("html_templates/footer.html");
 
-
-                body["content"]="Ncs admin users";
-
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString l_user;
-                check_user_login(event, l_user);
+                QString l_user, l_alert;
+                if (!check_user_login(event, l_user, l_alert)) return;
+                if (!l_alert.isEmpty()) header["alert"] = l_alert;
 
                 QString output;
 
@@ -1870,8 +1922,8 @@ void Http_api::admin_node_post(QxtWebRequestEvent* event)
     case POST:
 
         qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-        QString l_user;
-        check_user_login(event, l_user);
+        QString l_user, l_alert;
+        if (!check_user_login(event, l_user, l_alert)) return;
 
         form = event->content;
         form->waitForAllContent();
@@ -1885,14 +1937,6 @@ void Http_api::admin_node_post(QxtWebRequestEvent* event)
         //QxtWebStoreCookieEvent cookie_pass (event->sessionID, "password", hauth["password"],  QDateTime::currentDateTime().addMonths(1));
 
 
-        QUuid node_uuid = QUuid::createUuid();
-        QString str_node_uuid = node_uuid.toString().mid(1,36);
-
-        QUuid node_token = QUuid::createUuid();
-        QString str_node_token = node_token.toString().mid(1,36);
-
-        qDebug() << "str_node_uuid : " << str_node_uuid << " str_node_token : " << str_node_token;
-
         //RECEIVE :  "login=fredix&email=fredix%40gmail.com"
 
         QHash <QString, QString> form_field;
@@ -1901,10 +1945,30 @@ void Http_api::admin_node_post(QxtWebRequestEvent* event)
         for (int i = 0; i < list_field.size(); ++i)
         {
             QStringList field = list_field.at(i).split("=");
+
+            if (field[1].isEmpty())
+            {
+                set_user_alert(event, errorMessage("field " + field[0] + " is empty", "error"));
+                redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "createnode", 302 );
+                postEvent(redir);
+                return;
+            }
+
             form_field[field[0]] = field[1].replace(QString("%40"), QString("@"));
         }
 
         qDebug() << "form field : " << form_field;
+
+
+
+        QUuid node_uuid = QUuid::createUuid();
+        QString str_node_uuid = node_uuid.toString().mid(1,36);
+
+        QUuid node_token = QUuid::createUuid();
+        QString str_node_token = node_token.toString().mid(1,36);
+
+        qDebug() << "str_node_uuid : " << str_node_uuid << " str_node_token : " << str_node_token;
+
 
         BSONObj user_id = BSON("_id" << mongo::OID(form_field["user"].toStdString()));
         BSONObj t_user = mongodb_->Find("users", user_id);
@@ -1967,15 +2031,13 @@ void Http_api::admin_workflows_get(QxtWebRequestEvent* event)
             else
             {
                 header.open("html_templates/header.html");
-
                 footer.open("html_templates/footer.html");
 
 
-                body["content"]="Ncs admin users";
-
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString user;
-                check_user_login(event, user);
+                QString user, l_alert;
+                if (!check_user_login(event, user, l_alert)) return;
+                if (!l_alert.isEmpty()) header["alert"] = l_alert;
 
 
                 BSONObj empty;
@@ -2077,15 +2139,13 @@ void Http_api::admin_workflow_post(QxtWebRequestEvent* event)
             else
             {
                 header.open("html_templates/header.html");
-
                 footer.open("html_templates/footer.html");
 
 
-                body["content"]="Ncs admin users";
-
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString l_user;
-                check_user_login(event, l_user);
+                QString l_user, l_alert;
+                if (!check_user_login(event, l_user, l_alert)) return;
+                if (!l_alert.isEmpty()) header["alert"] = l_alert;
 
                 QString output;
 
@@ -2126,8 +2186,8 @@ void Http_api::admin_workflow_post(QxtWebRequestEvent* event)
     case POST:
 
         qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-        QString l_user;
-        check_user_login(event, l_user);
+        QString l_user, l_alert;
+        if (!check_user_login(event, l_user, l_alert)) return;
 
         form = event->content;
         form->waitForAllContent();
@@ -2141,10 +2201,6 @@ void Http_api::admin_workflow_post(QxtWebRequestEvent* event)
         //QxtWebStoreCookieEvent cookie_pass (event->sessionID, "password", hauth["password"],  QDateTime::currentDateTime().addMonths(1));
 
 
-        QUuid workflow_uuid = QUuid::createUuid();
-        QString str_workflow_uuid = workflow_uuid.toString().mid(1,36);
-
-        qDebug() << "str_workflow_uuid : " << str_workflow_uuid;
 
         //RECEIVE :  "login=fredix&email=fredix%40gmail.com"
 
@@ -2154,6 +2210,13 @@ void Http_api::admin_workflow_post(QxtWebRequestEvent* event)
         for (int i = 0; i < list_field.size(); ++i)
         {
             QStringList field = list_field.at(i).split("=");
+            if (field[1].isEmpty())
+            {
+                set_user_alert(event, errorMessage("field " + field[0] + " is empty", "error"));
+                redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "createworkflow", 302 );
+                postEvent(redir);
+                return;
+            }
             form_field[field[0]] = field[1].replace(QString("%40"), QString("@"));
         }
 
@@ -2161,12 +2224,27 @@ void Http_api::admin_workflow_post(QxtWebRequestEvent* event)
 //      QHash(("workers", "%7B+%22myworkerA%22+%3A+1%2C+%22myworkerB%22+%3A+2%2C+%22myworkerC%22+%3A+3+%7D")("workflow", "test")("user", "51126e85544a4eee6d9521e2"))
 
 
+        QUuid workflow_uuid = QUuid::createUuid();
+        QString str_workflow_uuid = workflow_uuid.toString().mid(1,36);
+
+        qDebug() << "str_workflow_uuid : " << str_workflow_uuid;
+
+
         QUrl worker = QUrl::fromPercentEncoding(form_field["workers"].toAscii().replace("+", "%20"));
         qDebug() << "URL : " << worker.toString();
 
         BSONObj b_workflow;
-        b_workflow = mongo::fromjson(worker.toString().toAscii());
 
+        try {
+            b_workflow = mongo::fromjson(worker.toString().toAscii());
+        }
+        catch (mongo::MsgAssertionException &e)
+        {
+            set_user_alert(event, errorMessage("workers's' field is not a JSON format", "error"));
+            redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "createworkflow", 302 );
+            postEvent(redir);
+            return;
+        }
          std::cout << "WORKFLOW : " << b_workflow.toString() << std::endl;
 
         BSONObj user_id = BSON("_id" << mongo::OID(form_field["user"].toStdString()));
@@ -2236,8 +2314,9 @@ void Http_api::admin_workers_get(QxtWebRequestEvent* event)
                 body["content"]="Ncs admin users";
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString user;
-                check_user_login(event, user);
+                QString user, l_alert;
+                if (!check_user_login(event, user, l_alert)) return;
+                if (!l_alert.isEmpty()) header["alert"] = l_alert;
 
 
                 body["user"]=user;
@@ -2359,8 +2438,9 @@ void Http_api::admin_sessions_get(QxtWebRequestEvent* event)
                 body["content"]="Ncs admin users";
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString user;
-                check_user_login(event, user);
+                QString user, l_alert;
+                if (!check_user_login(event, user, l_alert)) return;
+                if (!l_alert.isEmpty()) header["alert"] = l_alert;
 
 
                 BSONObj empty;
@@ -2460,8 +2540,9 @@ void Http_api::admin_payloads_get(QxtWebRequestEvent* event)
                 body["content"]="Ncs admin users";
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString user;
-                check_user_login(event, user);
+                QString user, l_alert;
+                if (!check_user_login(event, user, l_alert)) return;
+                if (!l_alert.isEmpty()) header["alert"] = l_alert;
 
 
                 BSONObj empty;
@@ -2599,8 +2680,9 @@ void Http_api::admin_lost_pushpull_payloads_get(QxtWebRequestEvent* event)
                 body["content"]="Ncs admin users";
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
-                QString user;
-                check_user_login(event, user);
+                QString user, l_alert;
+                if (!check_user_login(event, user, l_alert)) return;
+                if (!l_alert.isEmpty()) header["alert"] = l_alert;
 
 
                 BSONObj empty;
@@ -2796,4 +2878,11 @@ QString Http_api::buildResponse(QString action, QString data1, QString data2)
     body = QxtJSON::stringify(data);
 
     return body;
+}
+
+
+QString Http_api::errorMessage(QString msg, QString level)
+{
+    QString error;
+    return error = "<div class=\"message " + level + "\"><p>" + msg + "</p></div>";
 }

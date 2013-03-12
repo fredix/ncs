@@ -6,27 +6,53 @@
       <div class="content">
         <h2 class="title">New user</h2>
         <div class="inner">
+
+
+
           <form action="/admin/createuser" method="post" class="form">
-            <div class="group">
-              <label class="label">Login</label>
-              <input type="text" class="text_field" name="login">
-              <span class="description">user login</span>
-            </div>
-            <div class="group">
-              <label class="label">Password</label>
-              <input type="password" class="text_field" name="password">
-              <span class="description">user password</span>
-            </div>
-            <div class="group">
-              <div class="fieldWithErrors">
-                <label class="label" for="post_title">Email</label>
-                <span class="error">can't be blank</span>
-              </div>
-              <input type="text" class="text_field" name="email">
-              <span class="description">user email</span>
-            </div>
+          <div class="columns wat-cf">
+            <div class="column left">
+                <div class="group">
+                  <label class="label">Login</label>
+                  <input type="text" class="text_field" name="login">
+                  <span class="description">user login</span>
+                </div>
+                <div class="group">
+                  <label class="label">Password</label>
+                  <input type="password" class="text_field" name="password">
+                  <span class="description">user password</span>
+                </div>
+                <div class="group">
+                  <div class="fieldWithErrors">
+                    <label class="label" for="post_title">Email</label>
+                    <span class="error">can't be blank</span>
+                  </div>
+                  <input type="text" class="text_field" name="email">
+                  <span class="description">user email</span>
+                </div>
 
+             </div>
 
+                  <div class="column right">
+
+                    <div class="group">
+                      <label class="label">Options</label>
+                      <div>
+                        <input type="checkbox" name="checkbox" id="checkbox_1" class="checkbox" value="workers"> <label for="checkbox_1" class="checkbox">Workers</label>
+                      </div>
+                      <div>
+                        <input type="checkbox" name="checkbox" id="checkbox_2" class="checkbox" value="ftp"> <label for="checkbox_2" class="checkbox">FTP</label>
+                      </div>
+                      <div>
+                        <input type="checkbox" name="checkbox" id="checkbox_3" class="checkbox" value="xmpp"> <label for="checkbox_3" class="checkbox">XMPP</label>
+                      </div>
+                      <div>
+                        <input type="checkbox" name="checkbox" id="checkbox_4" class="checkbox" value="bittorrent"> <label for="checkbox_4" class="checkbox">Bittorrent</label>
+                      </div>
+                    </div>
+
+                  </div>
+            </div>
 
             <div class="group navform wat-cf">
               <button class="button" type="submit">

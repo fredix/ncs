@@ -79,11 +79,14 @@ private:
 
 
     void admin_login(QxtWebRequestEvent* event);
-    void check_user_login(QxtWebRequestEvent* event, QString &user);
+    bool check_user_login(QxtWebRequestEvent* event, QString &user, QString &alert);
+    QString errorMessage(QString msg, QString level);
+    void set_user_alert(QxtWebRequestEvent *event, QString alert);
 
     StringToHTTPEnumMap enumToHTTPmethod;
 
     QHash <QString, QString> user_session;
+    QHash <QString, QString> user_alert;
 
     zmq::socket_t *z_push_api;
     zmq::message_t *z_message;
