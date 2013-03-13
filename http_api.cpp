@@ -1633,20 +1633,21 @@ void Http_api::admin_user_post(QxtWebRequestEvent* event)
                 if (mongodb_->Count("users") != 0)
                 {
                     if (!check_user_login(event, l_alert)) return;
+
+                    // only an admin user can create new users
+                    if (!user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
+                    {
+                        set_user_alert(event, errorMessage("you are not an admin user", "error"));
+                        redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "nodes", 302 );
+                        postEvent(redir);
+                        return;
+                    }
+
+
                 }
                 else header["alert"] = errorMessage("please create an admin user", "notice");
 
                 if (!l_alert.isEmpty()) header["alert"] = l_alert;
-
-
-                // only an admin user can create new users
-                if (!user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
-                {
-                    set_user_alert(event, errorMessage("you are not an admin user", "error"));
-                    redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "nodes", 302 );
-                    postEvent(redir);
-                    return;
-                }
 
 
                 /*
