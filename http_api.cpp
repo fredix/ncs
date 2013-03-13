@@ -2672,9 +2672,7 @@ void Http_api::admin_payloads_get(QxtWebRequestEvent* event)
                     }
                     li_step.append("</table>");
 
-
-
-                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id\" value=\"1\"></td><td>1</td><td>" +                                                              
+                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id_" + QString::number(counter) + "\" value=\"" + QString::fromStdString(payload.getField("_id").OID().str()) + "\"></td><td>" +
                                   QString::fromStdString(payload.getField("action").str()) + "</td>" +
                                   "<td>" + QString::fromStdString(payload.getField("counter").str()) + "</td>" +
                                   "<td>" + timestamp.toString(Qt::SystemLocaleLongDate) + "</td>" +
@@ -2787,9 +2785,7 @@ void Http_api::admin_lost_pushpull_payloads_get(QxtWebRequestEvent* event)
                     QDateTime timestamp;
                     timestamp.setTime_t(lost_pushpull_payload.getField("timestamp").Number());
 
-
-
-                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id\" value=\"1\"></td><td>1</td><td>" +
+                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id_" + QString::number(counter) + "\" value=\"" + QString::fromStdString(lost_pushpull_payload.getField("_id").OID().str()) + "\"></td><td>" +
                             QString::fromStdString(lost_pushpull_payload.getFieldDotted("data.payload.action").str()) + "</td>" +
                             "<td>" + QString::fromStdString(lost_pushpull_payload.getFieldDotted("data.payload.session_uuid").str()) + "</td>" +
                             "<td>" + QString::fromStdString(lost_pushpull_payload.getField("pushed").boolean()==true? "true" : "false") + "</td>" +
