@@ -59,6 +59,7 @@ public:
     QList <BSONObj> FindAll(string a_document, const BSONObj datas);
     int Count(QString a_document);
     QBool Insert(QString a_document, BSONObj a_datas);
+    QBool Remove(QString a_document, BSONObj a_datas);
     BSONObj ExtractJSON(const be &gfs_id);
     QBool ExtractBinary(const be &gfs_id, string path, QString &filename);
     QBool Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas, bool upsert=false, bool multi=false);

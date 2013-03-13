@@ -798,6 +798,38 @@ QBool Mongodb::Insert(QString a_document, BSONObj a_datas)
 }
 
 
+QBool Mongodb::Remove(QString a_document, BSONObj a_datas)
+{
+    QMutexLocker locker(m_mutex);
+
+    qDebug() << "Mongodb::Remove";
+    QString tmp;
+    tmp.append(m_database).append(".").append(a_document);
+
+    qDebug() << "Mongodb::Remove tmp : " << tmp;
+    ScopedDbConnection *replicaset;
+
+
+ try {
+        //this->m_mongo_connection.insert(tmp.toAscii().data(), a_datas);
+        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+        if (replicaset->ok())
+        {
+            replicaset->conn().remove(tmp.toAscii().data(), a_datas);
+            replicaset->done();
+            return QBool(true);
+        }
+        qDebug() << m_server + "." + a_document + " removed";
+        //return QBool(true);
+    }
+    catch(mongo::DBException &e ) {
+        std::cout << "caught on insert into " << m_server.toAscii().data() << "." << a_document.toAscii().data() << " : " << e.what() << std::endl;
+        //return QBool(false);
+    }
+    return QBool(false);
+}
+
+
 
 
 

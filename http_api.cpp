@@ -1269,6 +1269,16 @@ void Http_api::admin(QxtWebRequestEvent* event, QString action)
                 admin_node_post(event);
                 return;
             }
+            else if (action == "deletenode")
+            {
+                admin_node_or_workflow_delete(event, "nodes");
+                return;
+            }
+            else if (action == "deleteworkflow")
+            {
+                admin_node_or_workflow_delete(event, "workflows");
+                return;
+            }
             else if (action == "createworkflow")
             {
 
@@ -1795,7 +1805,7 @@ void Http_api::admin_nodes_get(QxtWebRequestEvent* event)
 
                     QString trclass = (counter %2 == 0) ? "odd" : "even";
 
-                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id\" value=\"1\"></td><td>1</td><td>" +
+                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id_" + QString::number(counter) + "\" value=\"" + QString::fromStdString(node.getField("_id").OID().str()) + "\"></td><td>" +
                             QString::fromStdString(node.getField("nodename").str()) + "</td>" +
                             "<td>" + QString::fromStdString(node.getField("email").str()) + "</td>" +
                             "<td>" + QString::fromStdString(node.getField("node_uuid").str()) + "</td>" +
@@ -1841,6 +1851,54 @@ void Http_api::admin_nodes_get(QxtWebRequestEvent* event)
 
 
 /********** ADMIN PAGE ************/
+void Http_api::admin_node_or_workflow_delete(QxtWebRequestEvent* event, QString collection)
+{
+    QxtWebContent *form;
+    QxtWebRedirectEvent *redir=NULL;
+
+
+    QString l_alert;
+    if (!check_user_login(event, l_alert)) return;
+
+    form = event->content;
+    form->waitForAllContent();
+
+    QByteArray requestContent = form->readAll();
+
+    qDebug() << "RECEIVE : " << requestContent;
+    // RECEIVE :  "id=513f4f462845b4fa97461b10&id=513f57d8380e6714db9146fa"
+
+    QHash <QString, QString> form_field;
+    QStringList list_field = QString::fromAscii(requestContent).split("&");
+
+    for (int i = 0; i < list_field.size(); ++i)
+    {
+        QStringList field = list_field.at(i).split("=");
+
+        if (field[1].isEmpty())
+        {
+            set_user_alert(event, errorMessage("field " + field[0] + " is empty", "error"));
+            redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, collection, 302 );
+            postEvent(redir);
+            return;
+        }
+
+        form_field[field[0]] = field[1];
+
+
+        BSONObj node_id = BSON("_id" << mongo::OID(field[1].toStdString()));
+        mongodb_->Remove(collection, node_id);
+    }
+
+    qDebug() << "form field : " << form_field;
+
+    redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, collection, 302 );
+    postEvent(redir);
+
+
+}
+
+/********** ADMIN PAGE ************/
 void Http_api::admin_node_post(QxtWebRequestEvent* event)
 {
 
@@ -1879,7 +1937,6 @@ void Http_api::admin_node_post(QxtWebRequestEvent* event)
             else
             {
                 header.open("html_templates/header.html");
-
                 footer.open("html_templates/footer.html");
 
                 qDebug() << "COOKIES : " << event->cookies.value("nodecast");
@@ -2069,7 +2126,7 @@ void Http_api::admin_workflows_get(QxtWebRequestEvent* event)
 
                     QString trclass = (counter %2 == 0) ? "odd" : "even";
 
-                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id\" value=\"1\"></td><td>1</td><td>" +
+                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id_" + QString::number(counter) + "\" value=\"" + QString::fromStdString(workflow.getField("_id").OID().str()) + "\"></td><td>" +
                             QString::fromStdString(workflow.getField("workflow").str()) + "</td>" +
                             "<td>" + QString::fromStdString(workflow.getField("email").str()) + "</td>" +
                             "<td>" + QString::fromStdString(workflow.getField("uuid").str()) + "</td>" +

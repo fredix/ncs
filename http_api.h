@@ -70,6 +70,7 @@ private:
     void admin_user_post(QxtWebRequestEvent* event);
     void admin_nodes_get(QxtWebRequestEvent* event);
     void admin_node_post(QxtWebRequestEvent* event);
+    void admin_node_or_workflow_delete(QxtWebRequestEvent* event, QString collection);
     void admin_workflows_get(QxtWebRequestEvent* event);
     void admin_workflow_post(QxtWebRequestEvent* event);
     void admin_workers_get(QxtWebRequestEvent* event);
