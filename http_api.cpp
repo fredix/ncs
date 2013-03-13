@@ -1358,6 +1358,14 @@ void Http_api::admin_login(QxtWebRequestEvent* event)
             header["connection"] = "<li><a href=\"/admin/login\">Login</a></li>";
 
 
+            // redirect to createuser if not users
+            if (mongodb_->Count("users") == 0)
+            {
+                redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "createuser", 302 );
+                postEvent(redir);
+                return;
+            }
+
             page = new QxtWebPageEvent(event->sessionID,
                                        event->requestID,
                                        header.render().toUtf8() +
