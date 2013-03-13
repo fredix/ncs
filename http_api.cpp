@@ -2060,6 +2060,12 @@ void Http_api::admin_node_post(QxtWebRequestEvent* event)
                               "node_password" << str_node_token.toStdString());
         mongodb_->Insert("nodes", t_node);
 
+        be t_user_id = t_user.getField("_id");
+        bo node = BSON("nodes" << t_node);
+        mongodb_->Addtoarray("users", t_user_id.wrap(), node);
+
+
+
         //doc = { login : 'user', email : 'user@email.com', authentication_token : 'token'}
         //db.users.insert(doc);
 
