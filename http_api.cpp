@@ -2426,7 +2426,7 @@ void Http_api::admin_workers_get(QxtWebRequestEvent* event)
 
                     QString trclass = (counter %2 == 0) ? "odd" : "even";
 
-                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id\" value=\"1\"></td><td>1</td><td>" +
+                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id_" + QString::number(counter) + "\" value=\"" + QString::fromStdString(worker.getField("_id").OID().str()) + "\"></td><td>" +
                             QString::fromStdString(worker.getField("name").str()) + "</td>" +
                             "<td>" + QString::number(worker.getField("port").number()) + "</td>" +
                             "<td>" + QString::fromStdString(worker.getField("type").str()) + "</td>" +
@@ -2539,7 +2539,7 @@ void Http_api::admin_sessions_get(QxtWebRequestEvent* event)
 
                     QString trclass = (counter %2 == 0) ? "odd" : "even";
 
-                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id\" value=\"1\"></td><td>1</td><td>" +
+                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id_" + QString::number(counter) + "\" value=\"" + QString::fromStdString(session.getField("_id").OID().str()) + "\"></td><td>" +
                             QString::fromStdString(session.getField("uuid").str()) + "</td>" +
                             "<td>" + QString::fromStdString(session.getField("counter").str()) + "</td>" +
                             "<td>" + QString::fromStdString(session.getField("last_worker").str()) + "</td>" +
