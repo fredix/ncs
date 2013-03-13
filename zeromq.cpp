@@ -104,7 +104,6 @@ void Ztracker::receive_payload()
 
 
         while (true) {
-
             flush_socket:
             zmq::message_t request;
 
@@ -151,11 +150,19 @@ void Ztracker::receive_payload()
                 if (worker.nFields() == 0)
                 {
                     worker_port = get_available_port();
-
+                    // find node owner
+                    BSONObj filter = BSON("node_uuid" << l_payload.getFieldDotted("payload.node_uuid"));
+                    BSONObj l_node = mongodb_->Find("nodes", filter);
+                    if (l_node.nFields() == 0)
+                    {
+                        std::cout << "node not found" << std::endl;
+                        goto flush_socket;
+                    }
                     worker = BSON(GENOID
                                   << "type" << worker_type.toStdString()
                                   << "name" << l_payload.getFieldDotted("payload.name")
-                                  << "port" << worker_port);
+                                  << "port" << worker_port
+                                  << l_node.getField("user_id"));
                     mongodb_->Insert("workers", worker);
 
                     // create server
@@ -172,15 +179,11 @@ void Ztracker::receive_payload()
                 // Send reply back to client
                 BSONObj payload = BSON("uuid" << str_session_uuid.toStdString() << "port" << worker_port);
 
-                // find node owner
-                BSONObj filter = BSON("node_uuid" << l_payload.getFieldDotted("payload.node_uuid"));
-                BSONObj l_node = mongodb_->Find("nodes", filter);
 
 
                 bob worker_builder;
                 worker_builder.genOID();
                 worker_builder.append(payload.getField("uuid"));
-                worker_builder.append(l_node.getField("user_id"));
                 worker_builder.append(l_payload.getFieldDotted("payload.pid"));
                 worker_builder.append(l_payload.getFieldDotted("payload.node_uuid"));
                 worker_builder.append(l_payload.getFieldDotted("payload.timestamp"));
