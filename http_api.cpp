@@ -869,6 +869,7 @@ void Http_api::payload_post(QxtWebRequestEvent* event, QString action)
     BSONObjBuilder session_builder;
     session_builder.genOID();
     session_builder.append("uuid", session_uuid.toStdString());
+    session_builder.append("user_id", user_nodes.getField("_id").OID());
     session_builder.append("payload_id", payload.getField("_id").OID());
     session_builder.append("workflow_id", workflow.getField("_id").OID());
     session_builder.append("start_timestamp", timestamp.toTime_t());
