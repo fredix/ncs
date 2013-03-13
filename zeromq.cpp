@@ -172,10 +172,15 @@ void Ztracker::receive_payload()
                 // Send reply back to client
                 BSONObj payload = BSON("uuid" << str_session_uuid.toStdString() << "port" << worker_port);
 
+                // find node owner
+                BSONObj filter = BSON("node_uuid" << l_payload.getFieldDotted("payload.node_uuid"));
+                BSONObj l_node = mongodb_->Find("nodes", filter);
+
 
                 bob worker_builder;
                 worker_builder.genOID();
                 worker_builder.append(payload.getField("uuid"));
+                worker_builder.append(l_node.getField("user_id"));
                 worker_builder.append(l_payload.getFieldDotted("payload.pid"));
                 worker_builder.append(l_payload.getFieldDotted("payload.node_uuid"));
                 worker_builder.append(l_payload.getFieldDotted("payload.timestamp"));
