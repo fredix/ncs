@@ -101,15 +101,15 @@ First, create an admin user. Then you can create users, nodes and workflows, or 
 1. create a node
 
 ```bash
-curl -H "X-nodename: your-node-name" --user "email:token" http://127.0.0.1:2502/node/create
+curl -H "X-user-token: your-token" -X POST http://127.0.0.1:2502/node/nodename
 return node auth : {"node_password":"e6cc13a3-1236-46cb-b40f-a66650ab5eef","node_uuid":"2d0a7780-e8fe-4e0a-89c6-a5a2737b095a"} 
 ```
 
 2. create a workflow
 
 ```bash
-curl -H "X-workflow: test" -d '{ "worker1": 1, "worker2": 2 }' --user "user@email.com:token" http://127.0.0.1:2502/workflow/create
-return a workflow : {"uuid":"0ebcdab6-0263-42d3-be7d-9602fa15f68c"}
+curl -H "X-user-token: user-token" -X POST -d '{ "worker1": 1, "worker2": 2 }' http://127.0.0.1:2502/workflow/workflowname
+return a workflow id : {"uuid":"0ebcdab6-0263-42d3-be7d-9602fa15f68c"}
 ```
 
 3. SEND DATA

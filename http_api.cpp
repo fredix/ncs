@@ -68,7 +68,7 @@ Http_api::~Http_api()
 
 
 
-QBool Http_api::checkAuth(QString token, BSONObjBuilder &payload_builder, bo &a_user)
+QBool Http_api::checkAuth(QString token, BSONObjBuilder &payload_builder, BSONObj &a_user)
 {
  //   QString b64 = header.section("Basic ", 1 ,1);
  //   qDebug() << "auth : " << b64;
@@ -111,7 +111,7 @@ QBool Http_api::checkAuth(QString token, BSONObjBuilder &payload_builder, bo &a_
 
 
 /********** REGISTER API ************/
-void Http_api::node(QxtWebRequestEvent* event, QString token)
+void Http_api::node(QxtWebRequestEvent* event, QString name)
 {
     QxtWebPageEvent *page;
     QxtHtmlTemplate body;
@@ -122,16 +122,17 @@ void Http_api::node(QxtWebRequestEvent* event, QString token)
     {
         // POST create a new node
         // Token is the user's token
-        qDebug() << "CREATE NODE : " << "token : " << token << " headers : " << event->headers;
+        qDebug() << "CREATE NODE : " << "node : " << name << " headers : " << event->headers;
         QString bodyMessage;
 
-        //QString uuid = QUuid::createUuid().toString();
-        //QString uuid = QUuid::createUuid().toString().mid(1,36).toUpper();
+
+        QString user_token = event->headers.value("X-user-token");
+        qDebug() << "user_token : " << user_token << " length " << user_token.length();
 
 
-        if (event->content.isNull())
+        if (user_token.length() == 0)
         {
-            bodyMessage = buildResponse("error", "data", "empty payload");
+            bodyMessage = buildResponse("error", "headers", "X-use-token");
             postEvent(new QxtWebPageEvent(event->sessionID,
                                          event->requestID,
                                          bodyMessage.toUtf8()));
@@ -139,59 +140,13 @@ void Http_api::node(QxtWebRequestEvent* event, QString token)
         }
 
 
-
-        QxtWebContent *myContent = event->content;
-
-        qDebug() << "Bytes to read: " << myContent->unreadBytes();
-        myContent->waitForAllContent();
-
-        //QByteArray requestContent = QByteArray::fromBase64(myContent->readAll());
-        QByteArray requestContent = myContent->readAll();
-
-        QString content = requestContent;
-
-        qDebug() << "requestCONTENT : " << content.toAscii();
-
-        BSONObj b_payload;
-        try {
-            b_payload = mongo::fromjson(content.toAscii());
-            std::cout << "b_payload : " << b_payload << std::endl;
-
-            if (!b_payload.hasField("nodename")) throw QString("nodename");
-            if (b_payload.getField("nodename").size() == 0) throw QString("nodename");
-        }
-        catch (mongo::MsgAssertionException &e)
-            {
-                std::cout << "error on parsing JSON : " << e.what() << std::endl;
-                bodyMessage = buildResponse("error", "error on parsing JSON");
-                postEvent(new QxtWebPageEvent(event->sessionID,
-                                             event->requestID,
-                                             bodyMessage.toUtf8()));
-                return;
-            }
-        catch (QString error)
-            {
-                //std::cout << "JSON field : " << a_error << std::endl;
-                bodyMessage = buildResponse("error", "error on field " + error);
-                postEvent(new QxtWebPageEvent(event->sessionID,
-                                             event->requestID,
-                                             bodyMessage.toUtf8()));
-                return;
-            }
-
-
-
-
-
         BSONObjBuilder payload_builder;
-        payload_builder.genOID();       
-        payload_builder << b_payload.getField("nodename");
+        payload_builder.genOID();
+        payload_builder.append("nodename", name.toStdString());
 
-
-        //std::cout << "payload builder : " << payload_builder.obj() << std::cout;
 
         BSONObj user;
-        QBool res = checkAuth(token, payload_builder, user);
+        QBool res = checkAuth(user_token, payload_builder, user);
 
         if (!res)
         {
@@ -256,104 +211,131 @@ void Http_api::node(QxtWebRequestEvent* event, QString token)
 
 
 
+//curl -H "X-user-token: your-token" -d '{ "worker1": 1, "worker2": 2 }' -X POST http://127.0.0.1:2502/workflow/workflowname
 
 
 
 /********** CREATE WORKFLOW ************/
-void Http_api::workflow(QxtWebRequestEvent* event, QString action)
+void Http_api::workflow(QxtWebRequestEvent* event, QString name)
 {
-    qDebug() << "CREATE WORKFLOW : " << "action : " << action << " headers : " << event->headers;
-    QString bodyMessage;
+    QxtWebPageEvent *page;
+    QxtHtmlTemplate body;
 
-
-
-
-    QString workflow = event->headers.value("X-workflow");
-    qDebug() << "workflow : " << workflow << " length " << workflow.length();
-
-
-    if (workflow.length() == 0)
+    switch (enumToHTTPmethod[event->method.toUpper()])
     {
-        bodyMessage = buildResponse("error", "headers", "X-workflow");
+    case POST:
+    {
+        qDebug() << "CREATE WORKFLOW : " << "name : " << name << " headers : " << event->headers;
+        QString bodyMessage;
+
+        if (event->content.isNull())
+        {
+            bodyMessage = buildResponse("error", "data", "empty json");
+            postEvent(new QxtWebPageEvent(event->sessionID,
+                                          event->requestID,
+                                          bodyMessage.toUtf8()));
+            return;
+        }
+
+        QString user_token = event->headers.value("X-user-token");
+        qDebug() << "user_token : " << user_token << " length " << user_token.length();
+
+        if (user_token.length() == 0)
+        {
+            bodyMessage = buildResponse("error", "headers", "X-use-token");
+            postEvent(new QxtWebPageEvent(event->sessionID,
+                                         event->requestID,
+                                         bodyMessage.toUtf8()));
+            return;
+        }
+
+
+
+
+        BSONObjBuilder workflow_builder;
+        workflow_builder.genOID();
+        workflow_builder.append("workflow", name.toStdString());
+
+
+        //std::cout << "payload builder : " << payload_builder.obj() << std::cout;
+        bo user;
+        QBool res = checkAuth(user_token, workflow_builder, user);
+
+        if (!res)
+        {
+            bodyMessage = buildResponse("error", "auth");
+        }
+        else
+        {
+
+            QxtWebContent *myContent = event->content;
+
+            qDebug() << "Bytes to read: " << myContent->unreadBytes();
+            myContent->waitForAllContent();
+
+            //QByteArray requestContent = QByteArray::fromBase64(myContent->readAll());
+            QByteArray requestContent = myContent->readAll();
+
+            QString content = requestContent;
+
+            qDebug() << "requestCONTENT : " << content.toAscii();
+
+
+
+            BSONObj b_workflow;
+            try {
+                b_workflow = mongo::fromjson(content.toAscii());
+
+                std::cout << "b_workflow : " << b_workflow << std::endl;
+
+
+                be user_id = user.getField("_id");
+
+
+                QUuid workflow_uuid = QUuid::createUuid();
+                QString str_workflow_uuid = workflow_uuid.toString().mid(1,36);
+                workflow_builder.append("uuid", str_workflow_uuid.toStdString());
+                workflow_builder.append("workers", b_workflow);
+                workflow_builder.append("user_id", user_id.str());
+                workflow_builder.append("payload_counter", 0);
+
+                BSONObj l_workflow = workflow_builder.obj();
+
+                BSONObj workflow = BSON("workflows" << l_workflow);
+
+                mongodb_->Addtoarray("users", user_id.wrap(), workflow);
+                mongodb_->Insert("workflows", l_workflow);
+
+
+                bodyMessage = buildResponse("create", str_workflow_uuid);
+
+            }
+            catch (mongo::MsgAssertionException &e)
+            {
+                std::cout << "error on parsing JSON : " << e.what() << std::endl;
+                bodyMessage = buildResponse("error", "error on parsing JSON");
+            }
+
+
+        }
+        qDebug() << bodyMessage;
+
+
         postEvent(new QxtWebPageEvent(event->sessionID,
                                      event->requestID,
                                      bodyMessage.toUtf8()));
-        return;
+        break;
     }
-
-
-    BSONObjBuilder workflow_builder;
-    workflow_builder.genOID();
-    workflow_builder.append("workflow", workflow.toStdString());
-
-
-    //std::cout << "payload builder : " << payload_builder.obj() << std::cout;
-    bo user;
-    QBool res = checkAuth(event->headers.value("Authorization"), workflow_builder, user);
-
-    if (!res)
-    {
-        bodyMessage = buildResponse("error", "auth");
+    case GET:
+        body["content"]="error 404";
+        page = new QxtWebPageEvent(event->sessionID,
+                                   event->requestID,
+                                   body.render().toUtf8());
+        page->status = 404;
+        qDebug() << "error 404";
+        postEvent(page);
+        break;
     }
-    else
-    {
-
-        QxtWebContent *myContent = event->content;
-
-        qDebug() << "Bytes to read: " << myContent->unreadBytes();
-        myContent->waitForAllContent();
-
-        //QByteArray requestContent = QByteArray::fromBase64(myContent->readAll());
-        QByteArray requestContent = myContent->readAll();
-
-        QString content = requestContent;
-
-        qDebug() << "requestCONTENT : " << content.toAscii();
-
-
-
-        BSONObj b_workflow;
-        try {
-            b_workflow = mongo::fromjson(content.toAscii());
-
-            std::cout << "b_workflow : " << b_workflow << std::endl;
-
-
-            be user_id = user.getField("_id");
-
-
-            QUuid workflow_uuid = QUuid::createUuid();
-            QString str_workflow_uuid = workflow_uuid.toString().mid(1,36);
-            workflow_builder.append("uuid", str_workflow_uuid.toStdString());
-            workflow_builder.append("workers", b_workflow);
-            workflow_builder.append("user_id", user_id.str());
-            workflow_builder.append("payload_counter", 0);
-
-            BSONObj l_workflow = workflow_builder.obj();
-
-            BSONObj workflow = BSON("workflows" << l_workflow);
-
-            mongodb_->Addtoarray("users", user_id.wrap(), workflow);
-            mongodb_->Insert("workflows", l_workflow);
-
-
-            bodyMessage = buildResponse("create", str_workflow_uuid);
-
-        }
-        catch (mongo::MsgAssertionException &e)
-        {
-            std::cout << "error on parsing JSON : " << e.what() << std::endl;
-            bodyMessage = buildResponse("error", "error on parsing JSON");
-        }
-
-
-    }
-    qDebug() << bodyMessage;
-
-
-    postEvent(new QxtWebPageEvent(event->sessionID,
-                                 event->requestID,
-                                 bodyMessage.toUtf8()));
 }
 
 
@@ -928,12 +910,6 @@ void Http_api::payload(QxtWebRequestEvent* event, QString action, QString uuid)
 
 
 
-/**************************************************
-PAYLOAD ACTION :
-    METHOD POST => push/publish payload, workflow uuid
-    METHOD PUT => update payload, payload uuid
-    DELETE => delete payload, payload uuid
-****************************************************/
 void Http_api::session(QxtWebRequestEvent* event, QString uuid)
 {
 
@@ -947,6 +923,51 @@ void Http_api::session(QxtWebRequestEvent* event, QString uuid)
     case GET:
         qDebug() << "HTTP GET : " << uuid;
         session_get(event, uuid.toLower());
+
+        break;
+    case POST:
+        qDebug() << "HTTP POST not implemented";
+        bodyMessage = buildResponse("error", "HTTP POST not implemented");
+
+        break;
+    case PUT:
+        qDebug() << "HTTP PUT not implemented";
+        bodyMessage = buildResponse("error", "HTTP PUT not implemented");
+
+        break;
+    case DELETE:
+        qDebug() << "HTTP DELETE not implemented";
+        bodyMessage = buildResponse("error", "HTTP DELETE not implemented");
+
+        break;
+    }
+
+
+    if (!bodyMessage.isEmpty())
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                 event->requestID,
+                                 bodyMessage.toUtf8()));
+
+
+
+}
+
+
+
+// Retreive the ftp token
+void Http_api::ftp(QxtWebRequestEvent* event)
+{
+
+    qDebug() << "RECEIVE FTP : " << "METHOD : " << event->method << " headers : " << event->headers;
+
+    QString bodyMessage="";
+
+
+    switch (enumToHTTPmethod[event->method.toUpper()])
+    {
+    case GET:
+        //qDebug() << "HTTP GET : " << uuid;
+        //session_get(event);
 
         break;
     case POST:
