@@ -40,6 +40,14 @@ qmake
 make
 
 
+```bash
+mkdir $HOME/bin
+cp ncs $HOME/bin
+sudo mkdir /var/lib/ncs
+sudo chown $USER:$USER /var/lib/ncs
+cp -r html_templates /var/lib/ncs/
+```
+
 ## INSTALL
 
 
@@ -47,15 +55,6 @@ make
 edit config/ncssetup.js and run :
 mongo nodecast config/ncssetup.js
 
-### create your data directory and copy html_templates
-
-```bash
-sudo mkdir /var/lib/ncs
-```
-
-```bash
-sudo chown yourncsuser:yourncsuser /var/lib/ncs
-```
 
 ### Launch NCS
 
