@@ -98,29 +98,36 @@ First, create an admin user. Then you can create users, nodes and workflows, or 
 
 ### API USE
 
-1. create a node
+1. create a user
+
+```bash
+curl -H "X-user-token: admin-token" -X POST -d '{ "email": "user@email.com", "password": "password", "ftp": true, "tracker": false, "xmpp": false, "api": false}' http://127.0.0.1:2502/user
+return user token {"token":"8c70645c-b12b-4b5e-b998-e08158d09bdd"}%
+```
+
+2. create a node
 
 ```bash
 curl -H "X-user-token: your-token" -X POST http://127.0.0.1:2502/node/nodename
 return node auth : {"node_password":"e6cc13a3-1236-46cb-b40f-a66650ab5eef","node_uuid":"2d0a7780-e8fe-4e0a-89c6-a5a2737b095a"} 
 ```
 
-2. create a workflow
+3. create a workflow
 
 ```bash
 curl -H "X-user-token: user-token" -X POST -d '{ "worker1": 1, "worker2": 2 }' http://127.0.0.1:2502/workflow/workflowname
 return a workflow id : {"uuid":"0ebcdab6-0263-42d3-be7d-9602fa15f68c"}
 ```
 
-3. SEND DATA
+4. SEND DATA
 
-3a. push binary data
+4a. push binary data
 
 ```bash
 curl -H "X-node-uuid: 2d0a7780-e8fe-4e0a-89c6-a5a2737b095a" -H "X-node-password: 2d0a7780-e8fe-4e0a-89c6-a5a2737b095a" -H "X-workflow-uuid: 0ebcdab6-0263-42d3-be7d-9602fa15f68c" -H "X-payload-filename: filename" -H "X-payload-type: filetype" -X POST --data-binary @filename http://127.0.0.1:2502/payload/push
 ```
 
-3b. push json data
+4b. push json data
 
 ```bash
 curl -H "X-node-uuid: 2d0a7780-e8fe-4e0a-89c6-a5a2737b095a" -H "X-node-password: 2d0a7780-e8fe-4e0a-89c6-a5a2737b095a" -H "X-workflow-uuid: 0ebcdab6-0263-42d3-be7d-9602fa15f68c" -d '{ "data1": "mydata", "data2": "mydata" }' http://127.0.0.1:2502/payload/push

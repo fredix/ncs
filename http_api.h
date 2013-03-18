@@ -59,6 +59,7 @@ public slots:
     void file(QxtWebRequestEvent* event, QString action);
     void node(QxtWebRequestEvent* event, QString token);
     void workflow(QxtWebRequestEvent* event, QString action);
+    void user(QxtWebRequestEvent* event);
     void staticfile(QxtWebRequestEvent* event, QString directory, QString filename);
 
 private:

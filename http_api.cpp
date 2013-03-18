@@ -110,7 +110,6 @@ QBool Http_api::checkAuth(QString token, BSONObjBuilder &payload_builder, BSONOb
 
 
 
-/********** REGISTER API ************/
 void Http_api::node(QxtWebRequestEvent* event, QString name)
 {
     QxtWebPageEvent *page;
@@ -339,6 +338,171 @@ void Http_api::workflow(QxtWebRequestEvent* event, QString name)
 }
 
 
+
+
+/********** CREATE USER ************/
+void Http_api::user(QxtWebRequestEvent* event)
+{
+    QxtWebPageEvent *page;
+    QxtHtmlTemplate body;
+
+    switch (enumToHTTPmethod[event->method.toUpper()])
+    {
+    case POST:
+    {
+        qDebug() << "CREATE USER " << " headers : " << event->headers;
+        QString bodyMessage;
+
+        if (event->content.isNull())
+        {
+            bodyMessage = buildResponse("error", "data", "empty json");
+            postEvent(new QxtWebPageEvent(event->sessionID,
+                                          event->requestID,
+                                          bodyMessage.toUtf8()));
+            return;
+        }
+
+        QString user_token = event->headers.value("X-user-token");
+        qDebug() << "user_token : " << user_token << " length " << user_token.length();
+
+        if (user_token.length() == 0)
+        {
+            bodyMessage = buildResponse("error", "headers", "X-use-token");
+            postEvent(new QxtWebPageEvent(event->sessionID,
+                                         event->requestID,
+                                         bodyMessage.toUtf8()));
+            return;
+        }
+
+
+
+
+        BSONObjBuilder check_user_builder;
+        BSONObj check_user;
+        QBool res = checkAuth(user_token, check_user_builder, check_user);
+        if (!res)
+        {
+            bodyMessage = buildResponse("error", "auth");
+        }
+        else if (!check_user.getBoolField("admin"))
+        {
+            bodyMessage = buildResponse("error", "user", "admin only");
+            postEvent(new QxtWebPageEvent(event->sessionID,
+                                         event->requestID,
+                                         bodyMessage.toUtf8()));
+            return;
+        }
+        else
+        {
+
+            BSONObjBuilder user_builder;
+            user_builder.genOID();
+
+            QxtWebContent *myContent = event->content;
+
+            qDebug() << "Bytes to read: " << myContent->unreadBytes();
+            myContent->waitForAllContent();
+
+            //QByteArray requestContent = QByteArray::fromBase64(myContent->readAll());
+            QByteArray requestContent = myContent->readAll();
+
+            QString content = requestContent;
+
+            qDebug() << "requestCONTENT : " << content.toAscii();
+
+
+
+            BSONObj b_user;
+            try {
+                b_user = mongo::fromjson(content.toAscii());
+
+                std::cout << "b_user : " << b_user << std::endl;
+
+
+                if (!b_user.hasField("email") || !b_user.hasField("password"))
+                {
+                    bodyMessage = buildResponse("error", "json", "missing email or password");
+                    postEvent(new QxtWebPageEvent(event->sessionID,
+                                                 event->requestID,
+                                                 bodyMessage.toUtf8()));
+                    return;
+                }
+
+
+
+                QUuid token = QUuid::createUuid();
+                QString str_token = token.toString().mid(1,36);
+
+                QUuid tracker_token = QUuid::createUuid();
+                QString str_tracker_token = tracker_token.toString().remove(QChar('-')).mid(1,32);
+
+                QUuid ftp_token = QUuid::createUuid();
+                QString str_ftp_token = ftp_token.toString().remove(QChar('-')).mid(1,32);
+
+                QUuid xmpp_token = QUuid::createUuid();
+                QString str_xmpp_token = xmpp_token.toString().remove(QChar('-')).mid(1,32);
+
+                QUuid api_token = QUuid::createUuid();
+                QString str_api_token = api_token.toString().remove(QChar('-')).mid(1,32);
+
+
+                QString password = QString::fromStdString(b_user.getField("password").str());
+
+                QCryptographicHash cipher( QCryptographicHash::Sha1 );
+                cipher.addData(password.simplified().toAscii());
+                QByteArray password_hash = cipher.result();
+
+                qDebug() << "password_hash : " << password_hash.toHex();
+
+
+                QString login = b_user.hasField("login")? QString::fromStdString(b_user.getField("login").str()) : "anonymous";
+                bool ftp = b_user.hasField("ftp")? b_user.getBoolField("ftp") : false;
+                bool tracker = b_user.hasField("tracker")? b_user.getBoolField("tracker") : false;
+                bool xmpp = b_user.hasField("xmpp")? b_user.getBoolField("xmpp") : false;
+                bool api = b_user.hasField("api")? b_user.getBoolField("api") : false;
+
+                user_builder.append("admin", false);
+                user_builder.append("login", login.toStdString());
+                user_builder.append(b_user.getField("email"));
+                user_builder.append("password", QString::fromLatin1(password_hash.toHex()).toStdString());
+                user_builder.append("token", str_token.toStdString());
+
+                user_builder.append("ftp", BSON("token" << str_ftp_token.toStdString() << "activated" << ftp << "directory" << "default"));
+                user_builder.append("tracker" , BSON("token" << str_tracker_token.toStdString()  << "activated" << tracker));
+                user_builder.append("xmpp" , BSON("token" << str_xmpp_token.toStdString()  << "activated" << xmpp));
+                user_builder.append("api" , BSON("token" << str_api_token.toStdString()  << "activated" << api));
+
+                BSONObj l_user = user_builder.obj();
+                mongodb_->Insert("users", l_user);
+                bodyMessage = buildResponse("token", str_token);
+            }
+            catch (mongo::MsgAssertionException &e)
+            {
+                std::cout << "error on parsing JSON : " << e.what() << std::endl;
+                bodyMessage = buildResponse("error", "error on parsing JSON");
+            }
+
+
+        }
+        qDebug() << bodyMessage;
+
+
+        postEvent(new QxtWebPageEvent(event->sessionID,
+                                     event->requestID,
+                                     bodyMessage.toUtf8()));
+        break;
+    }
+    case GET:
+        body["content"]="error 404";
+        page = new QxtWebPageEvent(event->sessionID,
+                                   event->requestID,
+                                   body.render().toUtf8());
+        page->status = 404;
+        qDebug() << "error 404";
+        postEvent(page);
+        break;
+    }
+}
 
 
 

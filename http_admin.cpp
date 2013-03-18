@@ -839,10 +839,10 @@ void Http_admin::admin_user_post(QxtWebRequestEvent* event)
         }
         qDebug() << "form_field : " << form_field;
 
-        bool workers = form_field.contains("workers")? true : false;
+        bool api = form_field.contains("api")||create_admin? true : false;
         bool ftp = form_field.contains("ftp")||create_admin? true : false;
-        bool xmpp = form_field.contains("xmpp")? true : false;
-        bool bittorrent = form_field.contains("bittorrent")? true : false;
+        bool xmpp = form_field.contains("xmpp")||create_admin? true : false;
+        bool bittorrent = form_field.contains("bittorrent")||create_admin? true : false;
 
         QUuid token = QUuid::createUuid();
         QString str_token = token.toString().mid(1,36);
@@ -852,6 +852,13 @@ void Http_admin::admin_user_post(QxtWebRequestEvent* event)
 
         QUuid ftp_token = QUuid::createUuid();
         QString str_ftp_token = ftp_token.toString().remove(QChar('-')).mid(1,32);
+
+        QUuid xmpp_token = QUuid::createUuid();
+        QString str_xmpp_token = xmpp_token.toString().remove(QChar('-')).mid(1,32);
+
+        QUuid api_token = QUuid::createUuid();
+        QString str_api_token = api_token.toString().remove(QChar('-')).mid(1,32);
+
 
         QCryptographicHash cipher( QCryptographicHash::Sha1 );
         cipher.addData(form_field["password"].simplified().toAscii());
@@ -864,7 +871,10 @@ void Http_admin::admin_user_post(QxtWebRequestEvent* event)
                               "email" << form_field["email"].toStdString() <<
                               "token" << str_token.toStdString() <<
                               "ftp" << BSON ("token" << str_ftp_token.toStdString() << "activated" << ftp << "directory" << "default") <<
-                              "tracker" << BSON ("token" << str_tracker_token.toStdString()));
+                              "tracker" << BSON ("token" << str_tracker_token.toStdString())  << "activated" << bittorrent <<
+                              "xmpp" << BSON ("token" << str_xmpp_token.toStdString())  << "activated" << xmpp <<
+                              "api" << BSON ("token" << str_api_token.toStdString())  << "activated" << api);
+
         mongodb_->Insert("users", t_user);
 
         if (ftp) {
