@@ -28,7 +28,8 @@ SOURCES += main.cpp \
     CFtpServer/CFtpServer.cpp \
     CFtpServer/nodeftp.cpp \
     service.cpp \
-    mongodb.cpp
+    mongodb.cpp \
+    http_admin.cpp
 LIBS += /usr/local/lib/libmongoclient.a \
         -lz \
         -lboost_system \
@@ -65,4 +66,5 @@ HEADERS += main.h \
     CFtpServer/nodeftp.h \
     CFtpServer/CFtpServerConfig.h \
     service.h \
-    mongodb.h
+    mongodb.h \
+    http_admin.h

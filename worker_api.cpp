@@ -20,7 +20,7 @@
 
 #include "worker_api.h"
 
-Worker_api::Worker_api()
+Worker_api::Worker_api(QString basedirectory)
 {
     mongodb_ = Mongodb::getInstance ();
     zeromq_ = Zeromq::getInstance ();
@@ -59,9 +59,10 @@ Worker_api::Worker_api()
     z_publish_api->bind("tcp://*:5557");
     /*********************************/
 
-
     z_push_api = new zmq::socket_t(*zeromq_->m_context, ZMQ_PUSH);
-    z_push_api->bind("ipc:///tmp/nodecast/workers");
+    QString directory = "ipc://" + basedirectory + "/workers";
+    z_push_api->bind(directory.toLatin1());
+
 
     int linger_push = 0;
     z_push_api->setsockopt (ZMQ_LINGER, &linger_push, sizeof (linger_push));

@@ -84,7 +84,7 @@ class Nodetrack : public QxtWebSlotService
     Q_OBJECT
 
 public:
-    Nodetrack(QxtAbstractWebSessionManager *sm, QObject * parent = 0);
+    Nodetrack(QString basedirectory, QxtAbstractWebSessionManager *sm, QObject * parent = 0);
     //Http_api(QxtAbstractWebSessionManager * sm, Nosql& a);
     ~Nodetrack();
 
@@ -113,6 +113,7 @@ private:
     // std::string hex_decode(const std::string &in);
   //  QString getkey(QUrl url, QString key, bool &error, bool fixed_size=false);
 
+    QString m_basedirectory;
     StringToTorrentEnumMap enumToTorrentUpdate;
 
     StringToHTTPEnumMap enumToHTTPmethod;

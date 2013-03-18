@@ -22,7 +22,7 @@
 #include "nodetrack.h"
 
 
-Nodetrack::Nodetrack(QxtAbstractWebSessionManager * sm, QObject * parent): QxtWebSlotService(sm,parent)
+Nodetrack::Nodetrack(QString basedirectory, QxtAbstractWebSessionManager * sm, QObject * parent): m_basedirectory(basedirectory), QxtWebSlotService(sm,parent)
 {
     mongodb_ = Mongodb::getInstance();
     zeromq_ = Zeromq::getInstance ();
@@ -361,7 +361,7 @@ void Nodetrack::index(QxtWebRequestEvent* event)
     QxtHtmlTemplate index;
     QxtWebPageEvent *page;
 
-        if(!index.open("html_templates/torrent_index.html"))
+        if(!index.open(m_basedirectory + "/html_templates/torrent_index.html"))
         {
             index["content"]="error 404";
             page = new QxtWebPageEvent(event->sessionID,
@@ -372,7 +372,7 @@ void Nodetrack::index(QxtWebRequestEvent* event)
         }
         else
         {
-            index["ncs_version"]="0.9.6";
+            index["ncs_version"]="0.9.7";
 
             page = new QxtWebPageEvent(event->sessionID,
                                        event->requestID,
@@ -618,7 +618,7 @@ void Nodetrack::admin(QxtWebRequestEvent* event, QString action)
     QxtHtmlTemplate index;
     QxtWebPageEvent *page;
 
-        if(!index.open("html_templates/admin.html"))
+        if(!index.open(m_basedirectory + "/html_templates/admin.html"))
         {
             index["content"]="error 404";
             page = new QxtWebPageEvent(event->sessionID,

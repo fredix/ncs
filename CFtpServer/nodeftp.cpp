@@ -140,10 +140,31 @@ void OnClientEvent( int Event, CFtpServer::CClientEntry *pClient, void *pArg )
 }
 
 
-
-Nodeftp::Nodeftp(int port) : m_port(port)
+bool Nodeftp::ncs_auth(QString email, QString &token)
 {
+   /* QCryptographicHash cipher( QCryptographicHash::Sha1 );
+    cipher.addData(password.simplified().toAscii());
+    QByteArray password_hash = cipher.result();
 
+    qDebug() << "password_hash : " << password_hash.toHex();
+
+    password_hashed = QString::fromLatin1(password_hash.toHex());
+*/
+    BSONObj bauth = BSON("email" << email.toStdString());
+    BSONObj l_user = mongodb_->Find("users", bauth);
+
+    if (l_user.nFields() == 0)
+    {
+        qDebug() << "Nodeftp::ncs_auth auth failed !";
+        return false;
+    }
+    token = QString::fromStdString(l_user.getFieldDotted("ftp.token").str());
+    return true;
+}
+
+Nodeftp::Nodeftp(QString a_directory, int port) : m_directory(a_directory), m_port(port)
+{
+    mongodb_ = Mongodb::getInstance ();
     FtpServer = new CFtpServer();
 
 #ifdef CFTPSERVER_ENABLE_EVENTS
@@ -164,36 +185,44 @@ Nodeftp::Nodeftp(int port) : m_port(port)
 #ifdef CFTPSERVER_ENABLE_ZLIB
     FtpServer->EnableModeZ( true );
 #endif
-
-
-    add_user("ncs", "scn", "/tmp/nodecast/ftp/");
 }
 
 
-void Nodeftp::add_user(QString username, QString userpassword, QString userpath)
+void Nodeftp::add_ftp_user(QString email)
 {
-    CFtpServer::CUserEntry *pUser = FtpServer->AddUser( username.toAscii(), userpassword.toAscii(), userpath.toAscii() );
-    if( pUser )
+    qDebug() << "Nodeftp::add_user : " << email;
+    // check auth
+    QString token;
+    if (ncs_auth(email, token))
     {
-        printf( "-User successfully created ! :)\r\n" );
-        pUser->SetMaxNumberOfClient( 5 ); // 0 Unlimited
+        // create user's directory
+        QString userdirectory = m_directory + "/ftp/" + email;
+        if (!QDir(userdirectory).exists()) QDir().mkdir(userdirectory);
 
-/*        pUser->SetPrivileges( CFtpServer::READFILE | CFtpServer::WRITEFILE |
-            CFtpServer::LIST | CFtpServer::DELETEFILE | CFtpServer::CREATEDIR |
-            CFtpServer::DELETEDIR );
-*/
 
-        pUser->SetPrivileges(CFtpServer::WRITEFILE | CFtpServer::READFILE | CFtpServer::LIST);
+        CFtpServer::CUserEntry *pUser = FtpServer->AddUser( email.toAscii(), token.toAscii(), userdirectory.toAscii() );
+        if( pUser )
+        {
+            printf( "-User successfully created ! :)\r\n" );
+            pUser->SetMaxNumberOfClient( 5 ); // 0 Unlimited
 
-#ifdef CFTPSERVER_ENABLE_EXTRACMD // See "CFtpServer/config.h". not defined by default
-        pUser->SetExtraCommand( CFtpServer::ExtraCmd_EXEC );
-        // Security Warning ! Only here for example.
-        // the last command allow the user to call the 'system()' C function!
-#endif
+    /*        pUser->SetPrivileges( CFtpServer::READFILE | CFtpServer::WRITEFILE |
+                CFtpServer::LIST | CFtpServer::DELETEFILE | CFtpServer::CREATEDIR |
+                CFtpServer::DELETEDIR );
+    */
 
+            pUser->SetPrivileges(CFtpServer::WRITEFILE | CFtpServer::READFILE | CFtpServer::LIST);
+
+    #ifdef CFTPSERVER_ENABLE_EXTRACMD // See "CFtpServer/config.h". not defined by default
+            pUser->SetExtraCommand( CFtpServer::ExtraCmd_EXEC );
+            // Security Warning ! Only here for example.
+            // the last command allow the user to call the 'system()' C function!
+    #endif
+
+        }
+        else qErrnoWarning( "-Unable to create pUser" );
     }
-    else qErrnoWarning( "-Unable to create pUser" );
-
+    else qErrnoWarning( "-Failed to create user" );
 }
 
 void Nodeftp::ftp_init()

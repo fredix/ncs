@@ -21,24 +21,30 @@
 #ifndef NODEFTP_H
 #define NODEFTP_H
 
+#include "mongodb.h"
 #include "CFtpServer.h"
 #include <QObject>
+#include <QDir>
+#include <QCryptographicHash>
 
 class Nodeftp : public QObject
 {
     Q_OBJECT
 public:
-    Nodeftp(int port);
+    Nodeftp(QString a_directory, int port);
     ~Nodeftp();
 
 private:
-    int m_port;
+    bool ncs_auth(QString login, QString &token);
 
+    QString m_directory;
+    int m_port;
     CFtpServer *FtpServer;
+    Mongodb *mongodb_;
 
 public slots:
     void ftp_init();
-    void add_user(QString username, QString userpassword, QString userpath);
+    void add_ftp_user(QString email);
     //void remove_user(QString username);
 };
 

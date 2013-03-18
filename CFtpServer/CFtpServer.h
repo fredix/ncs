@@ -546,8 +546,8 @@ class CFtpServer
 		////////////////////////////////////////
 
 		enum {
-			MaxLoginLen = 16,
-			MaxPasswordLen = 16,
+            MaxLoginLen = 50,
+            MaxPasswordLen = 100,
 			MaxRootPathLen = MAX_PATH
 		};
 

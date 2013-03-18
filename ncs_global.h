@@ -21,6 +21,7 @@
 #ifndef NCS_GLOBAL_H
 #define NCS_GLOBAL_H
 
+#include "alert.h"
 
 
 enum HTTPMethodType {
@@ -28,6 +29,20 @@ enum HTTPMethodType {
     POST=2,
     PUT=3,
     DELETE=4
+};
+
+
+struct params {
+    QString base_directory;
+    QString mongodb_ip;
+    QString mongodb_base;
+    QString domain_name;
+    int xmpp_client_port;
+    int xmpp_server_port;
+    int ftp_server_port;
+    int admin_port;
+    int api_port;
+    email alert_email;
 };
 
 

@@ -83,15 +83,16 @@ Dispatcher::Dispatcher(params ncs_params)
 
     zeromq = new Zeromq();
 
-    service = new Service();
-    service->Http_init();
+    service = new Service(ncs_params);
+    service->Http_api_init();
+    service->Http_admin_init();
     //service->Nodetrack_init();
-    service->Nodeftp_init(ncs_params.ftp_server_port);
+    service->Nodeftp_init();    
     //service->Xmpp_init(ncs_params.domain_name, ncs_params.xmpp_client_port, ncs_params.xmpp_server_port);
     service->Worker_init();
+    service->link();
 
     zeromq->init();
-
     connect(zeromq->dispatch, SIGNAL(emit_pubsub(bson::bo)), service->worker_api, SLOT(pubsub_payload(bson::bo)), Qt::QueuedConnection);
 
     QThread *thread_alert = new QThread;
@@ -183,6 +184,17 @@ int main(int argc, char *argv[])
     options.add("xmpp-server-port", "set the xmpp server port", QxtCommandOptions::Required);
     options.alias("xmpp-server-port", "xsp");
 
+    options.add("ncs-base-directory", "set the ncs base directory", QxtCommandOptions::Required);
+    options.alias("ncs-base-directory", "nbd");
+
+
+    options.add("ncs-admin-port", "set the ncs web interface admin port, default is 2501", QxtCommandOptions::Optional);
+    options.alias("ncs-admin-port", "adminp");
+
+    options.add("ncs-api-port", "set the ncs http api port, default is 2502", QxtCommandOptions::Optional);
+    options.alias("ncs-api-port", "apip");
+
+
     options.add("ftp-server-port", "set the ftp server port", QxtCommandOptions::Required);
     options.alias("ftp-server-port", "fsp");
 
@@ -216,6 +228,22 @@ int main(int argc, char *argv[])
         return -1;
     }
     verbose = options.count("verbose");
+
+
+    if(options.count("ncs-base-directory")) {
+        ncs_params.base_directory = options.value("ncs-base-directory").toString();
+        settings.setValue("ncs-base-directory", ncs_params.base_directory);
+    }
+    else if(settings.contains("ncs-base-directory"))
+    {
+        ncs_params.base_directory = settings.value("ncs-base-directory").toString();
+    }
+    else {
+        std::cout << "ncs: --ncs-base-directory requires a parameter" << std::endl;
+        options.showUsage();
+        return -1;
+    }
+
 
     if(options.count("mongodb-base")) {
         ncs_params.mongodb_base = options.value("mongodb-base").toString();
@@ -291,6 +319,28 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+
+
+    if(options.count("ncs-admin-port")) {
+        ncs_params.admin_port = options.value("ncs-admin-port").toInt();
+        settings.setValue("ncs-admin-port", ncs_params.admin_port);
+    }
+    else if(settings.contains("ncs-admin-port"))
+    {
+        ncs_params.admin_port = settings.value("ncs-admin-port").toInt();
+    }
+    else ncs_params.admin_port = 0;
+
+
+    if(options.count("ncs-api-port")) {
+        ncs_params.api_port = options.value("ncs-api-port").toInt();
+        settings.setValue("ncs-api-port", ncs_params.api_port);
+    }
+    else if(settings.contains("ncs-api-port"))
+    {
+        ncs_params.api_port = settings.value("ncs-api-port").toInt();
+    }
+    else ncs_params.api_port = 0;
 
 
     if(options.count("ftp-server-port")) {
@@ -384,8 +434,7 @@ int main(int argc, char *argv[])
         return -1;
     }
 
-    if (!QDir("/tmp/nodecast").exists()) QDir().mkdir("/tmp/nodecast");
-    if (!QDir("/tmp/nodecast/ftp").exists()) QDir().mkdir("/tmp/nodecast/ftp");
+    if (!QDir(ncs_params.base_directory + "/ftp").exists()) QDir().mkdir(ncs_params.base_directory + "/ftp");
 
     settings.sync();
 

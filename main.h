@@ -29,19 +29,8 @@
 #include "mongodb.h"
 #include "zeromq.h"
 #include "service.h"
-#include "alert.h"
+#include "ncs_global.h"
 
-
-struct params {
-    QString mongodb_ip;
-    QString mongodb_base;
-    QString domain_name;
-    int xmpp_client_port;
-    int xmpp_server_port;
-    int ftp_server_port;
-
-    email alert_email;
-};
 
 class Dispatcher : public QObject
 {

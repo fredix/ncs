@@ -25,6 +25,7 @@
 #include "mongodb.h"
 #include "zeromq.h"
 #include "http_api.h"
+#include "http_admin.h"
 #include "tracker.h"
 #include "nodetrack/nodetrack.h"
 #include "CFtpServer/nodeftp.h"
@@ -33,38 +34,46 @@
 #include <QxtHttpSessionManager>
 #include "xmpp_server.h"
 #include "xmpp_client.h"
+#include "ncs_global.h"
 
 class Service : public QObject
 {
     Q_OBJECT
 public:
-    Service(QObject *parent = 0);
+    Service(params a_ncs_params, QObject *parent = 0);
     ~Service();
 
-    void Http_init();
+    void Http_api_init();
+    void Http_admin_init();
     void Tracker_init();
     void Nodetrack_init();
-    void Nodeftp_init(int port);
-    void Xmpp_init(QString domain_name, int xmpp_client_port, int xmpp_server_port);
+    void Nodeftp_init();
+    void Xmpp_init();
     void Worker_init();
+    void link();
     Worker_api *worker_api;
 
-
 private:
-    QxtHttpServerConnector m_connector;
-    QxtHttpSessionManager m_session;
+    Http_admin *m_http_admin;
+    Nodeftp *m_nodeftp;
     Http_api *m_http_api;
     Xmpp_server *m_xmpp_server;
     Xmpp_client *m_xmpp_client;
 
     QxtHttpServerConnector m_tracker_connector;
     QxtHttpServerConnector m_nodetrack_connector;
+    QxtHttpServerConnector m_wadmin_connector;
+    QxtHttpServerConnector m_api_connector;
+
     QxtHttpSessionManager m_tracker_session;
     QxtHttpSessionManager m_nodetrack_session;
+    QxtHttpSessionManager m_wadmin_session;
+    QxtHttpSessionManager m_api_session;
+
     Tracker *m_tracker;
     Nodetrack *m_nodetrack;
-    Nodeftp *m_nodeftp;
 
+    params m_ncs_params;
 
 signals:
     void shutdown();

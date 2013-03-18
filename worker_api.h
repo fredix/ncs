@@ -28,7 +28,7 @@ class Worker_api : public QObject
 {
     Q_OBJECT
 public:
-    Worker_api();
+    Worker_api(QString basedirectory);
     ~Worker_api();
 
 
