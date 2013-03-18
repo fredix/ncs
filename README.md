@@ -6,38 +6,61 @@ ncs is the nodecast server
 ## INSTALL
 
 first, install some debs :
-apt-get install g++ make autoconf scons libboost-all-dev libqt4-dev libavahi-compat-libdnssd-dev
 
+
+```bash
+sudo apt-get install g++ make autoconf scons libboost-all-dev libqt4-dev libavahi-compat-libdnssd-dev
+```
 
 next, get submodule libraries :
+
+```bash
 git submodule update --init
+```
 
 make the zeromq lib :
+
+```bash
 cd externals/zeromq
 ./configure
 make
 sudo make install
+```
 
 make the mongodb client :
+
+```bash
 cd externals/mongodb
 scons mongoclient
 sudo cp libmongoclient.a /usr/local/lib
+```
 
 make the qxmpp client :
+
+```bash
 cd externals/qxmpp
 qmake
 make
 sudo make install
+```
 
 make the libqxt library
+
+```bash
 cd externals/libqxt
 ./configure
 make
 sudo make install
+```
 
-last, make the nodecast server :
+make the nodecast server :
+
+```bash
 qmake
 make
+```
+
+set the ncs's directory
 
 
 ```bash
@@ -47,8 +70,6 @@ sudo mkdir /var/lib/ncs
 sudo chown $USER:$USER /var/lib/ncs
 cp -r html_templates /var/lib/ncs/
 ```
-
-## INSTALL
 
 
 ### MONGODB
