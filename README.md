@@ -1,6 +1,6 @@
 # NCS
 
-ncs is the nodecast server
+ncs is the nodecast server. Go to http://nodecast.github.com/ncs/
 
 
 ## INSTALL
@@ -92,8 +92,8 @@ to connect to a mongodb replica set, use :
 ### WEB ADMIN
 
 go with your browser to http://localhost:2501/
-First, create an admin user. Then you can create users, nodes and workflows, or using the HTTP API.
 
+First, create an admin user. Then you can create users, nodes and workflows, or use the HTTP API.
 
 
 ### API USE
@@ -123,10 +123,10 @@ curl -H "X-node-uuid: 2d0a7780-e8fe-4e0a-89c6-a5a2737b095a" -H "X-node-password:
 3b. push json data
 
 ```bash
-curl -H "X-node-uuid: 2d0a7780-e8fe-4e0a-89c6-a5a2737b095a" -H "X-node-password: 2d0a7780-e8fe-4e0a-89c6-a5a2737b095a" -H "X-workflow-uuid: 0ebcdab6-0263-42d3-be7d-9602fa15f68c" -H "X-payload-filename: filename" -H "X-payload-type: filetype" -d '{ "data1": "mydata", "data2": "mydata" }' http://127.0.0.1:2502/payload/push
+curl -H "X-node-uuid: 2d0a7780-e8fe-4e0a-89c6-a5a2737b095a" -H "X-node-password: 2d0a7780-e8fe-4e0a-89c6-a5a2737b095a" -H "X-workflow-uuid: 0ebcdab6-0263-42d3-be7d-9602fa15f68c" -d '{ "data1": "mydata", "data2": "mydata" }' http://127.0.0.1:2502/payload/push
 ```
 
-TO send your data to all worker1 of your worflow, use publish instead of push : http://127.0.0.1:2502/payload/publish
+To send your data to all worker1 of your worflow, use publish instead of push : http://127.0.0.1:2502/payload/publish
 
 
 return a session uuid : {"uuid":"7b32b9d0-3ea9-4663-9577-4b34192055bf"}
