@@ -258,7 +258,7 @@ void Http_api::workflow(QxtWebRequestEvent* event, QString name)
 
 
         //std::cout << "payload builder : " << payload_builder.obj() << std::cout;
-        bo user;
+        BSONObj user;
         QBool res = checkAuth(user_token, workflow_builder, user);
 
         if (!res)
@@ -953,7 +953,6 @@ void Http_api::session(QxtWebRequestEvent* event, QString uuid)
 }
 
 
-
 // Retreive the ftp token
 void Http_api::ftp(QxtWebRequestEvent* event)
 {
@@ -966,10 +965,36 @@ void Http_api::ftp(QxtWebRequestEvent* event)
     switch (enumToHTTPmethod[event->method.toUpper()])
     {
     case GET:
-        //qDebug() << "HTTP GET : " << uuid;
-        //session_get(event);
+    {
+        QString user_token = event->headers.value("X-user-token");
+        qDebug() << "user_token : " << user_token << " length " << user_token.length();
+
+        if (user_token.length() == 0)
+        {
+            bodyMessage = buildResponse("error", "headers", "X-user-token");
+            postEvent(new QxtWebPageEvent(event->sessionID,
+                                         event->requestID,
+                                         bodyMessage.toUtf8()));
+            return;
+        }
+
+
+        BSONObjBuilder ftp_builder;
+        BSONObj user;
+        QBool res = checkAuth(user_token, ftp_builder, user);
+
+        if (!res)
+        {
+            bodyMessage = buildResponse("error", "auth");
+        }
+        else
+        {
+            QString token = QString::fromStdString(user.getFieldDotted("ftp.token").str());
+            bodyMessage = buildResponse("token", token);
+        }
 
         break;
+    }
     case POST:
         qDebug() << "HTTP POST not implemented";
         bodyMessage = buildResponse("error", "HTTP POST not implemented");
@@ -1068,6 +1093,10 @@ QString Http_api::buildResponse(QString action, QString data1, QString data2)
     else if (action == "status")
     {
         data.insert("status", data1);
+    }
+    else
+    {
+        data.insert(action, data1);
     }
     body = QxtJSON::stringify(data);
 
