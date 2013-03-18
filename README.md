@@ -40,10 +40,27 @@ qmake
 make
 
 
-## Launch NCS
+## INSTALL
+
+
+### MONGODB
+edit config/ncssetup.js and run :
+mongo nodecast config/ncssetup.js
+
+### create your data directory and copy html_templates
 
 ```bash
-ncs --mongodb-ip=127.0.0.1 --mongodb-base=nodecast_prod --domain-name=localhost --xmpp-client-port=6222 --xmpp-server-port=6269 --smtp-hostname="your.server.mail" --smtp-username="your-user-account" --smtp-password="your-password" --smtp-sender="your-email-sender" --smtp-recipient="your-email-recipient"
+sudo mkdir /var/lib/ncs
+```
+
+```bash
+sudo chown yourncsuser:yourncsuser /var/lib/ncs
+```
+
+### Launch NCS
+
+```bash
+ncs --ncs-base-directory=/var/lib/ncs --mongodb-ip=127.0.0.1 --mongodb-base=nodecast_prod --domain-name=localhost --xmpp-client-port=6222 --xmpp-server-port=6269 --smtp-hostname="your.server.mail" --smtp-username="your-user-account" --smtp-password="your-password" --smtp-sender="your-email-sender" --smtp-recipient="your-email-recipient"
 ```
 
 to connect to a mongodb replica set, use :
@@ -51,11 +68,6 @@ to connect to a mongodb replica set, use :
 ```bash
  --mongodb-ip="yourreplicasetname/ip1,ip2,ip3"
  ```
-
-
-### MONGODB
-edit config/ncssetup.js and run :
-mongo nodecast config/ncssetup.js
 
 
 ### API USE
