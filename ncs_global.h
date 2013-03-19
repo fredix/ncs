@@ -42,6 +42,7 @@ struct params {
     int ftp_server_port;
     int admin_port;
     int api_port;
+    int tracker_port;
     email alert_email;
 };
 

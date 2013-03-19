@@ -393,9 +393,10 @@ void Ztracker::destructor()
 
 
 
-Zpull::Zpull(zmq::context_t *a_context) : m_context(a_context)
+Zpull::Zpull(QString base_directory, zmq::context_t *a_context) : m_context(a_context)
 {        
     std::cout << "Zpull::Zpull constructeur" << std::endl;
+    QString directory;
 
     m_mutex_zeromq = new QMutex();
     m_mutex_http = new QMutex();
@@ -406,18 +407,24 @@ Zpull::Zpull(zmq::context_t *a_context) : m_context(a_context)
     int hwm = 50000;
     m_socket_http->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
     m_socket_http->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
-    m_socket_http->connect("ipc:///tmp/nodecast/http");
+
+    directory = "ipc://" + base_directory + "/http";
+    m_socket_http->connect(directory.toLatin1());
 
     m_socket_workers = new zmq::socket_t (*m_context, ZMQ_PULL);
     m_socket_workers->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
     m_socket_workers->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
-    m_socket_workers->connect("ipc:///tmp/nodecast/workers");
+
+    directory = "ipc://" + base_directory + "/workers";
+    m_socket_workers->connect(directory.toLatin1());
 
 
     m_socket_zeromq = new zmq::socket_t (*m_context, ZMQ_PULL);
     m_socket_zeromq->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
     m_socket_zeromq->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
-    m_socket_zeromq->connect("ipc:///tmp/nodecast/zeromq");
+
+    directory = "ipc://" + base_directory + "/zeromq";
+    m_socket_zeromq->connect(directory.toLatin1());
 
 
 
@@ -1709,7 +1716,7 @@ void Zstream_push::stream_payload()
 Zeromq *Zeromq::_singleton = NULL;
 
 
-Zeromq::Zeromq()
+Zeromq::Zeromq(QString base_directory) : m_base_directory(base_directory)
 {
     qDebug() << "Zeromq::construct";
 
@@ -1784,7 +1791,7 @@ Zeromq::~Zeromq()
 
 
 Zeromq* Zeromq::getInstance() {
-    if (NULL == _singleton)
+/*    if (NULL == _singleton)
         {
           qDebug() << "creating singleton.";
           _singleton =  new Zeromq();
@@ -1792,7 +1799,7 @@ Zeromq* Zeromq::getInstance() {
       else
         {
           qDebug() << "singleton already created!";
-        }
+        }*/
       return _singleton;
 }
 
@@ -1828,7 +1835,7 @@ void Zeromq::init()
 
 
     thread_pull = new QThread;
-    pull = new Zpull(m_context);
+    pull = new Zpull(m_base_directory, m_context);
     pull->moveToThread(thread_pull);    
     thread_pull->start();
     connect(this, SIGNAL(shutdown()), pull, SLOT(destructor()), Qt::BlockingQueuedConnection);

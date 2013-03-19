@@ -54,7 +54,7 @@ Http_api::Http_api(QString basedirectory, QxtAbstractWebSessionManager * sm, QOb
     z_push_api->setsockopt (ZMQ_SNDHWM, &hwm, sizeof (hwm));
     z_push_api->setsockopt (ZMQ_RCVHWM, &hwm, sizeof (hwm));
 
-    QString directory = "ipc://" + basedirectory + "/http";
+    QString directory = "ipc://" + m_basedirectory + "/http";
     z_push_api->bind(directory.toLatin1());
 }
 

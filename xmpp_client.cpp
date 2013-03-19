@@ -21,7 +21,7 @@
 
 #include "xmpp_client.h"
 
-Xmpp_client::Xmpp_client(QString a_domain, int a_xmpp_client_port, QObject *parent) : QXmppClient(parent), m_domain(a_domain), m_xmpp_client_port(a_xmpp_client_port)
+Xmpp_client::Xmpp_client(QString basedirectory, QString a_domain, int a_xmpp_client_port, QObject *parent) : m_basedirectory(basedirectory), QXmppClient(parent), m_domain(a_domain), m_xmpp_client_port(a_xmpp_client_port)
 {
     qDebug() << "Xmpp_client::Xmpp_client !!!";
 
@@ -49,7 +49,9 @@ Xmpp_client::Xmpp_client(QString a_domain, int a_xmpp_client_port, QObject *pare
     z_push_api->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
 
     //z_push_api->bind("inproc://xmpp");
-    z_push_api->bind("ipc:///tmp/nodecast/xmpp");
+
+    QString directory = "ipc://" + m_basedirectory + "/xmpp";
+    z_push_api->bind(directory.toLatin1());
 
 
 

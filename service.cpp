@@ -24,6 +24,7 @@ Service::Service(params a_ncs_params, QObject *parent) : m_ncs_params(a_ncs_para
 {
     m_nodetrack = NULL;
     m_nodeftp = NULL;
+    m_http_api = NULL;
     m_xmpp_server = NULL;
     m_xmpp_client = NULL;
 }
@@ -31,7 +32,7 @@ Service::Service(params a_ncs_params, QObject *parent) : m_ncs_params(a_ncs_para
 Service::~Service()
 {
     qDebug() << "delete http api server";
-    delete(m_http_api);
+    if (m_http_api) delete(m_http_api);
 
     qDebug() << "delete http admin server";
     delete(m_http_admin);
@@ -90,7 +91,10 @@ void Service::Http_admin_init()
 
 void Service::Nodetrack_init()
 {
-    m_nodetrack_session.setPort(6969);
+    int port;
+    m_ncs_params.tracker_port == 0 ? port = 6969 : port = m_ncs_params.tracker_port;
+
+    m_nodetrack_session.setPort(port);
     m_nodetrack_session.setConnector(&m_nodetrack_connector);
 
     m_nodetrack = new Nodetrack(m_ncs_params.base_directory, &m_nodetrack_session);
@@ -131,7 +135,7 @@ void Service::Xmpp_init()
     qRegisterMetaType<QXmppLogger::MessageType>("QXmppLogger::MessageType");
 
     m_xmpp_server = new Xmpp_server(m_ncs_params.domain_name, m_ncs_params.xmpp_client_port, m_ncs_params.xmpp_server_port);
-    m_xmpp_client = new Xmpp_client(m_ncs_params.domain_name, m_ncs_params.xmpp_client_port);
+    m_xmpp_client = new Xmpp_client(m_ncs_params.base_directory, m_ncs_params.domain_name, m_ncs_params.xmpp_client_port);
 }
 
 

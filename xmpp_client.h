@@ -43,7 +43,7 @@ class Xmpp_client : public QXmppClient
     Q_OBJECT
 
 public:
-    Xmpp_client(QString a_domain, int a_xmpp_client_port, QObject *parent = 0);
+    Xmpp_client(QString basedirectory, QString a_domain, int a_xmpp_client_port, QObject *parent = 0);
     ~Xmpp_client();
 
 private:
@@ -52,6 +52,8 @@ private:
     QXmppLogger m_logger;
     QXmppPresence subscribe;
     QBuffer *m_buffer;
+    QString m_basedirectory;
+
     //QXmppTransferJob *m_job;
 
     //zmq::context_t *m_context;

@@ -113,7 +113,6 @@ public:
 
 
 private:
-    //Nosql &mongodb_;
     QString m_domain;
     int m_xmpp_client_port;
     int m_xmpp_server_port;

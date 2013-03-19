@@ -58,7 +58,8 @@ Nodetrack::Nodetrack(QString basedirectory, QxtAbstractWebSessionManager * sm, Q
     z_push_api->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
     z_push_api->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
 
-    z_push_api->bind("ipc:///tmp/nodecast/nodetrack");
+    QString directory = "ipc://" + m_basedirectory + "/nodetrack";
+    z_push_api->bind(directory.toLatin1());
 }
 
 

@@ -137,7 +137,7 @@ class Zpull : public QThread
 {
     Q_OBJECT
 public:
-    Zpull(zmq::context_t *a_context);
+    Zpull(QString base_directory, zmq::context_t *a_context);
     ~Zpull();
 
 private:                
@@ -210,7 +210,7 @@ class Zeromq : public QObject
     Q_OBJECT
 public:
     static Zeromq *getInstance();
-    Zeromq();
+    Zeromq(QString base_directory);
     ~Zeromq();
     void init();
 
@@ -228,6 +228,7 @@ public:
 
 
 private:
+    QString m_base_directory;
     QThread *thread_dispatch;
     QThread *thread_tracker;
     QThread *thread_pull;

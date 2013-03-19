@@ -75,20 +75,15 @@ Dispatcher::Dispatcher(params ncs_params)
     connect(snTerm, SIGNAL(activated(int)), this, SLOT(handleSigTerm()));
 
 
-
-
     mongodb_ = new Mongodb(ncs_params.mongodb_ip, ncs_params.mongodb_base);
-    //mongodb_back = new Nosql("back", ncs_params.mongodb_ip, ncs_params.mongodb_base);
-    //mongodb_tracker = new Nosql("tracker", ncs_params.mongodb_ip, ncs_params.mongodb_base);
-
-    zeromq = new Zeromq();
+    zeromq = new Zeromq(ncs_params.base_directory);
 
     service = new Service(ncs_params);
-    service->Http_api_init();
     service->Http_admin_init();
-    //service->Nodetrack_init();
-    service->Nodeftp_init();    
-    //service->Xmpp_init(ncs_params.domain_name, ncs_params.xmpp_client_port, ncs_params.xmpp_server_port);
+    if (ncs_params.api_port != 0) service->Http_api_init();
+    if (ncs_params.tracker_port != 0) service->Nodetrack_init();
+    if (ncs_params.ftp_server_port != 0) service->Nodeftp_init();
+    if (ncs_params.xmpp_client_port != 0 && ncs_params.xmpp_server_port != 0 ) service->Xmpp_init();
     service->Worker_init();
     service->link();
 
@@ -179,9 +174,9 @@ int main(int argc, char *argv[])
     options.alias("mongodb-base", "mdp");
     options.add("domain-name", "set the domain name", QxtCommandOptions::Required);
     options.alias("domain-name", "dn");
-    options.add("xmpp-client-port", "set the xmpp client port", QxtCommandOptions::Required);
+    options.add("xmpp-client-port", "set the xmpp client port", QxtCommandOptions::Optional);
     options.alias("xmpp-client-port", "xcp");
-    options.add("xmpp-server-port", "set the xmpp server port", QxtCommandOptions::Required);
+    options.add("xmpp-server-port", "set the xmpp server port", QxtCommandOptions::Optional);
     options.alias("xmpp-server-port", "xsp");
 
     options.add("ncs-base-directory", "set the ncs base directory", QxtCommandOptions::Required);
@@ -195,9 +190,12 @@ int main(int argc, char *argv[])
     options.alias("ncs-api-port", "apip");
 
 
-    options.add("ftp-server-port", "set the ftp server port", QxtCommandOptions::Required);
+    options.add("ftp-server-port", "set the ftp server port", QxtCommandOptions::Optional);
     options.alias("ftp-server-port", "fsp");
 
+
+    options.add("tracker-server-port", "set the bittorrent tracker port", QxtCommandOptions::Optional);
+    options.alias("tracker-server-port", "tsp");
 
 
     options.add("smtp-hostname", "set the smtp hostname", QxtCommandOptions::Required);
@@ -299,11 +297,8 @@ int main(int argc, char *argv[])
     {
         ncs_params.xmpp_client_port = settings.value("xmpp-client-port").toInt();
     }
-    else {
-        std::cout << "ncs: --xmpp-client-port requires a parameter" << std::endl;
-        options.showUsage();
-        return -1;
-    }
+    else ncs_params.xmpp_client_port = 0;
+
 
     if(options.count("xmpp-server-port")) {
         ncs_params.xmpp_server_port = options.value("xmpp-server-port").toInt();
@@ -313,11 +308,8 @@ int main(int argc, char *argv[])
     {
         ncs_params.xmpp_server_port = settings.value("xmpp-server-port").toInt();
     }
-    else {
-        std::cout << "ncs: --xmpp-server-port requires a parameter" << std::endl;
-        options.showUsage();
-        return -1;
-    }
+    else ncs_params.xmpp_server_port = 0;
+
 
 
 
@@ -351,11 +343,21 @@ int main(int argc, char *argv[])
     {
         ncs_params.ftp_server_port = settings.value("ftp-server-port").toInt();
     }
-    else {
-        std::cout << "ncs: --ftp-server-port requires a parameter" << std::endl;
-        options.showUsage();
-        return -1;
+    else ncs_params.ftp_server_port = 0;
+
+
+    if(options.count("tracker-server-port")) {
+        ncs_params.tracker_port = options.value("tracker-server-port").toInt();
+        settings.setValue("tracker-server-port", ncs_params.tracker_port);
     }
+    else if(settings.contains("tracker-server-port"))
+    {
+        ncs_params.tracker_port = settings.value("tracker-server-port").toInt();
+    }
+    else ncs_params.tracker_port = 0;
+
+
+
 
 
 
