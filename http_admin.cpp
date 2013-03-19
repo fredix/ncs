@@ -618,7 +618,7 @@ void Http_admin::admin_users_get(QxtWebRequestEvent* event)
 
 //            if(!body.open("html_templates/admin_users_get.html"))
 
-    if(!body.open("html_templates/admin_users_get.html"))
+    if(!body.open(m_basedirectory + "/html_templates/admin_users_get.html"))
             {
                 body["content"]="error 404";
                 page = new QxtWebPageEvent(event->sessionID,
@@ -741,7 +741,7 @@ void Http_admin::admin_user_post(QxtWebRequestEvent* event)
     switch (enumToHTTPmethod[event->method.toUpper()])
     {
     case GET:
-        if(!body.open("html_templates/admin_user_post.html"))
+        if(!body.open(m_basedirectory + "/html_templates/admin_user_post.html"))
             {
                 body["content"]="error 404";
                 page = new QxtWebPageEvent(event->sessionID,
@@ -919,7 +919,7 @@ void Http_admin::admin_nodes_get(QxtWebRequestEvent* event)
 
 //            if(!body.open("html_templates/admin_users_get.html"))
 
-    if(!body.open("html_templates/admin_nodes_get.html"))
+    if(!body.open(m_basedirectory + "/html_templates/admin_nodes_get.html"))
             {
                 body["content"]="error 404";
                 page = new QxtWebPageEvent(event->sessionID,
@@ -1247,7 +1247,7 @@ void Http_admin::admin_workflows_get(QxtWebRequestEvent* event)
 
 //            if(!body.open("html_templates/admin_users_get.html"))
 
-    if(!body.open("html_templates/admin_workflows_get.html"))
+    if(!body.open(m_basedirectory + "/html_templates/admin_workflows_get.html"))
             {
                 body["content"]="error 404";
                 page = new QxtWebPageEvent(event->sessionID,
