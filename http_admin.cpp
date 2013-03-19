@@ -853,6 +853,10 @@ void Http_admin::admin_user_post(QxtWebRequestEvent* event)
         QUuid ftp_token = QUuid::createUuid();
         QString str_ftp_token = ftp_token.toString().remove(QChar('-')).mid(1,32);
 
+        QUuid ftp_directory = QUuid::createUuid();
+        QString str_ftp_directory = ftp_directory.toString().remove(QChar('-')).mid(1,32);
+
+
         QUuid xmpp_token = QUuid::createUuid();
         QString str_xmpp_token = xmpp_token.toString().remove(QChar('-')).mid(1,32);
 
@@ -870,7 +874,7 @@ void Http_admin::admin_user_post(QxtWebRequestEvent* event)
                               "password" << QString::fromLatin1(password_hash.toHex()).toStdString() <<
                               "email" << form_field["email"].toStdString() <<
                               "token" << str_token.toStdString() <<
-                              "ftp" << BSON ("token" << str_ftp_token.toStdString() << "activated" << ftp << "directory" << "default") <<
+                              "ftp" << BSON ("token" << str_ftp_token.toStdString() << "activated" << ftp << "directory" << str_ftp_directory.toStdString()) <<
                               "tracker" << BSON ("token" << str_tracker_token.toStdString())  << "activated" << bittorrent <<
                               "xmpp" << BSON ("token" << str_xmpp_token.toStdString())  << "activated" << xmpp <<
                               "api" << BSON ("token" << str_api_token.toStdString())  << "activated" << api);

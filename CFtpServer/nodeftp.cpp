@@ -140,7 +140,7 @@ void OnClientEvent( int Event, CFtpServer::CClientEntry *pClient, void *pArg )
 }
 
 
-bool Nodeftp::ncs_auth(QString email, QString &token)
+bool Nodeftp::ncs_auth(QString email, QString &token, QString &directory)
 {
    /* QCryptographicHash cipher( QCryptographicHash::Sha1 );
     cipher.addData(password.simplified().toAscii());
@@ -159,6 +159,7 @@ bool Nodeftp::ncs_auth(QString email, QString &token)
         return false;
     }
     token = QString::fromStdString(l_user.getFieldDotted("ftp.token").str());
+    directory = QString::fromStdString(l_user.getFieldDotted("ftp.directory").str());
     return true;
 }
 
@@ -192,11 +193,11 @@ void Nodeftp::add_ftp_user(QString email)
 {
     qDebug() << "Nodeftp::add_user : " << email;
     // check auth
-    QString token;
-    if (ncs_auth(email, token))
+    QString token, directory;
+    if (ncs_auth(email, token, directory))
     {
         // create user's directory
-        QString userdirectory = m_directory + "/ftp/" + email;
+        QString userdirectory = m_directory + "/ftp/" + directory;
         if (!QDir(userdirectory).exists()) QDir().mkdir(userdirectory);
 
 

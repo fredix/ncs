@@ -89,7 +89,7 @@ private:
     QBool http_auth(QString auth, QHash <QString, QString> &hauth, QString &str_session_uuid);
 
 signals:
-    void create_workers_user(QString email);
+    void create_api_user(QString email);
     void create_ftp_user(QString email);
     void create_xmpp_user(QString email);
     void create_bittorrent_user(QString email);

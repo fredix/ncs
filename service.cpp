@@ -150,4 +150,5 @@ void Service::Worker_init()
 void Service::link()
 {
     if (m_nodeftp) connect(m_http_admin, SIGNAL(create_ftp_user(QString)), m_nodeftp, SLOT(add_ftp_user(QString)), Qt::DirectConnection);
+    if (m_nodeftp) connect(m_http_api, SIGNAL(create_ftp_user(QString)), m_nodeftp, SLOT(add_ftp_user(QString)), Qt::DirectConnection);
 }

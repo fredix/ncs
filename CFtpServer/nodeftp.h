@@ -35,7 +35,7 @@ public:
     ~Nodeftp();
 
 private:
-    bool ncs_auth(QString login, QString &token);
+    bool ncs_auth(QString login, QString &token, QString &directory);
 
     QString m_directory;
     int m_port;

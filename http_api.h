@@ -78,6 +78,12 @@ private:
 
     Mongodb *mongodb_;
     Zeromq *zeromq_;
+
+signals:
+    void create_api_user(QString l_email);
+    void create_ftp_user(QString l_email);
+    void create_xmpp_user(QString l_email);
+    void create_bittorrent_user(QString l_email);
  };
 
 

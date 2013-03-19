@@ -439,6 +439,11 @@ void Http_api::user(QxtWebRequestEvent* event)
                 QUuid ftp_token = QUuid::createUuid();
                 QString str_ftp_token = ftp_token.toString().remove(QChar('-')).mid(1,32);
 
+
+                QUuid ftp_directory = QUuid::createUuid();
+                QString str_ftp_directory = ftp_directory.toString().remove(QChar('-')).mid(1,32);
+
+
                 QUuid xmpp_token = QUuid::createUuid();
                 QString str_xmpp_token = xmpp_token.toString().remove(QChar('-')).mid(1,32);
 
@@ -467,13 +472,19 @@ void Http_api::user(QxtWebRequestEvent* event)
                 user_builder.append("password", QString::fromLatin1(password_hash.toHex()).toStdString());
                 user_builder.append("token", str_token.toStdString());
 
-                user_builder.append("ftp", BSON("token" << str_ftp_token.toStdString() << "activated" << ftp << "directory" << "default"));
+                user_builder.append("ftp", BSON("token" << str_ftp_token.toStdString() << "activated" << ftp << "directory" << str_ftp_directory.toStdString()));
                 user_builder.append("tracker" , BSON("token" << str_tracker_token.toStdString()  << "activated" << tracker));
                 user_builder.append("xmpp" , BSON("token" << str_xmpp_token.toStdString()  << "activated" << xmpp));
                 user_builder.append("api" , BSON("token" << str_api_token.toStdString()  << "activated" << api));
 
                 BSONObj l_user = user_builder.obj();
                 mongodb_->Insert("users", l_user);
+
+                if (ftp) {
+                    emit create_ftp_user(QString::fromStdString(b_user.getField("email").str()));
+                    qDebug() << "EMIT CREATE FTP USER";
+                }
+
                 bodyMessage = buildResponse("token", str_token);
             }
             catch (mongo::MsgAssertionException &e)
