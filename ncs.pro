@@ -30,7 +30,7 @@ SOURCES += main.cpp \
     service.cpp \
     mongodb.cpp \
     http_admin.cpp
-LIBS += /usr/local/lib/libmongoclient.a \
+LIBS += ./externals/mongo-cxx-driver/libmongoclient.a \
         -lz \
         -lboost_system \
         -lboost_filesystem-mt \

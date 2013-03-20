@@ -30,9 +30,8 @@ sudo make install
 make the mongodb client :
 
 ```bash
-cd externals/mongodb
+cd externals/mongo-cxx-driver/
 scons mongoclient
-sudo cp libmongoclient.a /usr/local/lib
 ```
 
 make the qxmpp client :
