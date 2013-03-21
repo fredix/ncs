@@ -36,6 +36,7 @@ public:
 
 private:
     bool ncs_auth(QString login, QString &token, QString &directory);
+    void populate();
 
     QString m_directory;
     int m_port;

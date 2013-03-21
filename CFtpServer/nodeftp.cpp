@@ -247,6 +247,28 @@ void Nodeftp::ftp_init()
 
     } else
         qErrnoWarning( "FTP : Unable to listen" );
+
+    populate();
+}
+
+
+void Nodeftp::populate()
+{
+   /* QCryptographicHash cipher( QCryptographicHash::Sha1 );
+    cipher.addData(password.simplified().toAscii());
+    QByteArray password_hash = cipher.result();
+
+    qDebug() << "password_hash : " << password_hash.toHex();
+
+    password_hashed = QString::fromLatin1(password_hash.toHex());
+*/
+    BSONObj filter = BSON("ftp.activated" << true);
+    QList <BSONObj> users_list = mongodb_->FindAll("users", filter);
+
+    foreach (BSONObj l_user, users_list)
+    {
+        add_ftp_user(QString::fromStdString(l_user.getField("email").str()));
+    }
 }
 
 
