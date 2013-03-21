@@ -75,6 +75,9 @@ cp -r html_templates /var/lib/ncs/
 edit config/ncssetup.js and run :
 mongo nodecast config/ncssetup.js
 
+## FTP
+to use the passive mode with the ftp server you have to open this TCP range on your server : 1025-1900
+
 
 ### Launch NCS
 

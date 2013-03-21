@@ -179,7 +179,7 @@ Nodeftp::Nodeftp(QString a_directory, int port) : m_directory(a_directory), m_po
     FtpServer->SetNoTransferTimeout( 90 ); // seconds
     FtpServer->SetListeningPort( port );
     //FtpServer->SetDataPortRange( 100, 900 ); // data TCP-Port range = [100-999]
-    FtpServer->SetDataPortRange( 1025, 900 ); // data TCP-Port range = [100-999]
+    FtpServer->SetDataPortRange( 1025, 1900 ); // data TCP-Port range = [100-999]
     FtpServer->SetCheckPassDelay( 500 ); // milliseconds. Bruteforcing protection.
 
 
@@ -236,6 +236,7 @@ void Nodeftp::ftp_init()
         if( FtpServer->StartAccepting() ) {
 
             qDebug( "FTP : Server successfuly started !" );
+            populate();
 
             for( ;; )
                 sleep(1);
@@ -248,20 +249,11 @@ void Nodeftp::ftp_init()
     } else
         qErrnoWarning( "FTP : Unable to listen" );
 
-    populate();
 }
 
 
 void Nodeftp::populate()
 {
-   /* QCryptographicHash cipher( QCryptographicHash::Sha1 );
-    cipher.addData(password.simplified().toAscii());
-    QByteArray password_hash = cipher.result();
-
-    qDebug() << "password_hash : " << password_hash.toHex();
-
-    password_hashed = QString::fromLatin1(password_hash.toHex());
-*/
     BSONObj filter = BSON("ftp.activated" << true);
     QList <BSONObj> users_list = mongodb_->FindAll("users", filter);
 
