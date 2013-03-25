@@ -2047,7 +2047,6 @@ void Http_admin::staticfile(QxtWebRequestEvent* event, QString directory, QStrin
     if (!static_file->open(QIODevice::ReadOnly))
     {
         response = "FILE NOT FOUND";
-
         page = new QxtWebPageEvent(event->sessionID,
                                    event->requestID,
                                    response.toUtf8());
@@ -2060,10 +2059,10 @@ void Http_admin::staticfile(QxtWebRequestEvent* event, QString directory, QStrin
         qDebug() << "EXTENSION : " << ext;
 
         page = new QxtWebPageEvent(event->sessionID,
-                                   event->requestID,
-                                   static_file);
+                                   event->requestID);
         page->chunked = true;
         page->streaming = false;
+        page->dataSource = static_file;
 
         if (ext == "js")
             page->contentType="text/javascript";
@@ -2071,6 +2070,9 @@ void Http_admin::staticfile(QxtWebRequestEvent* event, QString directory, QStrin
             page->contentType="text/css";
         else if (ext == "png")
             page->contentType="image/png";
+        else
+            page->contentType="text/html";
+
     }
 
     postEvent(page);

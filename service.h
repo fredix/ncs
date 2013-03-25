@@ -62,12 +62,12 @@ private:
 
     QxtHttpServerConnector m_tracker_connector;
     QxtHttpServerConnector m_nodetrack_connector;
-    QxtHttpServerConnector m_wadmin_connector;
+    QxtHttpServerConnector m_admin_connector;
     QxtHttpServerConnector m_api_connector;
 
     QxtHttpSessionManager m_tracker_session;
     QxtHttpSessionManager m_nodetrack_session;
-    QxtHttpSessionManager m_wadmin_session;
+    QxtHttpSessionManager m_admin_session;
     QxtHttpSessionManager m_api_session;
 
     Tracker *m_tracker;

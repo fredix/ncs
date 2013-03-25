@@ -77,15 +77,15 @@ void Service::Http_admin_init()
 {
     int port;
     m_ncs_params.admin_port == 0 ? port = 2501 : port = m_ncs_params.admin_port;
-    m_wadmin_session.setPort(port);
-    m_wadmin_session.setConnector(&m_wadmin_connector);
-    m_wadmin_session.setAutoCreateSession(false);
+    m_admin_session.setPort(port);
+    m_admin_session.setConnector(&m_admin_connector);
+    m_admin_session.setAutoCreateSession(false);
     //Http_api s1(&session);
 
-    m_http_admin = new Http_admin(m_ncs_params.base_directory, &m_wadmin_session);
-    m_wadmin_session.setStaticContentService(m_http_admin);
-    m_wadmin_session.setSessionCookieName("nodecast");
-    m_wadmin_session.start();
+    m_http_admin = new Http_admin(m_ncs_params.base_directory, &m_admin_session);
+    m_admin_session.setStaticContentService(m_http_admin);
+    m_admin_session.setSessionCookieName("nodecast");
+    m_admin_session.start();
 }
 
 
