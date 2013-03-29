@@ -394,9 +394,9 @@ void Ztracker::destructor()
 
 Zapi::Zapi(zmq::context_t *a_context) : m_context(a_context)
 {
-    std::cout << "Zapi::Zapi constructeur" << std::endl;
-    m_mutex_http = new QMutex();
+    std::cout << "Zapi::Zapi constructeur" << std::endl;    
 
+    m_message = new zmq::message_t(2);
     m_socket_http = new zmq::socket_t (*m_context, ZMQ_REP);
     int hwm = 50000;
     m_socket_http->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
@@ -425,8 +425,6 @@ Zapi::~Zapi()
 
 void Zapi::receive_http_payload()
 {
-   // m_mutex_http->lock();
-
     check_http_data->setEnabled(false);
 
     std::cout << "Zapi::receive_payload" << std::endl;
@@ -518,7 +516,6 @@ void Zapi::receive_http_payload()
 
     }
     check_http_data->setEnabled(true);
-    //m_mutex_http->unlock();
 }
 
 
