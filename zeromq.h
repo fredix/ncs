@@ -145,6 +145,7 @@ private:
     zmq::context_t *m_context;
     zmq::socket_t *m_socket_http;
     QMutex *m_mutex_http;
+    zmq::message_t *m_message;
 
 signals:
     void forward_payload(BSONObj data);

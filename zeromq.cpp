@@ -489,6 +489,8 @@ void Zapi::receive_http_payload()
 
                     std::cout << "!!!!!!! BEFORE FORWARD PAYLOAD !!!!" << std::endl;
                     //emit forward_payload(data.copy());
+
+
                     std::cout << "!!!!!!! AFTER FORWARD PAYLOAD !!!!" << std::endl;
                 }
                 else
@@ -503,6 +505,15 @@ void Zapi::receive_http_payload()
                 std::cout << "error on data BSON : " << e.what() << std::endl;
                 goto flush_socket;
             }
+
+
+            BSONObj payload = BSON("status" << "ACK");
+            m_message->rebuild(payload.objsize());
+            memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
+
+
+            m_socket_http->send(*m_message);
+
         }
 
     }
