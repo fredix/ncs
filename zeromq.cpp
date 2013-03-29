@@ -392,6 +392,137 @@ void Ztracker::destructor()
 }
 
 
+Zapi::Zapi(zmq::context_t *a_context) : m_context(a_context)
+{
+    std::cout << "Zapi::Zapi constructeur" << std::endl;
+    m_mutex_http = new QMutex();
+
+    m_socket_http = new zmq::socket_t (*m_context, ZMQ_REP);
+    int hwm = 50000;
+    m_socket_http->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
+    m_socket_http->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
+    m_socket_http->connect("tcp://*:2503");
+
+
+    int http_socket_fd;
+    size_t socket_size = sizeof(http_socket_fd);
+    m_socket_http->getsockopt(ZMQ_FD, &http_socket_fd, &socket_size);
+
+    qDebug() << "RES getsockopt : " << "res" <<  " FD : " << http_socket_fd << " errno : " << zmq_strerror (errno);
+
+    check_http_data = new QSocketNotifier(http_socket_fd, QSocketNotifier::Read, this);
+    connect(check_http_data, SIGNAL(activated(int)), this, SLOT(receive_http_payload()));
+
+}
+
+
+Zapi::~Zapi()
+{
+    qDebug() << "Zapi::~Zapi";
+    delete(m_socket_http);
+}
+
+
+void Zapi::receive_http_payload()
+{
+    m_mutex_http->lock();
+
+    check_http_data->setEnabled(false);
+
+    std::cout << "Zapi::receive_payload" << std::endl;
+
+    qint32 events = 0;
+    std::size_t eventsSize = sizeof(events);
+
+    m_socket_http->getsockopt(ZMQ_EVENTS, &events, &eventsSize);
+
+
+    std::cout << "Zapi::receive_payload ZMQ_EVENTS : " <<  events << std::endl;
+
+
+    if (events & ZMQ_POLLIN)
+    {
+        std::cout << "Zapi::receive_payload ZMQ_POLLIN" <<  std::endl;
+
+
+        while (true)
+        {
+            flush_socket:
+
+
+    //  Initialize poll set
+//    zmq::pollitem_t items = { *m_socket, 0, ZMQ_POLLIN, 0 };
+
+
+    //while (true) {
+        //  Wait for next request from client
+        zmq::message_t request;
+
+  //      zmq::poll (&items, 1, 5000);
+
+
+    //    if (items.revents & ZMQ_POLLIN)
+//        {
+            bool res = m_socket_http->recv(&request, ZMQ_NOBLOCK);
+            if (!res && zmq_errno () == EAGAIN) break;
+
+            std::cout << "Zapi::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
+
+            if (request.size() == 0) {
+                std::cout << "Zapi::worker_response received request 0" << std::endl;
+                break;
+            }
+
+
+        //m_socket->recv (&request, ZMQ_NOBLOCK);
+
+
+            BSONObj data;
+
+            try {
+                data = mongo::fromjson((char*)request.data());
+
+
+                if (data.isValid() && !data.isEmpty())
+                {
+                    std::cout << "Zapi received : " << res << " data : " << data  << std::endl;
+
+                    std::cout << "!!!!!!! BEFORE FORWARD PAYLOAD !!!!" << std::endl;
+                    //emit forward_payload(data.copy());
+                    std::cout << "!!!!!!! AFTER FORWARD PAYLOAD !!!!" << std::endl;
+                }
+                else
+                {
+                    std::cout << "DATA NO VALID !" << std::endl;
+                }
+
+            }
+            catch (mongo::MsgAssertionException &e)
+            {
+                std::cout << "error on data : " << data << std::endl;
+                std::cout << "error on data BSON : " << e.what() << std::endl;
+                goto flush_socket;
+            }
+        }
+
+    }
+    check_http_data->setEnabled(true);
+    m_mutex_http->unlock();
+}
+
+
+
+
+void Zapi::destructor()
+{
+    qDebug() << "Zapi destructor";
+
+    m_mutex_http->lock();
+    check_http_data->setEnabled(false);
+    m_socket_http->close ();
+}
+
+
 
 Zpull::Zpull(QString base_directory, zmq::context_t *a_context) : m_context(a_context)
 {        
@@ -1840,6 +1971,17 @@ void Zeromq::init()
     thread_pull->start();
     connect(this, SIGNAL(shutdown()), pull, SLOT(destructor()), Qt::BlockingQueuedConnection);
     connect(pull, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
+
+
+
+
+
+    thread_api = new QThread;
+    zapi = new Zapi(m_context);
+    zapi->moveToThread(thread_api);
+    thread_api->start();
+    connect(this, SIGNAL(shutdown()), zapi, SLOT(destructor()), Qt::BlockingQueuedConnection);
+    connect(zapi, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
 
 

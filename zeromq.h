@@ -133,6 +133,30 @@ private slots:
 
 typedef QSharedPointer<Zworker_push> Zworker_pushPtr;
 
+class Zapi : public QThread
+{
+    Q_OBJECT
+public:
+    Zapi(zmq::context_t *a_context);
+    ~Zapi();
+
+private:                
+    QSocketNotifier *check_http_data;
+    zmq::context_t *m_context;
+    zmq::socket_t *m_socket_http;
+    QMutex *m_mutex_http;
+
+signals:
+    void forward_payload(BSONObj data);
+
+public slots:
+    void destructor();
+
+private slots:
+    void receive_http_payload();
+};
+
+
 class Zpull : public QThread
 {
     Q_OBJECT
@@ -140,7 +164,7 @@ public:
     Zpull(QString base_directory, zmq::context_t *a_context);
     ~Zpull();
 
-private:                
+private:
     QSocketNotifier *check_http_data;
     QSocketNotifier *check_zeromq_data;
     QSocketNotifier *check_worker_response;
@@ -216,6 +240,7 @@ public:
 
     zmq::context_t *m_context;
 
+    Zapi *zapi;
     Zpull *pull;
     Zdispatch *dispatch;
     Ztracker *ztracker;
@@ -233,7 +258,7 @@ private:
     QThread *thread_tracker;
     QThread *thread_pull;
     QThread *thread_stream;
-
+    QThread *thread_api;
 
     zmq::socket_t *z_workers;
     QTimer *pull_timer;
