@@ -401,7 +401,7 @@ Zapi::Zapi(zmq::context_t *a_context) : m_context(a_context)
     int hwm = 50000;
     m_socket_http->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
     m_socket_http->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
-    m_socket_http->connect("tcp://*:2503");
+    m_socket_http->bind("tcp://*:2503");
 
 
     int http_socket_fd;
@@ -425,7 +425,7 @@ Zapi::~Zapi()
 
 void Zapi::receive_http_payload()
 {
-    m_mutex_http->lock();
+   // m_mutex_http->lock();
 
     check_http_data->setEnabled(false);
 
@@ -507,7 +507,7 @@ void Zapi::receive_http_payload()
 
     }
     check_http_data->setEnabled(true);
-    m_mutex_http->unlock();
+    //m_mutex_http->unlock();
 }
 
 
