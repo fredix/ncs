@@ -31,6 +31,7 @@
 #include <QUuid>
 #include <QSocketNotifier>
 #include <QxtCore/QxtCommandOptions>
+#include <QxtJSON>
 
 #include <zmq.hpp>
 #include "mongodb.h"
@@ -141,11 +142,14 @@ public:
     ~Zapi();
 
 private:                
+    QString buildResponse(QString action, QString data1, QString data2="");
+
     QSocketNotifier *check_http_data;
     zmq::context_t *m_context;
     zmq::socket_t *m_socket_http;
     QMutex *m_mutex_http;
     zmq::message_t *m_message;
+    QMutex *m_mutex;
 
 signals:
     void forward_payload(BSONObj data);

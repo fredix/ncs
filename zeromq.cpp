@@ -395,6 +395,7 @@ void Ztracker::destructor()
 Zapi::Zapi(zmq::context_t *a_context) : m_context(a_context)
 {
     std::cout << "Zapi::Zapi constructeur" << std::endl;    
+    m_mutex = new QMutex();
 
     m_message = new zmq::message_t(2);
     m_socket_http = new zmq::socket_t (*m_context, ZMQ_REP);
@@ -411,7 +412,7 @@ Zapi::Zapi(zmq::context_t *a_context) : m_context(a_context)
     qDebug() << "RES getsockopt : " << "res" <<  " FD : " << http_socket_fd << " errno : " << zmq_strerror (errno);
 
     check_http_data = new QSocketNotifier(http_socket_fd, QSocketNotifier::Read, this);
-    connect(check_http_data, SIGNAL(activated(int)), this, SLOT(receive_http_payload()));
+    connect(check_http_data, SIGNAL(activated(int)), this, SLOT(receive_http_payload()), Qt::DirectConnection);
 
 }
 
@@ -425,97 +426,117 @@ Zapi::~Zapi()
 
 void Zapi::receive_http_payload()
 {
+    m_mutex->lock();
+
     check_http_data->setEnabled(false);
 
     std::cout << "Zapi::receive_payload" << std::endl;
-
-    qint32 events = 0;
-    std::size_t eventsSize = sizeof(events);
-
-    m_socket_http->getsockopt(ZMQ_EVENTS, &events, &eventsSize);
-
-
-    std::cout << "Zapi::receive_payload ZMQ_EVENTS : " <<  events << std::endl;
-
-
-    if (events & ZMQ_POLLIN)
+    while (true)
     {
-        std::cout << "Zapi::receive_payload ZMQ_POLLIN" <<  std::endl;
-
-
-        while (true)
-        {
-            flush_socket:
-
-
-    //  Initialize poll set
-//    zmq::pollitem_t items = { *m_socket, 0, ZMQ_POLLIN, 0 };
-
-
-    //while (true) {
-        //  Wait for next request from client
         zmq::message_t request;
+        bool res = m_socket_http->recv(&request, ZMQ_NOBLOCK);
 
-  //      zmq::poll (&items, 1, 5000);
+        qint32 events = 0;
+        std::size_t eventsSize = sizeof(events);
+        m_socket_http->getsockopt(ZMQ_RCVMORE, &events, &eventsSize);
 
+        std::cout << "Zapi::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
 
-    //    if (items.revents & ZMQ_POLLIN)
-//        {
-            bool res = m_socket_http->recv(&request, ZMQ_NOBLOCK);
-            if (!res && zmq_errno () == EAGAIN) break;
-
-            std::cout << "Zapi::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
-
-            if (request.size() == 0) {
-                std::cout << "Zapi::worker_response received request 0" << std::endl;
-                break;
-            }
+        if (request.size() == 0) {
+            std::cout << "Zapi::worker_response received request 0" << std::endl;
+            break;
+        }
 
 
-        //m_socket->recv (&request, ZMQ_NOBLOCK);
+        BSONObj data;
+        try {
+            data = mongo::fromjson((char*)request.data());
 
-
-            BSONObj data;
-
-            try {
-                data = mongo::fromjson((char*)request.data());
-
-
-                if (data.isValid() && !data.isEmpty())
-                {
-                    std::cout << "Zapi received : " << res << " data : " << data  << std::endl;
-
-                    std::cout << "!!!!!!! BEFORE FORWARD PAYLOAD !!!!" << std::endl;
-                    //emit forward_payload(data.copy());
-
-
-                    std::cout << "!!!!!!! AFTER FORWARD PAYLOAD !!!!" << std::endl;
-                }
-                else
-                {
-                    std::cout << "DATA NO VALID !" << std::endl;
-                }
-
-            }
-            catch (mongo::MsgAssertionException &e)
+            if (data.isValid() && !data.isEmpty())
             {
-                std::cout << "error on data : " << data << std::endl;
-                std::cout << "error on data BSON : " << e.what() << std::endl;
-                goto flush_socket;
+                std::cout << "Zapi received : " << res << " data : " << data  << std::endl;
+
+                std::cout << "!!!!!!! BEFORE FORWARD PAYLOAD !!!!" << std::endl;
+                //emit forward_payload(data.copy());
+
+
+                std::cout << "!!!!!!! AFTER FORWARD PAYLOAD !!!!" << std::endl;
+            }
+            else
+            {
+                std::cout << "DATA NO VALID !" << std::endl;
             }
 
+        }
+        catch (mongo::MsgAssertionException &e)
+        {
+            // received not a json
+            QString tmp = QString::fromAscii((char*)request.data(), request.size());
+            std::cout << "error on data : " <<  tmp.toStdString() << std::endl;
+            std::cout << "error on data BSON : " << e.what() << std::endl;
+        }
 
-            BSONObj payload = BSON("status" << "ACK");
-            m_message->rebuild(payload.objsize());
-            memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
+        if (!(events & ZMQ_RCVMORE))
+        {
+            QUuid tmp_session_uuid = QUuid::createUuid();
+            QString session_uuid = tmp_session_uuid.toString().mid(1,36);
+            QString bodyMessage = buildResponse("push", session_uuid);
+            //qDebug() << "SESSION UUID : " << bodyMessage;
 
+            //std::cout << " body : " << bodyMessage.toStdString() << std::endl;
 
-            m_socket_http->send(*m_message);
+            m_message->rebuild(bodyMessage.length());
+            memcpy(m_message->data(), bodyMessage.toAscii(), bodyMessage.length());
 
+            m_socket_http->send(*m_message, 0);
+            qDebug() << "return session UUID : " << bodyMessage;
         }
 
     }
     check_http_data->setEnabled(true);
+    m_mutex->unlock();
+}
+
+
+QString Zapi::buildResponse(QString action, QString data1, QString data2)
+{
+    QVariantMap data;
+    QString body;
+
+
+    if (action == "update")
+    {
+        data.insert("uuid", data1);
+    }
+    else if (action == "register")
+    {
+        data.insert("node_uuid", data1);
+        data.insert("node_password", data2);
+    }
+    else if (action == "push" || action == "publish" || action == "create")
+    {
+        data.insert("uuid", data1);
+    }
+    else if (action == "file")
+    {
+        data.insert("gridfs", data1);
+    }
+    else if (action == "error")
+    {
+        data.insert("error", data1);
+        data.insert("code", data2);
+    }
+    else if (action == "status")
+    {
+        data.insert("status", data1);
+    }
+    else
+    {
+        data.insert(action, data1);
+    }
+    body = QxtJSON::stringify(data);
+
+    return body;
 }
 
 
