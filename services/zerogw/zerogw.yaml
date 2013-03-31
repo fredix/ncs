@@ -1,0 +1,143 @@
+Server:
+  max-requests: 100
+  zmq-io-threads: 1
+  disk-io-threads: 1
+  listen:
+    - host: 0.0.0.0
+      port: 8000
+  control:
+    socket:
+    - !zmq.Bind ipc:///tmp/zerogw-ctl
+  error-log:
+    level: 5
+    warning-timeout: 300
+  mime-types:
+    extra:
+      yaml: text/x-yaml
+      mov: application/x-movable
+
+Estp:
+  socket: !zmq.Pub
+  - ipc:///tmp/zgwestp.sock
+
+Routing:
+  routing: !Suffix ~
+  routing-by: !Header Host
+  map:
+      "*:8000":
+        routing: !Prefix ~
+        routing-by: !Uri ~
+        map:
+            "/*":
+              static:
+                enabled: yes
+                root: examples
+                restrict-root: no
+                index-file: websocket.html
+                deny-suffixes:
+                - .py
+                - .yaml
+                deny-prefixes:
+                - "."
+            "/ws/*":
+              static:
+                enabled: yes
+                root: examples
+                restrict-root: no
+                single-uri: /websocket.html
+            "/echo*":
+              zmq-forward:
+                enabled: yes
+                socket:
+                - !zmq.Bind "tcp://192.168.0.9:7001"
+                contents:
+                - !Uri ~
+                - !Body ~
+                timeout: 2
+                retry: !RetryFirst
+                  count: 3
+            "/payload*":
+              zmq-forward:
+                enabled: yes
+                socket:
+                - !zmq.Connect "tcp://192.168.0.5:2503"
+                contents:
+                - !Method
+                - !Uri
+                - !Header X-node-uuid
+                - !Header X-node-password
+                - !Header X-workflow-uuid
+                - !Header X-payload-filename
+                - !Header X-payload-type
+                - !Body ~
+                timeout: 2
+                retry: !RetryFirst
+                  count: 3
+            "/workflow*":
+              zmq-forward:
+                enabled: yes
+                socket:
+                - !zmq.Connect "tcp://192.168.0.5:2504"
+                contents:
+                - !Method
+                - !Uri
+                - !Header X-node-uuid
+                - !Header X-node-password
+                - !Header X-workflow-uuid
+                - !Header X-payload-filename
+                - !Header X-payload-type
+                - !Body ~
+                timeout: 2
+                retry: !RetryFirst
+                  count: 3
+            "/node*":
+              zmq-forward:
+                enabled: yes
+                socket:
+                - !zmq.Connect "tcp://192.168.0.5:2505"
+                contents:
+                - !Method
+                - !Uri
+                - !Header X-node-uuid
+                - !Header X-node-password
+                - !Header X-workflow-uuid
+                - !Header X-payload-filename
+                - !Header X-payload-type
+                - !Body ~
+                timeout: 2
+                retry: !RetryFirst
+                  count: 3
+            "/user*":
+              zmq-forward:
+                enabled: yes
+                socket:
+                - !zmq.Connect "tcp://192.168.0.5:2506"
+                contents:
+                - !Method
+                - !Uri
+                - !Header X-node-uuid
+                - !Header X-node-password
+                - !Header X-workflow-uuid
+                - !Header X-payload-filename
+                - !Header X-payload-type
+                - !Body ~
+                timeout: 2
+                retry: !RetryFirst
+                  count: 3
+            "/chat*":
+              websocket:
+                enabled: yes
+                forward:
+                - !zmq.Bind "tcp://127.0.0.1:7002"
+                subscribe:
+                - !zmq.Bind "tcp://127.0.0.1:7003"
+            "/crossdomain.xml":
+              responses:
+                default:
+                  headers:
+                    Content-Type: text/xml; charset="utf-8"
+                  body: |
+                    <?xml version="1.0"?>
+                    <cross-domain-policy>
+                        <allow-access-from domain="*" />
+                    </cross-domain-policy>
