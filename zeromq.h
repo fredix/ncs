@@ -144,6 +144,7 @@ public:
 private:                
     QString buildResponse(QString action, QString data1, QString data2="");
 
+    Mongodb *mongodb_;
     QSocketNotifier *check_http_data;
     zmq::context_t *m_context;
     zmq::socket_t *m_socket_http;

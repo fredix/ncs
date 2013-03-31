@@ -396,6 +396,7 @@ Zapi::Zapi(zmq::context_t *a_context) : m_context(a_context)
 {
     std::cout << "Zapi::Zapi constructeur" << std::endl;    
     m_mutex = new QMutex();
+    mongodb_ = Mongodb::getInstance();
 
     m_message = new zmq::message_t(2);
     m_socket_http = new zmq::socket_t (*m_context, ZMQ_REP);
@@ -431,10 +432,15 @@ void Zapi::receive_http_payload()
     check_http_data->setEnabled(false);
 
     std::cout << "Zapi::receive_payload" << std::endl;
+
+    QHash <QString, QString> zerogw;
+    QString key;
+    int counter=0;
     while (true)
     {
         zmq::message_t request;
         bool res = m_socket_http->recv(&request, ZMQ_NOBLOCK);
+        if (!res && zmq_errno () == EAGAIN) break;
 
         qint32 events = 0;
         std::size_t eventsSize = sizeof(events);
@@ -442,23 +448,20 @@ void Zapi::receive_http_payload()
 
         std::cout << "Zapi::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
 
-        if (request.size() == 0) {
-            std::cout << "Zapi::worker_response received request 0" << std::endl;
-            break;
-        }
-
-
         BSONObj data;
         try {
-            data = mongo::fromjson((char*)request.data());
+            data = mongo::fromjson(QString::fromAscii((char*)request.data()).toStdString());
 
             if (data.isValid() && !data.isEmpty())
             {
                 std::cout << "Zapi received : " << res << " data : " << data  << std::endl;
-
                 std::cout << "!!!!!!! BEFORE FORWARD PAYLOAD !!!!" << std::endl;
                 //emit forward_payload(data.copy());
 
+                QString fieldname = QString::fromAscii(data.firstElementFieldName());
+                QString fieldjson = QString::fromStdString(data.firstElement().toString(false));
+
+                zerogw[fieldname] = fieldjson;
 
                 std::cout << "!!!!!!! AFTER FORWARD PAYLOAD !!!!" << std::endl;
             }
@@ -471,28 +474,61 @@ void Zapi::receive_http_payload()
         catch (mongo::MsgAssertionException &e)
         {
             // received not a json
-            QString tmp = QString::fromAscii((char*)request.data(), request.size());
+            QString tmp;
+
+            qDebug() << "COUNTER : " << counter;
+            key = counter == 0? "METHOD" : "";
+            key = counter == 1? "URI" : key;
+            key = counter == 2? "X-node-uuid" : key;
+            key = counter == 3? "X-node-password" : key;
+            key = counter == 4? "X-workflow-uuid" : key;
+            key = counter == 5? "X-payload-filename" : key;
+            key = counter == 6? "X-payload-type" : key;
+
+            // body
+            if (counter==7)
+            {
+                key = "gfs_id";
+
+                QByteArray requestContent((char*)request.data(), request.size());
+                BSONObj gfs_file_struct = mongodb_->WriteFile(zerogw["X-payload-filename"].toStdString(), requestContent.constData (), requestContent.size ());
+                if (gfs_file_struct.nFields() == 0)
+                {
+                    qDebug() << "write on gridFS failed !";
+                    tmp = "42";
+                }
+                else tmp = QString::fromStdString(gfs_file_struct.getField("_id").OID().toString());
+            }
+            else tmp = QString::fromAscii((char*)request.data(), request.size());
+
+            zerogw[key] = tmp.replace("/", "");
+
             std::cout << "error on data : " <<  tmp.toStdString() << std::endl;
             std::cout << "error on data BSON : " << e.what() << std::endl;
         }
 
         if (!(events & ZMQ_RCVMORE))
         {
-            QUuid tmp_session_uuid = QUuid::createUuid();
-            QString session_uuid = tmp_session_uuid.toString().mid(1,36);
-            QString bodyMessage = buildResponse("push", session_uuid);
-            //qDebug() << "SESSION UUID : " << bodyMessage;
+            QString bodyMessage;
 
-            //std::cout << " body : " << bodyMessage.toStdString() << std::endl;
+            if (zerogw["METHOD"] == "POST")
+            {
+                QUuid tmp_session_uuid = QUuid::createUuid();
+                QString session_uuid = tmp_session_uuid.toString().mid(1,36);
+                bodyMessage = buildResponse("push", session_uuid);
+                //qDebug() << "SESSION UUID : " << bodyMessage;
+            }
+            else bodyMessage = "BAD REQUEST";
 
             m_message->rebuild(bodyMessage.length());
             memcpy(m_message->data(), bodyMessage.toAscii(), bodyMessage.length());
 
             m_socket_http->send(*m_message, 0);
-            qDebug() << "return session UUID : " << bodyMessage;
+            qDebug() << "returning : " << bodyMessage;
         }
-
+        counter++;
     }
+    qDebug() << "ZEROGW : " << zerogw;
     check_http_data->setEnabled(true);
     m_mutex->unlock();
 }
