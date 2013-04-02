@@ -53,10 +53,13 @@ Service::~Service()
     qDebug() << "delete worker api";
     emit shutdown();
     delete(worker_api);
+    delete(api_payload);
+    delete(api_node);
+    delete(api_workflow);
 }
 
 
-
+/*
 void Service::Http_api_init()
 {
     int port;
@@ -69,6 +72,38 @@ void Service::Http_api_init()
     m_http_api = new Http_api(m_ncs_params.base_directory, &m_api_session);
     m_api_session.setStaticContentService(m_http_api);
     m_api_session.start();
+}
+*/
+
+
+void Service::Http_api_init()
+{
+    int port;
+    m_ncs_params.api_port == 0 ? port = 2502 : port = m_ncs_params.api_port;
+
+    QThread *thread_api_payload = new QThread;
+    api_payload = new Api_payload(port);
+    api_payload->moveToThread(thread_api_payload);
+    thread_api_payload->start();
+    //connect(this, SIGNAL(shutdown()), api_payload, SLOT(destructor()), Qt::BlockingQueuedConnection);
+    //connect(api_payload, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
+
+
+    QThread *thread_api_node = new QThread;
+    api_node = new Api_node(port + 1);
+    api_node->moveToThread(thread_api_node);
+    thread_api_node->start();
+    //connect(this, SIGNAL(shutdown()), api_node, SLOT(destructor()), Qt::BlockingQueuedConnection);
+    //connect(api_node, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
+
+    QThread *thread_api_workflow = new QThread;
+    api_workflow = new Api_workflow(port + 2);
+    api_workflow->moveToThread(thread_api_workflow);
+    thread_api_workflow->start();
+    //connect(this, SIGNAL(shutdown()), api_workflow, SLOT(destructor()), Qt::BlockingQueuedConnection);
+    //connect(api_workflow, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
+
+
 }
 
 

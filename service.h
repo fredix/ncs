@@ -35,6 +35,7 @@
 #include "xmpp_server.h"
 #include "xmpp_client.h"
 #include "ncs_global.h"
+#include "zerogw.h"
 
 class Service : public QObject
 {
@@ -52,6 +53,9 @@ public:
     void Worker_init();
     void link();
     Worker_api *worker_api;
+    Api_payload *api_payload;
+    Api_node *api_node;
+    Api_workflow *api_workflow;
 
 private:
     Http_admin *m_http_admin;

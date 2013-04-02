@@ -725,6 +725,7 @@ void Http_admin::admin_user_post(QxtWebRequestEvent* event)
 
       */
 
+    qDebug() << "Http_admin::admin_user_post";
 
     QxtHtmlTemplate header;
     QxtHtmlTemplate body;

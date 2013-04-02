@@ -131,7 +131,7 @@ void Http_api::node(QxtWebRequestEvent* event, QString name)
 
         if (user_token.length() == 0)
         {
-            bodyMessage = buildResponse("error", "headers", "X-use-token");
+            bodyMessage = buildResponse("error", "headers", "X-user-token");
             postEvent(new QxtWebPageEvent(event->sessionID,
                                          event->requestID,
                                          bodyMessage.toUtf8()));

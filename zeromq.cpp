@@ -2040,14 +2040,14 @@ void Zeromq::init()
 
 
 
-
+/*
     thread_api = new QThread;
     zapi = new Zapi(m_context);
     zapi->moveToThread(thread_api);
     thread_api->start();
     connect(this, SIGNAL(shutdown()), zapi, SLOT(destructor()), Qt::BlockingQueuedConnection);
     connect(zapi, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
-
+*/
 
 
 

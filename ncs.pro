@@ -29,7 +29,8 @@ SOURCES += main.cpp \
     CFtpServer/nodeftp.cpp \
     service.cpp \
     mongodb.cpp \
-    http_admin.cpp
+    http_admin.cpp \
+    zerogw.cpp
 LIBS += ./externals/mongo-cxx-driver/libmongoclient.a \
         -lz \
         -lboost_system \
@@ -37,7 +38,8 @@ LIBS += ./externals/mongo-cxx-driver/libmongoclient.a \
         -lboost_thread-mt \
         -lQxtCore \
         -lQxtWeb \
-        -lzmq \
+#        -lzmq \
+        /usr/local/lib/libzmq.so \
         -lqxmpp
 
 INCLUDEPATH += /usr/include/
@@ -67,4 +69,5 @@ HEADERS += main.h \
     CFtpServer/CFtpServerConfig.h \
     service.h \
     mongodb.h \
-    http_admin.h
+    http_admin.h \
+    zerogw.h
