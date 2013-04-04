@@ -1797,32 +1797,34 @@ void Http_admin::admin_payloads_get(QxtWebRequestEvent* event)
                     QDateTime timestamp;
                     timestamp.setTime_t(payload.getField("timestamp").Number());
 
-
-                    BSONObj steps = payload.getField("steps").Obj();
-                    list <BSONElement> list_steps;
-                    steps.elems(list_steps);
-
-                    BSONObj l_step;
-                    list<be>::iterator i;
                     QString li_step;
+                    if (payload.hasField("steps"))
+                    {
+                        BSONObj steps = payload.getField("steps").Obj();
+                        list <BSONElement> list_steps;
+                        steps.elems(list_steps);
 
-                    li_step.append("<table class=\"table\">");
+                        BSONObj l_step;
+                        list<be>::iterator i;
+
+                        li_step.append("<table class=\"table\">");
 
 
-                    for(i = list_steps.begin(); i != list_steps.end(); ++i) {
-                        l_step = (*i).embeddedObject ();
-                        //std::cout << "l_step => " << l_step  << std::endl;
-                        li_step.append("<tr>");
+                        for(i = list_steps.begin(); i != list_steps.end(); ++i) {
+                            l_step = (*i).embeddedObject ();
+                            //std::cout << "l_step => " << l_step  << std::endl;
+                            li_step.append("<tr>");
 
-                        li_step.append("<td>" + QString::fromStdString(l_step.getField("action").str()) + "</td>");
-                        li_step.append("<td>" + QString::fromStdString(l_step.getField("name").str()) + "</td>");
-                        li_step.append("<td>" + QString::number(l_step.getField("order").Number()) + "</td>");
-                        li_step.append("<td>" + QString::fromStdString(l_step.getField("data").str()) + "</td>");
+                            li_step.append("<td>" + QString::fromStdString(l_step.getField("action").str()) + "</td>");
+                            li_step.append("<td>" + QString::fromStdString(l_step.getField("name").str()) + "</td>");
+                            li_step.append("<td>" + QString::number(l_step.getField("order").Number()) + "</td>");
+                            li_step.append("<td>" + QString::fromStdString(l_step.getField("data").str()) + "</td>");
 
-                        li_step.append("</tr>");
+                            li_step.append("</tr>");
 
+                        }
+                        li_step.append("</table>");
                     }
-                    li_step.append("</table>");
 
                     output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id_" + QString::number(counter) + "\" value=\"" + QString::fromStdString(payload.getField("_id").OID().str()) + "\"></td><td>" +
                                   QString::fromStdString(payload.getField("action").str()) + "</td>" +

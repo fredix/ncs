@@ -195,7 +195,7 @@ void Api_payload::receive_http_payload()
         std::size_t eventsSize = sizeof(events);
         m_socket_zerogw->getsockopt(ZMQ_RCVMORE, &events, &eventsSize);
 
-        std::cout << "Api_payload::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
+        //std::cout << "Api_payload::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
 
         BSONObjBuilder payload_builder;
         payload_builder.genOID();
@@ -230,16 +230,16 @@ void Api_payload::receive_http_payload()
 
             qDebug() << "COUNTER : " << counter;
             key = counter == 0? "METHOD" : "";
-            key = counter == 1? "URI" : "";
-            key = counter == 2? "X-user-token" : "";
-            key = counter == 3? "X-node-uuid" : "";
-            key = counter == 4? "X-node-password" : "";
-            key = counter == 5? "X-workflow-uuid" : "";
-            key = counter == 6? "X-payload-filename" : "";
-            key = counter == 7? "X-payload-type" : "";
+            key = counter == 1? "URI" : key;
+            key = counter == 2? "X-user-token" : key;
+            key = counter == 3? "X-node-uuid" : key;
+            key = counter == 4? "X-node-password" : key;
+            key = counter == 5? "X-workflow-uuid" : key;
+            key = counter == 6? "X-payload-filename" : key;
+            key = counter == 7? "X-payload-type" : key;
 
             // push or publish
-            key = counter == 8? "X-payload-action" : "";
+            key = counter == 8? "X-payload-action" : key;
 
             // body
             if (counter == 9 && !zerogw["X-payload-filename"].isEmpty())
@@ -277,12 +277,14 @@ void Api_payload::receive_http_payload()
 
 
             }
-            else if (zerogw["X-payload-type"] == "json")
+            //else if (zerogw["X-payload-type"] == "json")
+            else
             {
                 payload_builder.append("gridfs", false);
                 tmp = QString::fromAscii((char*)request.data(), request.size());
                 payload_builder.append("data", tmp.toStdString());
             }
+
 
             zerogw[key] = tmp;
 
@@ -429,8 +431,7 @@ void Api_payload::receive_http_payload()
                 qDebug() << "PUSH HTTP API PAYLOAD";
                 z_message->rebuild(l_payload.objsize());
                 memcpy(z_message->data(), (char*)l_payload.objdata(), l_payload.objsize());
-                //z_push_api->send(*z_message, ZMQ_NOBLOCK);
-                z_push_api->send(*z_message);
+                z_push_api->send(*z_message, ZMQ_NOBLOCK);
                 /************************/
             }
 
@@ -517,9 +518,9 @@ void Api_node::receive_http_payload()
 
             qDebug() << "COUNTER : " << counter;
             key = counter == 0? "METHOD" : "";
-            key = counter == 1? "URI" : "";
-            key = counter == 2? "X-user-token" : "";
-            key = counter == 3? "X-node-name" : "";
+            key = counter == 1? "URI" : key;
+            key = counter == 2? "X-user-token" : key;
+            key = counter == 3? "X-node-name" : key;
 
 
             tmp = QString::fromAscii((char*)request.data(), request.size());
@@ -655,9 +656,9 @@ void Api_workflow::receive_http_payload()
 
             qDebug() << "COUNTER : " << counter;
             key = counter == 0? "METHOD" : "";
-            key = counter == 1? "URI" : "";
-            key = counter == 2? "X-user-token" : "";
-            key = counter == 3? "X-workflow-name" : "";
+            key = counter == 1? "URI" : key;
+            key = counter == 2? "X-user-token" : key;
+            key = counter == 3? "X-workflow-name" : key;
 
 
             tmp = QString::fromAscii((char*)request.data(), request.size());
@@ -789,8 +790,8 @@ void Api_user::receive_http_payload()
 
             qDebug() << "COUNTER : " << counter;
             key = counter == 0? "METHOD" : "";
-            key = counter == 1? "URI" : "";
-            key = counter == 2? "X-admin-token" : "";
+            key = counter == 1? "URI" : key;
+            key = counter == 2? "X-admin-token" : key;
 
 
             tmp = QString::fromAscii((char*)request.data(), request.size());
