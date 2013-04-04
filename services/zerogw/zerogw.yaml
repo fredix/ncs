@@ -77,7 +77,7 @@ Routing:
                 timeout: 2
                 retry: !RetryFirst
                   count: 3
-            "/workflow*":
+            "/node*":
               zmq-forward:
                 enabled: yes
                 socket:
@@ -86,12 +86,12 @@ Routing:
                 - !Method
                 - !Uri
                 - !Header X-user-token
-                - !Header X-workflow-name
+                - !Header X-node-name
                 - !Body ~
                 timeout: 2
                 retry: !RetryFirst
                   count: 3
-            "/node*":
+            "/workflow*":
               zmq-forward:
                 enabled: yes
                 socket:
@@ -100,7 +100,7 @@ Routing:
                 - !Method
                 - !Uri
                 - !Header X-user-token
-                - !Header X-node-name
+                - !Header X-workflow-name
                 - !Body ~
                 timeout: 2
                 retry: !RetryFirst
