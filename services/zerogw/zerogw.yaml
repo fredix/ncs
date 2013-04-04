@@ -21,6 +21,8 @@ Estp:
   - ipc:///tmp/zgwestp.sock
 
 Routing:
+  limits:
+    max-body-size: 200Mi
   routing: !Suffix ~
   routing-by: !Header Host
   map:
@@ -49,7 +51,7 @@ Routing:
               zmq-forward:
                 enabled: yes
                 socket:
-                - !zmq.Bind "tcp://192.168.0.9:7001"
+                - !zmq.Bind "tcp://127.0.0.1:7001"
                 contents:
                 - !Uri ~
                 - !Body ~
@@ -60,15 +62,17 @@ Routing:
               zmq-forward:
                 enabled: yes
                 socket:
-                - !zmq.Connect "tcp://192.168.0.5:2503"
+                - !zmq.Connect "tcp://127.0.0.1:2503"
                 contents:
                 - !Method
                 - !Uri
+                - !Header X-user-token
                 - !Header X-node-uuid
                 - !Header X-node-password
                 - !Header X-workflow-uuid
                 - !Header X-payload-filename
                 - !Header X-payload-type
+                - !Header X-payload-action
                 - !Body ~
                 timeout: 2
                 retry: !RetryFirst
@@ -77,15 +81,12 @@ Routing:
               zmq-forward:
                 enabled: yes
                 socket:
-                - !zmq.Connect "tcp://192.168.0.5:2504"
+                - !zmq.Connect "tcp://127.0.0.1:2504"
                 contents:
                 - !Method
                 - !Uri
-                - !Header X-node-uuid
-                - !Header X-node-password
-                - !Header X-workflow-uuid
-                - !Header X-payload-filename
-                - !Header X-payload-type
+                - !Header X-user-token
+                - !Header X-workflow-name
                 - !Body ~
                 timeout: 2
                 retry: !RetryFirst
@@ -94,15 +95,12 @@ Routing:
               zmq-forward:
                 enabled: yes
                 socket:
-                - !zmq.Connect "tcp://192.168.0.5:2505"
+                - !zmq.Connect "tcp://127.0.0.1:2505"
                 contents:
                 - !Method
                 - !Uri
-                - !Header X-node-uuid
-                - !Header X-node-password
-                - !Header X-workflow-uuid
-                - !Header X-payload-filename
-                - !Header X-payload-type
+                - !Header X-user-token
+                - !Header X-node-name
                 - !Body ~
                 timeout: 2
                 retry: !RetryFirst
@@ -111,15 +109,11 @@ Routing:
               zmq-forward:
                 enabled: yes
                 socket:
-                - !zmq.Connect "tcp://192.168.0.5:2506"
+                - !zmq.Connect "tcp://127.0.0.1:2506"
                 contents:
                 - !Method
                 - !Uri
-                - !Header X-node-uuid
-                - !Header X-node-password
-                - !Header X-workflow-uuid
-                - !Header X-payload-filename
-                - !Header X-payload-type
+                - !Header X-admin-token
                 - !Body ~
                 timeout: 2
                 retry: !RetryFirst

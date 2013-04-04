@@ -42,22 +42,26 @@ class Zerogw : public QObject
 {
     Q_OBJECT
 public:
-    Zerogw(int port, QObject *parent = 0);
+    Zerogw(QString basedirectory, int port, QObject *parent = 0);
     ~Zerogw();
 
 protected:
     QBool checkAuth(QString token, BSONObjBuilder &payload_builder, BSONObj &a_user);
     QString buildResponse(QString action, QString data1, QString data2="");
+    QString m_basedirectory;
 
     Mongodb *mongodb_;
     Zeromq *zeromq_;
     zmq::context_t *m_context;
 
     QSocketNotifier *check_http_data;
-    zmq::socket_t *m_socket_http;
+    zmq::socket_t *m_socket_zerogw;
     QMutex *m_mutex_http;
     zmq::message_t *m_message;
     QMutex *m_mutex;
+
+    zmq::socket_t *z_push_api;
+    zmq::message_t *z_message;
 
 signals:
     void forward_payload(BSONObj data);
@@ -73,7 +77,7 @@ class Api_payload : public Zerogw
 {
     Q_OBJECT
 public:
-    Api_payload(int port);
+    Api_payload(QString basedirectory, int port);
 
 
 private slots:
@@ -86,7 +90,7 @@ class Api_node : public Zerogw
 {
     Q_OBJECT
 public:
-    Api_node(int port);
+    Api_node(QString basedirectory, int port);
 
 private slots:
     void receive_http_payload();
@@ -98,7 +102,18 @@ class Api_workflow : public Zerogw
 {
     Q_OBJECT
 public:
-    Api_workflow(int port);
+    Api_workflow(QString basedirectory, int port);
+
+private slots:
+    void receive_http_payload();
+};
+
+
+class Api_user : public Zerogw
+{
+    Q_OBJECT
+public:
+    Api_user(QString basedirectory, int port);
 
 private slots:
     void receive_http_payload();

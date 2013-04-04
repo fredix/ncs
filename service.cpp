@@ -82,7 +82,7 @@ void Service::Http_api_init()
     m_ncs_params.api_port == 0 ? port = 2502 : port = m_ncs_params.api_port;
 
     QThread *thread_api_payload = new QThread;
-    api_payload = new Api_payload(port);
+    api_payload = new Api_payload(m_ncs_params.base_directory, port);
     api_payload->moveToThread(thread_api_payload);
     thread_api_payload->start();
     //connect(this, SIGNAL(shutdown()), api_payload, SLOT(destructor()), Qt::BlockingQueuedConnection);
@@ -90,14 +90,14 @@ void Service::Http_api_init()
 
 
     QThread *thread_api_node = new QThread;
-    api_node = new Api_node(port + 1);
+    api_node = new Api_node(m_ncs_params.base_directory, port + 1);
     api_node->moveToThread(thread_api_node);
     thread_api_node->start();
     //connect(this, SIGNAL(shutdown()), api_node, SLOT(destructor()), Qt::BlockingQueuedConnection);
     //connect(api_node, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
     QThread *thread_api_workflow = new QThread;
-    api_workflow = new Api_workflow(port + 2);
+    api_workflow = new Api_workflow(m_ncs_params.base_directory, port + 2);
     api_workflow->moveToThread(thread_api_workflow);
     thread_api_workflow->start();
     //connect(this, SIGNAL(shutdown()), api_workflow, SLOT(destructor()), Qt::BlockingQueuedConnection);
