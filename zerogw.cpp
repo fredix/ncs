@@ -199,6 +199,7 @@ void Api_payload::receive_http_payload()
 
         BSONObjBuilder payload_builder;
         payload_builder.genOID();
+        QString bodyMessage="";
 
         BSONObj data;
         try {
@@ -246,36 +247,43 @@ void Api_payload::receive_http_payload()
             {
                 key = "gfs_id";
 
-                QByteArray requestContent((char*)request.data(), request.size());
-                BSONObj gfs_file_struct = mongodb_->WriteFile(zerogw["X-payload-filename"].toStdString(), requestContent.constData (), requestContent.size ());
-                if (gfs_file_struct.nFields() == 0)
+                if (request.size() == 0)
                 {
-                    qDebug() << "write on gridFS failed !";
                     tmp = "-1";
+                    bodyMessage = buildResponse("error", "empty file");
                 }
-                //else tmp = QString::fromStdString(gfs_file_struct.getField("_id").OID().toString());
                 else
                 {
-                    std::cout << "writefile : " << gfs_file_struct << std::endl;
-                    //std::cout << "writefile id : " << gfs_file_struct.getField("_id") << " date : " << gfs_file_struct.getField("uploadDate") << std::endl;
+                    QByteArray requestContent((char*)request.data(), request.size());
+                    BSONObj gfs_file_struct = mongodb_->WriteFile(zerogw["X-payload-filename"].toStdString(), requestContent.constData (), requestContent.size ());
+                    if (gfs_file_struct.nFields() == 0)
+                    {
+                        qDebug() << "write on gridFS failed !";
+                        tmp = "-1";
+                    }
+                    //else tmp = QString::fromStdString(gfs_file_struct.getField("_id").OID().toString());
+                    else
+                    {
+                        std::cout << "writefile : " << gfs_file_struct << std::endl;
+                        //std::cout << "writefile id : " << gfs_file_struct.getField("_id") << " date : " << gfs_file_struct.getField("uploadDate") << std::endl;
 
-                    be uploaded_at = gfs_file_struct.getField("uploadDate");
-                    be filename = gfs_file_struct.getField("filename");
-                    be length = gfs_file_struct.getField("length");
+                        be uploaded_at = gfs_file_struct.getField("uploadDate");
+                        be filename = gfs_file_struct.getField("filename");
+                        be length = gfs_file_struct.getField("length");
 
-                    std::cout << "uploaded : " << uploaded_at << std::endl;
+                        std::cout << "uploaded : " << uploaded_at << std::endl;
 
 
-                    payload_builder.append("created_at", uploaded_at.date());
-                    payload_builder.append("filename", filename.str());
-                    payload_builder.append("length", length.numberLong());
-                    payload_builder.append("gfs_id", gfs_file_struct.getField("_id").OID());
-                    payload_builder.append("gridfs", true);
+                        payload_builder.append("created_at", uploaded_at.date());
+                        payload_builder.append("filename", filename.str());
+                        payload_builder.append("length", length.numberLong());
+                        payload_builder.append("gfs_id", gfs_file_struct.getField("_id").OID());
+                        payload_builder.append("gridfs", true);
 
-                    tmp = QString::fromStdString(gfs_file_struct.getField("_id").OID().toString());
+                        tmp = QString::fromStdString(gfs_file_struct.getField("_id").OID().toString());
+                    }
+
                 }
-
-
             }
             //else if (zerogw["X-payload-type"] == "json")
             else
@@ -294,7 +302,6 @@ void Api_payload::receive_http_payload()
 
         if (!(events & ZMQ_RCVMORE))
         {
-            QString bodyMessage="";
             BSONObj node;
             BSONObj user;
             BSONObj user_nodes;
