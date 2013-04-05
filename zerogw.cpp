@@ -46,7 +46,7 @@ Zerogw::Zerogw(QString basedirectory, int port, QObject *parent) : m_basedirecto
 
 
 
-    // socket to ZEROGW
+    // socket from ZEROGW
     m_message = new zmq::message_t(2);
     m_socket_zerogw = new zmq::socket_t (*m_context, ZMQ_REP);
     int hwm = 50000;
@@ -180,7 +180,7 @@ void Api_payload::receive_http_payload()
 
     check_http_data->setEnabled(false);
 
-    std::cout << "Zapi::receive_payload" << std::endl;
+    std::cout << "Api_payload::receive_payload" << std::endl;
 
     QHash <QString, QString> zerogw;
     QString key;
@@ -197,6 +197,7 @@ void Api_payload::receive_http_payload()
 
         //std::cout << "Api_payload::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
 
+        BSONObj l_payload;
         BSONObjBuilder payload_builder;
         payload_builder.genOID();
         QString bodyMessage="";
@@ -427,19 +428,14 @@ void Api_payload::receive_http_payload()
 
                 std::cout << "session inserted : " << session << std::endl;
 
-                BSONObj l_payload = BSON("action" << zerogw["X-payload-action"].toStdString() <<
+                l_payload = BSON("action" << zerogw["X-payload-action"].toStdString() <<
                                          "payload_type" << zerogw["X-payload-type"].toStdString() <<
                                          //"publish" << (!publish.isEmpty() && publish == "true")? "true" : "false" <<
                                          "session_uuid" << session_uuid.toStdString() <<
                                          "timestamp" << timestamp.toTime_t());
 
 
-                /****** PUSH API PAYLOAD *******/
-                qDebug() << "PUSH HTTP API PAYLOAD";
-                z_message->rebuild(l_payload.objsize());
-                memcpy(z_message->data(), (char*)l_payload.objdata(), l_payload.objsize());
-                z_push_api->send(*z_message, ZMQ_NOBLOCK);
-                /************************/
+
             }
 
             // send response to client
@@ -451,6 +447,17 @@ void Api_payload::receive_http_payload()
 
         }
         counter++;
+
+        if (l_payload.nFields() != 0)
+        {
+            /****** PUSH API PAYLOAD *******/
+            qDebug() << "PUSH HTTP API PAYLOAD";
+            z_message->rebuild(l_payload.objsize());
+            memcpy(z_message->data(), (char*)l_payload.objdata(), l_payload.objsize());
+            //z_push_api->send(*z_message, ZMQ_NOBLOCK);
+            z_push_api->send(*z_message);
+            /************************/
+        }
     }
     qDebug() << "ZEROGW : " << zerogw;
     check_http_data->setEnabled(true);

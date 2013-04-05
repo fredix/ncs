@@ -21,8 +21,6 @@ Estp:
   - ipc:///tmp/zgwestp.sock
 
 Routing:
-  limits:
-    max-body-size: 200Mi
   routing: !Suffix ~
   routing-by: !Header Host
   map:
@@ -59,6 +57,8 @@ Routing:
                 retry: !RetryFirst
                   count: 3
             "/payload*":
+              limits:
+                max-body-size: 512Mi
               zmq-forward:
                 enabled: yes
                 socket:
