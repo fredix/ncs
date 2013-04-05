@@ -69,6 +69,7 @@ signals:
 
 private slots:
     virtual void receive_http_payload()=0;
+    void forward_payload_to_zpull(BSONObj payload);
 };
 
 

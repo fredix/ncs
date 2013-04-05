@@ -61,7 +61,6 @@ Zerogw::Zerogw(QString basedirectory, int port, QObject *parent) : m_basedirecto
     qDebug() << "RES getsockopt : " << "res" <<  " FD : " << http_socket_fd << " errno : " << zmq_strerror (errno);
     check_http_data = new QSocketNotifier(http_socket_fd, QSocketNotifier::Read, this);
     connect(check_http_data, SIGNAL(activated(int)), this, SLOT(receive_http_payload()), Qt::DirectConnection);
-
 }
 
 
@@ -71,8 +70,8 @@ Zerogw::~Zerogw()
     m_mutex->lock();
     check_http_data->setEnabled(false);
     m_socket_zerogw->close ();
-    z_push_api->close();
     delete(m_socket_zerogw);
+    z_push_api->close();
     delete(z_push_api);
 }
 
@@ -80,6 +79,22 @@ Zerogw::~Zerogw()
 void Zerogw::receive_http_payload()
 {}
 
+void Zerogw::forward_payload_to_zpull(BSONObj payload)
+{
+    qDebug() << "Zerogw::forward_payload_to_zpull";
+
+    if (payload.nFields() != 0)
+    {
+        /****** PUSH API PAYLOAD *******/
+        std::cout << "PUSH HTTP API PAYLOAD : " << payload << std::endl;
+        z_message->rebuild(payload.objsize());
+        memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
+        //z_push_api->send(*z_message, ZMQ_NOBLOCK);
+        z_push_api->send(*z_message);
+        /************************/
+    }
+
+}
 
 
 QBool Zerogw::checkAuth(QString token, BSONObjBuilder &payload_builder, BSONObj &a_user)
@@ -170,6 +185,8 @@ Api_payload::Api_payload(QString basedirectory, int port) : Zerogw(basedirectory
 {
     std::cout << "Api_payload::Api_payload constructeur" << std::endl;
 
+
+    connect(this, SIGNAL(forward_payload(BSONObj)), this, SLOT(forward_payload_to_zpull(BSONObj)), Qt::DirectConnection);
 }
 
 
@@ -185,6 +202,8 @@ void Api_payload::receive_http_payload()
     QHash <QString, QString> zerogw;
     QString key;
     int counter=0;
+    BSONObj l_payload;
+
     while (true)
     {
         zmq::message_t request;
@@ -197,7 +216,6 @@ void Api_payload::receive_http_payload()
 
         //std::cout << "Api_payload::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
 
-        BSONObj l_payload;
         BSONObjBuilder payload_builder;
         payload_builder.genOID();
         QString bodyMessage="";
@@ -435,7 +453,7 @@ void Api_payload::receive_http_payload()
                                          "timestamp" << timestamp.toTime_t());
 
 
-
+                emit forward_payload(l_payload);
             }
 
             // send response to client
@@ -447,17 +465,6 @@ void Api_payload::receive_http_payload()
 
         }
         counter++;
-
-        if (l_payload.nFields() != 0)
-        {
-            /****** PUSH API PAYLOAD *******/
-            qDebug() << "PUSH HTTP API PAYLOAD";
-            z_message->rebuild(l_payload.objsize());
-            memcpy(z_message->data(), (char*)l_payload.objdata(), l_payload.objsize());
-            //z_push_api->send(*z_message, ZMQ_NOBLOCK);
-            z_push_api->send(*z_message);
-            /************************/
-        }
     }
     qDebug() << "ZEROGW : " << zerogw;
     check_http_data->setEnabled(true);
