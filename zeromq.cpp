@@ -605,7 +605,7 @@ Zpull::Zpull(QString base_directory, zmq::context_t *a_context) : m_context(a_co
     m_socket_http->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
 
     directory = "ipc://" + base_directory + "/http";
-    m_socket_http->connect(directory.toLatin1());
+    m_socket_http->bind(directory.toLatin1());
 
     m_socket_workers = new zmq::socket_t (*m_context, ZMQ_PULL);
     m_socket_workers->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
@@ -1932,7 +1932,7 @@ Zeromq::Zeromq(QString base_directory) : m_base_directory(base_directory)
     m_http_mutex = new QMutex();
     m_xmpp_mutex = new QMutex();
 
-    m_context = new zmq::context_t(1);
+    m_context = new zmq::context_t(2);
 
     _singleton = this;       
     pull_timer = new QTimer();

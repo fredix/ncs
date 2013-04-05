@@ -42,7 +42,7 @@ Zerogw::Zerogw(QString basedirectory, int port, QObject *parent) : m_basedirecto
     z_push_api->setsockopt (ZMQ_RCVHWM, &hwm1, sizeof (hwm1));
 
     QString directory = "ipc://" + m_basedirectory + "/http";
-    z_push_api->bind(directory.toLatin1());
+    z_push_api->connect(directory.toLatin1());
 
 
 
