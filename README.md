@@ -110,14 +110,14 @@ return user token {"token":"8c70645c-b12b-4b5e-b998-e08158d09bdd"}%
 2. create a node
 
 ```bash
-curl -H "X-user-token: your-token" -X POST http://127.0.0.1:2502/node/nodename
+curl -H "X-user-token: your-token" -H "X-node-name: yournodename@HOSTNAMEorIP" -X POST http://ZEROWGIP:8000/node/
 return node auth : {"node_password":"e6cc13a3-1236-46cb-b40f-a66650ab5eef","node_uuid":"2d0a7780-e8fe-4e0a-89c6-a5a2737b095a"} 
 ```
 
 3. create a workflow
 
 ```bash
-curl -H "X-user-token: user-token" -X POST -d '{ "worker1": 1, "worker2": 2 }' http://127.0.0.1:2502/workflow/workflowname
+curl -H "X-user-token: usertoken" -H "X-workflow-name: testworkflow" -X POST -d '{ "worker1": 1, "worker2": 2 }' http://ZEROWGIP:8000/workflow/
 return a workflow id : {"uuid":"0ebcdab6-0263-42d3-be7d-9602fa15f68c"}
 ```
 

@@ -373,7 +373,7 @@ void Api_payload::receive_http_payload()
 
             if (bodyMessage.isEmpty())
             {
-                QDateTime timestamp = QDateTime::currentDateTime();              
+                QDateTime timestamp = QDateTime::currentDateTime();
 
                 QUuid payload_uuid = QUuid::createUuid();
                 QString str_payload_uuid = payload_uuid.toString().mid(1,36);
@@ -626,28 +626,17 @@ void Api_workflow::receive_http_payload()
 
         std::cout << "Api_workflow::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
 
-        BSONObj data;
+        BSONObj b_workflow;
+        QString bodyMessage;
         try {
-            data = mongo::fromjson(QString::fromAscii((char*)request.data()).toStdString());
+            b_workflow = mongo::fromjson(QString::fromAscii((char*)request.data()).toStdString());
 
-            if (data.isValid() && !data.isEmpty())
+            if (!b_workflow.isValid() || b_workflow.isEmpty())
             {
-                std::cout << "Api_workflow received : " << res << " data : " << data  << std::endl;
-                std::cout << "!!!!!!! BEFORE FORWARD PAYLOAD !!!!" << std::endl;
-                //emit forward_payload(data.copy());
-
-                QString fieldname = QString::fromAscii(data.firstElementFieldName());
-                QString fieldjson = QString::fromStdString(data.firstElement().toString(false));
-
-                zerogw[fieldname] = fieldjson;
-
-                std::cout << "!!!!!!! AFTER FORWARD PAYLOAD !!!!" << std::endl;
+                std::cout << "WORKFLOW NO VALID !" << std::endl;
+                std::cout << "Api_workflow received : " << res << " WORKFLOW : " << b_workflow  << std::endl;
+                bodyMessage = buildResponse("error", "error on parsing JSON");
             }
-            else
-            {
-                std::cout << "DATA NO VALID !" << std::endl;
-            }
-
         }
         catch (mongo::MsgAssertionException &e)
         {
@@ -660,34 +649,45 @@ void Api_workflow::receive_http_payload()
             key = counter == 2? "X-user-token" : key;
             key = counter == 3? "X-workflow-name" : key;
 
+            // body
+            if (counter == 4)
+                bodyMessage = buildResponse("error", "error on parsing JSON");
+            else
+            {
+                tmp = QString::fromAscii((char*)request.data(), request.size());
+                zerogw[key] = tmp;
+            }
 
-            tmp = QString::fromAscii((char*)request.data(), request.size());
-
-            zerogw[key] = tmp.replace("/", "");
-
-            std::cout << "error on data : " <<  tmp.toStdString() << std::endl;
-            std::cout << "error on data BSON : " << e.what() << std::endl;
+            //std::cout << "error on data : " <<  tmp.toStdString() << std::endl;
+            //std::cout << "error on data BSON : " << e.what() << std::endl;
         }
 
         if (!(events & ZMQ_RCVMORE))
         {
-            QString bodyMessage;
+            BSONObjBuilder workflow_builder;
+            BSONObj user;
 
-            if (zerogw["METHOD"] == "POST")
+
+            if (zerogw["METHOD"] != "POST")
+                bodyMessage = "BAD REQUEST : " + zerogw["METHOD"];
+
+            else if (zerogw["X-user-token"].isEmpty() ||
+                     zerogw["X-workflow-name"].isEmpty())
             {
-
-                BSONObjBuilder workflow_builder;
+                bodyMessage ="header is empty";
+            }
+            else
+            {
                 workflow_builder.genOID();
 
-                BSONObj user;
                 QBool res = checkAuth(zerogw["X-user-token"], workflow_builder, user);
 
-                if (!res)
-                {
+                if (!res)                                    
                     bodyMessage = buildResponse("error", "auth");
-                }
-                else
-                {
+            }
+
+            if (bodyMessage.isEmpty())
+            {
                     BSONElement user_id = user.getField("_id");
 
                     QUuid workflow_uuid = QUuid::createUuid();
@@ -698,7 +698,7 @@ void Api_workflow::receive_http_payload()
 
                     workflow_builder.append("workflow", zerogw["X-workflow-name"].toStdString());
                     workflow_builder.append("uuid", str_workflow_uuid.toStdString());
-                    workflow_builder.append("workers", zerogw["workers"].toStdString());
+                    workflow_builder.append("workers", b_workflow);
                     workflow_builder.append("user_id", user_id.str());
                     workflow_builder.append("payload_counter", 0);
 
@@ -707,11 +707,8 @@ void Api_workflow::receive_http_payload()
 
                     mongodb_->Addtoarray("users", user_id.wrap(), workflow);
                     mongodb_->Insert("workflows", l_workflow);
-                }
 
             }
-            else bodyMessage = "BAD REQUEST";
-
             m_message->rebuild(bodyMessage.length());
             memcpy(m_message->data(), bodyMessage.toAscii(), bodyMessage.length());
 
