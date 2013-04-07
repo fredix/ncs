@@ -56,6 +56,7 @@ Service::~Service()
     delete(api_payload);
     delete(api_node);
     delete(api_workflow);
+    delete(api_user);
 }
 
 
@@ -104,6 +105,11 @@ void Service::Http_api_init()
     //connect(api_workflow, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
 
+
+    QThread *thread_api_user = new QThread;
+    api_user = new Api_user(m_ncs_params.base_directory, port + 3);
+    api_user->moveToThread(thread_api_user);
+    thread_api_user->start();
 }
 
 
@@ -189,5 +195,5 @@ void Service::Worker_init()
 void Service::link()
 {
     if (m_nodeftp) connect(m_http_admin, SIGNAL(create_ftp_user(QString)), m_nodeftp, SLOT(add_ftp_user(QString)), Qt::DirectConnection);
-    if (m_nodeftp) connect(m_http_api, SIGNAL(create_ftp_user(QString)), m_nodeftp, SLOT(add_ftp_user(QString)), Qt::DirectConnection);
+    if (m_nodeftp) connect(api_user, SIGNAL(create_ftp_user(QString)), m_nodeftp, SLOT(add_ftp_user(QString)), Qt::DirectConnection);
 }

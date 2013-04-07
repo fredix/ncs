@@ -778,28 +778,22 @@ void Api_user::receive_http_payload()
 
         std::cout << "Api_user::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
 
-        BSONObj data;
+        BSONObj b_user;
+        QString bodyMessage;
+
         try {
-            data = mongo::fromjson(QString::fromAscii((char*)request.data()).toStdString());
+            b_user = mongo::fromjson(QString::fromAscii((char*)request.data()).toStdString());
 
-            if (data.isValid() && !data.isEmpty())
+            if (!b_user.isValid() || b_user.isEmpty())
             {
-                std::cout << "Api_user received : " << res << " data : " << data  << std::endl;
-                std::cout << "!!!!!!! BEFORE FORWARD PAYLOAD !!!!" << std::endl;
-                //emit forward_payload(data.copy());
-
-                QString fieldname = QString::fromAscii(data.firstElementFieldName());
-                QString fieldjson = QString::fromStdString(data.firstElement().toString(false));
-
-                zerogw[fieldname] = fieldjson;
-
-                std::cout << "!!!!!!! AFTER FORWARD PAYLOAD !!!!" << std::endl;
+                std::cout << "USER NOT VALID !" << std::endl;
+                std::cout << "Api_user received : " << res << " USER : " << b_user  << std::endl;
+                bodyMessage = buildResponse("error", "error on parsing JSON");
             }
-            else
+            else if (!b_user.hasField("email") || !b_user.hasField("password"))
             {
-                std::cout << "DATA NO VALID !" << std::endl;
+                bodyMessage = buildResponse("error", "json", "missing email or password");
             }
-
         }
         catch (mongo::MsgAssertionException &e)
         {
@@ -811,27 +805,36 @@ void Api_user::receive_http_payload()
             key = counter == 1? "URI" : key;
             key = counter == 2? "X-admin-token" : key;
 
+            // body
+            if (counter == 3)
+                bodyMessage = buildResponse("error", "error on parsing JSON");
+            else
+            {
+                tmp = QString::fromAscii((char*)request.data(), request.size());
+                zerogw[key] = tmp;
+            }
 
-            tmp = QString::fromAscii((char*)request.data(), request.size());
-
-            zerogw[key] = tmp.replace("/", "");
-
-            std::cout << "error on data : " <<  tmp.toStdString() << std::endl;
-            std::cout << "error on data BSON : " << e.what() << std::endl;
+//            std::cout << "error on data : " <<  tmp.toStdString() << std::endl;
+//            std::cout << "error on data BSON : " << e.what() << std::endl;
         }
 
         if (!(events & ZMQ_RCVMORE))
         {
-            QString bodyMessage;
+            BSONObjBuilder user_builder;
+            BSONObj user;
 
-            if (zerogw["METHOD"] == "POST")
+            if (zerogw["METHOD"] != "POST")
+                bodyMessage = "BAD REQUEST : " + zerogw["METHOD"];
+
+            else if (zerogw["X-admin-token"].isEmpty())
             {
+                bodyMessage ="X-admin-token is empty";
+            }
+            else
+            {
+                user_builder.genOID();
 
-                BSONObjBuilder payload_builder;
-                payload_builder.genOID();
-
-                BSONObj user;
-                QBool res = checkAuth(zerogw["X-admin-token"], payload_builder, user);
+                QBool res = checkAuth(zerogw["X-admin-token"], user_builder, user);
 
                 if (!res)
                 {
@@ -841,32 +844,67 @@ void Api_user::receive_http_payload()
                 {
                     bodyMessage = buildResponse("error", "user", "admin only");
                 }
-                else
-                {
-                    QUuid node_uuid = QUuid::createUuid();
-                    QString str_node_uuid = node_uuid.toString().mid(1,36);
-
-                    QUuid node_password = QUuid::createUuid();
-                    QString str_node_password = node_password.toString().mid(1,36);
-
-                    bodyMessage = buildResponse("register", str_node_uuid, str_node_password);
-                    qDebug() << "NODE UUID : " << bodyMessage;
-
-                    payload_builder.append("nodename", zerogw["X-node-name"].toStdString());
-                    payload_builder.append("node_uuid", str_node_uuid.toStdString());
-                    payload_builder.append("node_password", str_node_password.toStdString());
-
-
-                    BSONElement user_id = user.getField("_id");
-                    BSONObj l_node = payload_builder.obj();
-                    BSONObj node = BSON("nodes" << l_node);
-                    mongodb_->Addtoarray("users", user_id.wrap(), node);
-
-                    mongodb_->Insert("nodes", l_node);
-                }
-
             }
-            else bodyMessage = "BAD REQUEST";
+
+
+            if (bodyMessage.isEmpty())
+            {
+                QUuid token = QUuid::createUuid();
+                QString str_token = token.toString().mid(1,36);
+
+                QUuid tracker_token = QUuid::createUuid();
+                QString str_tracker_token = tracker_token.toString().remove(QChar('-')).mid(1,32);
+
+                QUuid ftp_token = QUuid::createUuid();
+                QString str_ftp_token = ftp_token.toString().remove(QChar('-')).mid(1,32);
+
+
+                QUuid ftp_directory = QUuid::createUuid();
+                QString str_ftp_directory = ftp_directory.toString().remove(QChar('-')).mid(1,32);
+
+
+                QUuid xmpp_token = QUuid::createUuid();
+                QString str_xmpp_token = xmpp_token.toString().remove(QChar('-')).mid(1,32);
+
+                QUuid api_token = QUuid::createUuid();
+                QString str_api_token = api_token.toString().remove(QChar('-')).mid(1,32);
+
+
+                QString password = QString::fromStdString(b_user.getField("password").str());
+
+                QCryptographicHash cipher( QCryptographicHash::Sha1 );
+                cipher.addData(password.simplified().toAscii());
+                QByteArray password_hash = cipher.result();
+
+                qDebug() << "password_hash : " << password_hash.toHex();
+
+
+                QString login = b_user.hasField("login")? QString::fromStdString(b_user.getField("login").str()) : "anonymous";
+                bool ftp = b_user.hasField("ftp")? b_user.getBoolField("ftp") : false;
+                bool tracker = b_user.hasField("tracker")? b_user.getBoolField("tracker") : false;
+                bool xmpp = b_user.hasField("xmpp")? b_user.getBoolField("xmpp") : false;
+                bool api = b_user.hasField("api")? b_user.getBoolField("api") : false;
+
+                user_builder.append("admin", false);
+                user_builder.append("login", login.toStdString());
+                user_builder.append(b_user.getField("email"));
+                user_builder.append("password", QString::fromLatin1(password_hash.toHex()).toStdString());
+                user_builder.append("token", str_token.toStdString());
+
+                user_builder.append("ftp", BSON("token" << str_ftp_token.toStdString() << "activated" << ftp << "directory" << str_ftp_directory.toStdString()));
+                user_builder.append("tracker" , BSON("token" << str_tracker_token.toStdString()  << "activated" << tracker));
+                user_builder.append("xmpp" , BSON("token" << str_xmpp_token.toStdString()  << "activated" << xmpp));
+                user_builder.append("api" , BSON("token" << str_api_token.toStdString()  << "activated" << api));
+
+                BSONObj l_user = user_builder.obj();
+                mongodb_->Insert("users", l_user);
+
+                if (ftp) {
+                    emit create_ftp_user(QString::fromStdString(b_user.getField("email").str()));
+                    qDebug() << "EMIT CREATE FTP USER";
+                }
+                bodyMessage = buildResponse("token", str_token);
+            }
 
             m_message->rebuild(bodyMessage.length());
             memcpy(m_message->data(), bodyMessage.toAscii(), bodyMessage.length());

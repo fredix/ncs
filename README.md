@@ -103,7 +103,7 @@ First, create an admin user. Then you can create users, nodes and workflows, or 
 1. create a user
 
 ```bash
-curl -H "X-user-token: admin-token" -X POST -d '{ "email": "user@email.com", "password": "password", "ftp": true, "tracker": false, "xmpp": false, "api": false}' http://127.0.0.1:2502/user
+curl -H "X-user-token: admin-token" -X POST -d '{ "login" : "userlogin", "email": "user@email.com", "password": "password", "ftp": true, "tracker": false, "xmpp": false, "api": false}' http://127.0.0.1:8000/user
 return user token {"token":"8c70645c-b12b-4b5e-b998-e08158d09bdd"}%
 ```
 

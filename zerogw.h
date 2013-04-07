@@ -32,6 +32,7 @@
 #include <QSocketNotifier>
 #include <QxtCore/QxtCommandOptions>
 #include <QxtJSON>
+#include <QCryptographicHash>
 
 #include <zmq.hpp>
 #include "mongodb.h"
@@ -115,6 +116,9 @@ class Api_user : public Zerogw
     Q_OBJECT
 public:
     Api_user(QString basedirectory, int port);
+
+signals:
+    void create_ftp_user(QString);
 
 private slots:
     void receive_http_payload();
