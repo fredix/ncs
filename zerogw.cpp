@@ -219,105 +219,108 @@ void Api_payload::receive_http_payload()
         BSONObjBuilder payload_builder;
         payload_builder.genOID();
         QString bodyMessage="";
+        QString tmp;
 
-        BSONObj data;
-        try {
-            data = mongo::fromjson(QString::fromAscii((char*)request.data()).toStdString());
 
-            if (data.isValid() && !data.isEmpty())
-            {
-                std::cout << "Api_payload received : " << res << " data : " << data  << std::endl;
-                std::cout << "!!!!!!! BEFORE FORWARD PAYLOAD !!!!" << std::endl;
-                //emit forward_payload(data.copy());
 
-                QString fieldname = QString::fromAscii(data.firstElementFieldName());
-                QString fieldjson = QString::fromStdString(data.firstElement().toString(false));
+        qDebug() << "COUNTER : " << counter;
+        key = counter == 0? "METHOD" : "";
+        key = counter == 1? "URI" : key;
+        key = counter == 2? "X-user-token" : key;
+        key = counter == 3? "X-node-uuid" : key;
+        key = counter == 4? "X-node-password" : key;
+        key = counter == 5? "X-workflow-uuid" : key;
+        key = counter == 6? "X-payload-filename" : key;
+        key = counter == 7? "X-payload-type" : key;
+        key = counter == 8? "X-payload-mime" : key;
+        // push or publish
+        key = counter == 9? "X-payload-action" : key;
 
-                zerogw[fieldname] = fieldjson;
 
-                std::cout << "!!!!!!! AFTER FORWARD PAYLOAD !!!!" << std::endl;
-            }
-            else
-            {
-                std::cout << "DATA NO VALID !" << std::endl;
-            }
-
-        }
-        catch (mongo::MsgAssertionException &e)
+        if (counter == 10 && zerogw["X-payload-mime"] == "json")
         {
-            // received not a json
-            QString tmp;
+            BSONObj data;
+            try {
+                data = mongo::fromjson(QString::fromAscii((char*)request.data()).toStdString());
 
-            qDebug() << "COUNTER : " << counter;
-            key = counter == 0? "METHOD" : "";
-            key = counter == 1? "URI" : key;
-            key = counter == 2? "X-user-token" : key;
-            key = counter == 3? "X-node-uuid" : key;
-            key = counter == 4? "X-node-password" : key;
-            key = counter == 5? "X-workflow-uuid" : key;
-            key = counter == 6? "X-payload-filename" : key;
-            key = counter == 7? "X-payload-type" : key;
-
-            // push or publish
-            key = counter == 8? "X-payload-action" : key;
-
-            // body
-            if (counter == 9 && !zerogw["X-payload-filename"].isEmpty())
-            {
-                key = "gfs_id";
-
-                if (request.size() == 0)
+                if (data.isValid() && !data.isEmpty())
                 {
-                    tmp = "-1";
-                    bodyMessage = buildResponse("error", "empty file");
+                    std::cout << "Api_payload received : " << res << " data : " << data  << std::endl;
+                    std::cout << "!!!!!!! BEFORE FORWARD PAYLOAD !!!!" << std::endl;
+                    //emit forward_payload(data.copy());
+
+                    QString fieldname = QString::fromAscii(data.firstElementFieldName());
+                    QString fieldjson = QString::fromStdString(data.firstElement().toString(false));
+
+                    zerogw[fieldname] = fieldjson;
+
+                    std::cout << "!!!!!!! AFTER FORWARD PAYLOAD !!!!" << std::endl;
                 }
                 else
                 {
-                    QByteArray requestContent((char*)request.data(), request.size());
-                    BSONObj gfs_file_struct = mongodb_->WriteFile(zerogw["X-payload-filename"].toStdString(), requestContent.constData (), requestContent.size ());
-                    if (gfs_file_struct.nFields() == 0)
-                    {
-                        qDebug() << "write on gridFS failed !";
-                        tmp = "-1";
-                    }
-                    //else tmp = QString::fromStdString(gfs_file_struct.getField("_id").OID().toString());
-                    else
-                    {
-                        std::cout << "writefile : " << gfs_file_struct << std::endl;
-                        //std::cout << "writefile id : " << gfs_file_struct.getField("_id") << " date : " << gfs_file_struct.getField("uploadDate") << std::endl;
-
-                        be uploaded_at = gfs_file_struct.getField("uploadDate");
-                        be filename = gfs_file_struct.getField("filename");
-                        be length = gfs_file_struct.getField("length");
-
-                        std::cout << "uploaded : " << uploaded_at << std::endl;
-
-
-                        payload_builder.append("created_at", uploaded_at.date());
-                        payload_builder.append("filename", filename.str());
-                        payload_builder.append("length", length.numberLong());
-                        payload_builder.append("gfs_id", gfs_file_struct.getField("_id").OID());
-                        payload_builder.append("gridfs", true);
-
-                        tmp = QString::fromStdString(gfs_file_struct.getField("_id").OID().toString());
-                    }
-
+                    std::cout << "DATA NO VALID !" << std::endl;
+                    bodyMessage = buildResponse("error", "JSON not valid");
                 }
+
             }
-            //else if (zerogw["X-payload-type"] == "json")
+            catch (mongo::MsgAssertionException &e)
+            {
+                bodyMessage = buildResponse("error", "JSON not valid");
+            }
+        }
+        else if (counter == 10 && !zerogw["X-payload-filename"].isEmpty() && zerogw["X-payload-mime"] != "json")
+        {
+            key = "gfs_id";
+
+            if (request.size() == 0)
+            {
+                tmp = "-1";
+                bodyMessage = buildResponse("error", "empty file");
+            }
             else
             {
-                payload_builder.append("gridfs", false);
-                tmp = QString::fromAscii((char*)request.data(), request.size());
-                payload_builder.append("data", tmp.toStdString());
+                QByteArray requestContent((char*)request.data(), request.size());
+                BSONObj gfs_file_struct = mongodb_->WriteFile(zerogw["X-payload-filename"].toStdString(), requestContent.constData (), requestContent.size ());
+                if (gfs_file_struct.nFields() == 0)
+                {
+                    qDebug() << "write on gridFS failed !";
+                    tmp = "-1";
+                }
+                //else tmp = QString::fromStdString(gfs_file_struct.getField("_id").OID().toString());
+                else
+                {
+                    std::cout << "writefile : " << gfs_file_struct << std::endl;
+                    //std::cout << "writefile id : " << gfs_file_struct.getField("_id") << " date : " << gfs_file_struct.getField("uploadDate") << std::endl;
+
+                    be uploaded_at = gfs_file_struct.getField("uploadDate");
+                    be filename = gfs_file_struct.getField("filename");
+                    be length = gfs_file_struct.getField("length");
+
+                    std::cout << "uploaded : " << uploaded_at << std::endl;
+
+
+                    payload_builder.append("created_at", uploaded_at.date());
+                    payload_builder.append("filename", filename.str());
+                    payload_builder.append("length", length.numberLong());
+                    payload_builder.append("gfs_id", gfs_file_struct.getField("_id").OID());
+                    payload_builder.append("gridfs", true);
+
+                    tmp = QString::fromStdString(gfs_file_struct.getField("_id").OID().toString());
+                }
+
             }
-
-
-            zerogw[key] = tmp;
-
-            std::cout << "not json : " <<  tmp.toStdString() << std::endl;
-            //std::cout << "error on data BSON : " << e.what() << std::endl;
         }
+        // not a json or binary
+        else if (counter == 10)
+        {
+            payload_builder.append("gridfs", false);
+            tmp = QString::fromAscii((char*)request.data(), request.size());
+            payload_builder.append("data", tmp.toStdString());
+        }
+        else tmp = QString::fromAscii((char*)request.data(), request.size());
+
+        zerogw[key] = tmp;
+
 
         if (!(events & ZMQ_RCVMORE))
         {
@@ -334,7 +337,8 @@ void Api_payload::receive_http_payload()
                      zerogw["X-node-password"].isEmpty() ||
                      zerogw["X-workflow-uuid"].isEmpty() ||
                      zerogw["X-payload-type"].isEmpty() ||
-                     zerogw["X-payload-action"].isEmpty())
+                     zerogw["X-payload-action"].isEmpty() ||
+                     zerogw["X-payload-mime"].isEmpty())
             {
                 bodyMessage ="header is empty";
             }
@@ -415,6 +419,8 @@ void Api_payload::receive_http_payload()
                 payload_builder.append("node_password", zerogw["X-node-password"].toStdString());
                 payload_builder.append("workflow_uuid", zerogw["X-workflow-uuid"].toStdString());
                 payload_builder.append("payload_type", zerogw["X-payload-type"].toStdString());
+                payload_builder.append("payload_mime", zerogw["X-payload-mime"].toStdString());
+
 
                 BSONObj payload = payload_builder.obj();
 

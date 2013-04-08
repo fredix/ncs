@@ -73,6 +73,7 @@ Routing:
                 - !Header X-payload-filename
                 - !Header X-payload-type
                 - !Header X-payload-action
+                - !Header X-payload-mime
                 - !Body ~
                 timeout: 2
                 retry: !RetryFirst
