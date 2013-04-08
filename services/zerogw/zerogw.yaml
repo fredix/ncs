@@ -72,8 +72,8 @@ Routing:
                 - !Header X-workflow-uuid
                 - !Header X-payload-filename
                 - !Header X-payload-type
-                - !Header X-payload-action
                 - !Header X-payload-mime
+                - !Header X-payload-action
                 - !Body ~
                 timeout: 2
                 retry: !RetryFirst

@@ -317,6 +317,7 @@ void Api_payload::receive_http_payload()
             tmp = QString::fromAscii((char*)request.data(), request.size());
             payload_builder.append("data", tmp.toStdString());
         }
+        // headers from 0 to 9
         else tmp = QString::fromAscii((char*)request.data(), request.size());
 
         zerogw[key] = tmp;
@@ -459,7 +460,6 @@ void Api_payload::receive_http_payload()
                                          "timestamp" << timestamp.toTime_t());
 
 
-                emit forward_payload(l_payload);
             }
 
             // send response to client
@@ -472,6 +472,8 @@ void Api_payload::receive_http_payload()
         }
         counter++;
     }
+    emit forward_payload(l_payload);
+
     qDebug() << "ZEROGW : " << zerogw;
     check_http_data->setEnabled(true);
     m_mutex->unlock();
