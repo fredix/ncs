@@ -89,8 +89,8 @@ void Zerogw::forward_payload_to_zpull(BSONObj payload)
         std::cout << "PUSH HTTP API PAYLOAD : " << payload << std::endl;
         z_message->rebuild(payload.objsize());
         memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
-        //z_push_api->send(*z_message, ZMQ_NOBLOCK);
-        z_push_api->send(*z_message);
+        z_push_api->send(*z_message, ZMQ_NOBLOCK);
+        //z_push_api->send(*z_message);
         /************************/
     }
 
@@ -210,7 +210,6 @@ void Api_payload::receive_http_payload()
     check_http_data->setEnabled(false);
 
     std::cout << "Api_payload::receive_payload" << std::endl;
-    QDateTime timestamp = QDateTime::currentDateTime();
 
     QHash <QString, QString> zerogw;
     QString key;
@@ -218,6 +217,7 @@ void Api_payload::receive_http_payload()
     BSONObj l_payload;
     BSONObj workflow;
     BSONObj user_nodes;
+    QString bodyMessage="";
 
 
     while (true)
@@ -234,7 +234,6 @@ void Api_payload::receive_http_payload()
 
         BSONObjBuilder payload_builder;
         payload_builder.genOID();
-        QString bodyMessage="";
         QString data_from_zerogw;
 
 
@@ -362,7 +361,7 @@ void Api_payload::receive_http_payload()
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
-                zerogw[" X-workflow-uuid"] = data_from_zerogw;
+                zerogw["X-workflow-uuid"] = data_from_zerogw;
 
                 // check workflow
                 BSONObj workflow_search = BSON("uuid" <<  zerogw["X-workflow-uuid"].toStdString());
@@ -510,7 +509,7 @@ void Api_payload::receive_http_payload()
 
             if (bodyMessage.isEmpty())
             {
-
+                QDateTime timestamp = QDateTime::currentDateTime();
                 QUuid payload_uuid = QUuid::createUuid();
                 QString str_payload_uuid = payload_uuid.toString().mid(1,36);
                 payload_builder.append("payload_uuid", str_payload_uuid.toStdString());
@@ -540,8 +539,6 @@ void Api_payload::receive_http_payload()
                 QUuid tmp_session_uuid = QUuid::createUuid();
                 QString session_uuid = tmp_session_uuid.toString().mid(1,36);
                 //bodyMessage = buildResponse("push", session_uuid);
-                //qDebug() << "SESSION UUID : " << bodyMessage;
-                qDebug() << "NODE UUID : " << bodyMessage;
 
 
                 BSONObjBuilder session_builder;
@@ -555,6 +552,7 @@ void Api_payload::receive_http_payload()
                 mongodb_->Insert("sessions", session);
                 /***********************************/
                 bodyMessage = buildResponse(zerogw["X-payload-action"], session_uuid);
+                qDebug() << "SESSION UUID : " << bodyMessage;
 
                 std::cout << "session inserted : " << session << std::endl;
 
@@ -568,15 +566,16 @@ void Api_payload::receive_http_payload()
             }
 
             // send response to client
-            m_message->rebuild(bodyMessage.length());
-            memcpy(m_message->data(), bodyMessage.toAscii(), bodyMessage.length());
+            m_message->rebuild(bodyMessage.length() +1);
+            memcpy(m_message->data(), bodyMessage.toAscii(), bodyMessage.length() +1);
 
             m_socket_zerogw->send(*m_message, 0);
             qDebug() << "returning : " << bodyMessage;
        }
         counter++;
     }
-    emit forward_payload(l_payload);
+    if (!l_payload.isEmpty())
+        emit forward_payload(l_payload);
 
     qDebug() << "ZEROGW : " << zerogw;
     check_http_data->setEnabled(true);

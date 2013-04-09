@@ -75,9 +75,7 @@ Routing:
                 - !Header X-payload-mime
                 - !Header X-payload-action
                 - !Body ~
-                timeout: 2
-                retry: !RetryFirst
-                  count: 3
+                timeout: 120
             "/node*":
               zmq-forward:
                 enabled: yes
