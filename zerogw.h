@@ -39,6 +39,26 @@
 #include "mongo/client/gridfs.h"
 #include "zeromq.h"
 
+
+
+enum ZerogwHeaderPayload {
+    METHOD=0,
+    URI=1,
+    X_user_token=2,
+    X_node_uuid=3,
+    X_node_password=4,
+    X_workflow_uuid=5,
+    X_payload_filename=6,
+    X_payload_type=7,
+    X_payload_mime=8,
+    X_payload_action=9,
+    BODY=10
+};
+
+
+typedef QMap<int, ZerogwHeaderPayload> IntToZerogwHeaderPayload;
+
+
 class Zerogw : public QObject
 {
     Q_OBJECT
@@ -81,6 +101,9 @@ class Api_payload : public Zerogw
 public:
     Api_payload(QString basedirectory, int port);
 
+
+private:
+    IntToZerogwHeaderPayload enumToZerogwHeader;
 
 private slots:
     void receive_http_payload();

@@ -185,6 +185,18 @@ Api_payload::Api_payload(QString basedirectory, int port) : Zerogw(basedirectory
 {
     std::cout << "Api_payload::Api_payload constructeur" << std::endl;
 
+    enumToZerogwHeader.insert(0, METHOD);
+    enumToZerogwHeader.insert(1, URI);
+    enumToZerogwHeader.insert(2, X_user_token);
+    enumToZerogwHeader.insert(3, X_node_uuid);
+    enumToZerogwHeader.insert(4, X_node_password);
+    enumToZerogwHeader.insert(5, X_workflow_uuid);
+    enumToZerogwHeader.insert(6, X_payload_filename);
+    enumToZerogwHeader.insert(7, X_payload_type);
+    enumToZerogwHeader.insert(8, X_payload_mime);
+    enumToZerogwHeader.insert(9, X_payload_action);
+    enumToZerogwHeader.insert(10, BODY);
+
 
     connect(this, SIGNAL(forward_payload(BSONObj)), this, SLOT(forward_payload_to_zpull(BSONObj)), Qt::DirectConnection);
 }
@@ -198,11 +210,15 @@ void Api_payload::receive_http_payload()
     check_http_data->setEnabled(false);
 
     std::cout << "Api_payload::receive_payload" << std::endl;
+    QDateTime timestamp = QDateTime::currentDateTime();
 
     QHash <QString, QString> zerogw;
     QString key;
     int counter=0;
     BSONObj l_payload;
+    BSONObj workflow;
+    BSONObj user_nodes;
+
 
     while (true)
     {
@@ -219,192 +235,281 @@ void Api_payload::receive_http_payload()
         BSONObjBuilder payload_builder;
         payload_builder.genOID();
         QString bodyMessage="";
-        QString tmp;
+        QString data_from_zerogw;
 
 
 
         qDebug() << "COUNTER : " << counter;
-        key = counter == 0? "METHOD" : "";
-        key = counter == 1? "URI" : key;
-        key = counter == 2? "X-user-token" : key;
-        key = counter == 3? "X-node-uuid" : key;
-        key = counter == 4? "X-node-password" : key;
-        key = counter == 5? "X-workflow-uuid" : key;
-        key = counter == 6? "X-payload-filename" : key;
-        key = counter == 7? "X-payload-type" : key;
-        key = counter == 8? "X-payload-mime" : key;
-        // push or publish
-        key = counter == 9? "X-payload-action" : key;
 
 
-        if (counter == 10 && zerogw["X-payload-mime"] == "json")
+
+        switch(enumToZerogwHeader[counter])
         {
-            BSONObj data;
-            try {
-                data = mongo::fromjson(QString::fromAscii((char*)request.data()).toStdString());
-
-                if (data.isValid() && !data.isEmpty())
-                {
-                    std::cout << "Api_payload received : " << res << " data : " << data  << std::endl;
-                    std::cout << "!!!!!!! BEFORE FORWARD PAYLOAD !!!!" << std::endl;
-                    //emit forward_payload(data.copy());
-
-                    QString fieldname = QString::fromAscii(data.firstElementFieldName());
-                    QString fieldjson = QString::fromStdString(data.firstElement().toString(false));
-
-                    zerogw[fieldname] = fieldjson;
-
-                    std::cout << "!!!!!!! AFTER FORWARD PAYLOAD !!!!" << std::endl;
-                }
-                else
-                {
-                    std::cout << "DATA NO VALID !" << std::endl;
-                    bodyMessage = buildResponse("error", "JSON not valid");
-                }
-
-            }
-            catch (mongo::MsgAssertionException &e)
-            {
-                bodyMessage = buildResponse("error", "JSON not valid");
-            }
-        }
-        else if (counter == 10 && !zerogw["X-payload-filename"].isEmpty() && zerogw["X-payload-mime"] != "json")
-        {
-            key = "gfs_id";
-
-            if (request.size() == 0)
-            {
-                tmp = "-1";
-                bodyMessage = buildResponse("error", "empty file");
-            }
+        case METHOD:
+            // check METHOD
+            if (request.size() == 0) bodyMessage ="header METHOD is empty";
             else
             {
-                QByteArray requestContent((char*)request.data(), request.size());
-                BSONObj gfs_file_struct = mongodb_->WriteFile(zerogw["X-payload-filename"].toStdString(), requestContent.constData (), requestContent.size ());
-                if (gfs_file_struct.nFields() == 0)
-                {
-                    qDebug() << "write on gridFS failed !";
-                    tmp = "-1";
-                }
-                //else tmp = QString::fromStdString(gfs_file_struct.getField("_id").OID().toString());
-                else
-                {
-                    std::cout << "writefile : " << gfs_file_struct << std::endl;
-                    //std::cout << "writefile id : " << gfs_file_struct.getField("_id") << " date : " << gfs_file_struct.getField("uploadDate") << std::endl;
+                data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
+                zerogw["METHOD"] = data_from_zerogw;
 
-                    be uploaded_at = gfs_file_struct.getField("uploadDate");
-                    be filename = gfs_file_struct.getField("filename");
-                    be length = gfs_file_struct.getField("length");
-
-                    std::cout << "uploaded : " << uploaded_at << std::endl;
-
-
-                    payload_builder.append("created_at", uploaded_at.date());
-                    payload_builder.append("filename", filename.str());
-                    payload_builder.append("length", length.numberLong());
-                    payload_builder.append("gfs_id", gfs_file_struct.getField("_id").OID());
-                    payload_builder.append("gridfs", true);
-
-                    tmp = QString::fromStdString(gfs_file_struct.getField("_id").OID().toString());
-                }
-
+                if (zerogw["METHOD"] != "POST")
+                    bodyMessage = "BAD REQUEST : " + zerogw["METHOD"];
             }
-        }
-        // not a json or binary
-        else if (counter == 10)
-        {
-            payload_builder.append("gridfs", false);
-            tmp = QString::fromAscii((char*)request.data(), request.size());
-            payload_builder.append("data", tmp.toStdString());
-        }
-        // headers from 0 to 9
-        else tmp = QString::fromAscii((char*)request.data(), request.size());
+            break;
 
-        zerogw[key] = tmp;
+        case URI:
+            if (!bodyMessage.isEmpty()) break;
 
-
-        if (!(events & ZMQ_RCVMORE))
-        {
-            BSONObj node;
-            BSONObj user;
-            BSONObj user_nodes;
-            BSONObj workflow;
-
-            if (zerogw["METHOD"] != "POST")
-                bodyMessage = "BAD REQUEST : " + zerogw["METHOD"];
-
-            else if (zerogw["X-user-token"].isEmpty() ||
-                     zerogw["X-node-uuid"].isEmpty() ||
-                     zerogw["X-node-password"].isEmpty() ||
-                     zerogw["X-workflow-uuid"].isEmpty() ||
-                     zerogw["X-payload-type"].isEmpty() ||
-                     zerogw["X-payload-action"].isEmpty() ||
-                     zerogw["X-payload-mime"].isEmpty())
-            {
-                bodyMessage ="header is empty";
-            }
+            // Check URI
+            if (request.size() == 0) bodyMessage ="header URI is empty";
             else
             {
+                data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
+                zerogw["URI"] = data_from_zerogw;
+            }
+            break;
+
+        case X_user_token:
+            if (!bodyMessage.isEmpty()) break;
+
+            // Check X-user-token
+            if (request.size() == 0) bodyMessage ="header X-user-token is empty";
+            else
+            {
+                data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
+                zerogw["X-user-token"] = data_from_zerogw;
+                BSONObj user;
                 QBool res = checkAuth(zerogw["X-user-token"], payload_builder, user);
-
                 if (!res)
                 {
                     bodyMessage = buildResponse("error", "auth");
                 }
+            }
+            break;
+
+        case X_node_uuid:
+            if (!bodyMessage.isEmpty()) break;
+
+            // Check X-node-uuid
+            if (request.size() == 0) bodyMessage ="header X-node-uuid is empty";
+            else
+            {
+                data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
+                zerogw["X-node-uuid"] = data_from_zerogw;
+            }
+            break;
+
+
+        case X_node_password:
+            if (!bodyMessage.isEmpty()) break;
+
+            // Check X-node-password
+            if (request.size() == 0) bodyMessage ="header X-node-password is empty";
+            else
+            {
+                data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
+                zerogw["X-node-password"] = data_from_zerogw;
+
+                BSONObj node_auth = BSON("node_uuid" << zerogw["X-node-uuid"].toStdString() << "node_password" << zerogw["X-node-password"].toStdString());
+                BSONObj node = mongodb_->Find("nodes", node_auth);
+                if (node.nFields() == 0)
+                    bodyMessage = buildResponse("error", "node unknown");
                 else
                 {
-                    BSONObj node_auth = BSON("node_uuid" << zerogw["X-node-uuid"].toStdString() << "node_password" << zerogw["X-node-password"].toStdString());
-                    node = mongodb_->Find("nodes", node_auth);
-                    if (node.nFields() == 0)
-                        bodyMessage = buildResponse("error", "node unknown");
+                    BSONObj user_search = BSON("_id" << node.getField("user_id"));
+                    user_nodes = mongodb_->Find("users", user_search);
+
+                    if (user_nodes.nFields() == 0)
+                        bodyMessage = buildResponse("error", "node", "unknown");
 
                     else
                     {
-                        BSONObj user_search = BSON("_id" << node.getField("user_id"));
-                        user_nodes = mongodb_->Find("users", user_search);
+                        BSONObj nodes = user_nodes.getField("nodes").Obj();
 
-                        if (user_nodes.nFields() == 0)
-                            bodyMessage = buildResponse("error", "node", "unknown");
-                        else
+                        list<be> list_nodes;
+                        nodes.elems(list_nodes);
+                        list<be>::iterator i;
+
+                        /********   Iterate over each user's nodes   *******/
+                        /********  find node with uuid and set the node id to payload collection *******/
+                        for(i = list_nodes.begin(); i != list_nodes.end(); ++i)
                         {
-                            BSONObj nodes = user_nodes.getField("nodes").Obj();
+                            BSONObj l_node = (*i).embeddedObject ();
+                            be node_id;
+                            l_node.getObjectID (node_id);
 
-                            list<be> list_nodes;
-                            nodes.elems(list_nodes);
-                            list<be>::iterator i;
+                            //std::cout << "NODE1 => " << node_id.OID()   << std::endl;
+                            //std::cout << "NODE2 => " << node_uuid.toStdString() << std::endl;
 
-                            /********   Iterate over each user's nodes   *******/
-                            /********  find node with uuid and set the node id to payload collection *******/
-                            for(i = list_nodes.begin(); i != list_nodes.end(); ++i)
+                            if (zerogw["X-node-uuid"].toStdString().compare(l_node.getField("uuid").str()) == 0)
                             {
-                                BSONObj l_node = (*i).embeddedObject ();
-                                be node_id;
-                                l_node.getObjectID (node_id);
-
-                                //std::cout << "NODE1 => " << node_id.OID()   << std::endl;
-                                //std::cout << "NODE2 => " << node_uuid.toStdString() << std::endl;
-
-                                if (zerogw["X-node-uuid"].toStdString().compare(l_node.getField("uuid").str()) == 0)
-                                {
-                                    payload_builder.append("node_id", node_id.OID());
-                                    break;
-                                }                                                                                 
+                                payload_builder.append("node_id", node_id.OID());
+                                break;
                             }
-
-                            // check workflow
-                            BSONObj workflow_search = BSON("uuid" <<  zerogw["X-workflow-uuid"].toStdString());
-                            workflow = mongodb_->Find("workflows", workflow_search);
-                            if (workflow.nFields() == 0)
-                                bodyMessage = buildResponse("error", "workflow unknown");
                         }
                     }
                 }
-            }
 
+            }
+            break;
+
+        case X_workflow_uuid:
+            if (!bodyMessage.isEmpty()) break;
+
+            // Check X-workflow-uuid
+            if (request.size() == 0) bodyMessage ="header X-workflow-uuid is empty";
+            else
+            {
+                data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
+                zerogw[" X-workflow-uuid"] = data_from_zerogw;
+
+                // check workflow
+                BSONObj workflow_search = BSON("uuid" <<  zerogw["X-workflow-uuid"].toStdString());
+                workflow = mongodb_->Find("workflows", workflow_search);
+                if (workflow.nFields() == 0)
+                    bodyMessage = buildResponse("error", "workflow unknown");
+            }
+            break;
+
+        case X_payload_filename:
+            if (!bodyMessage.isEmpty()) break;
+
+            // Check X-payload-filename, facultatif header, not usefull for json  payload
+            data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
+            zerogw["X-payload-filename"] = data_from_zerogw;
+            break;
+
+        case X_payload_type:
+            if (!bodyMessage.isEmpty()) break;
+
+            // Check X-payload-type
+            if (request.size() == 0) bodyMessage ="header X-payload-type is empty";
+            else
+            {
+                data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
+                zerogw["X-payload-type"] = data_from_zerogw;
+            }
+            break;
+
+        case X_payload_mime:
+            if (!bodyMessage.isEmpty()) break;
+
+            // Check X-payload-mime
+            if (request.size() == 0) bodyMessage ="header X-payload-mime is empty";
+            else
+            {
+                data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
+                zerogw["X-payload-mime"] = data_from_zerogw;
+            }
+            break;
+
+        case X_payload_action:
+            if (!bodyMessage.isEmpty()) break;
+
+            // Check X-payload-action
+            if (request.size() == 0) bodyMessage ="header X-payload-action is empty";
+            else
+            {
+                data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
+                zerogw["X-payload-action"] = data_from_zerogw;
+            }
+            break;
+
+        case BODY:
+            if (!bodyMessage.isEmpty()) break;
+
+            if (zerogw["X-payload-mime"] == "json")
+            {
+                BSONObj data;
+                try {
+                    data = mongo::fromjson(QString::fromAscii((char*)request.data()).toStdString());
+
+                    if (data.isValid() && !data.isEmpty())
+                    {
+                        std::cout << "Api_payload received : " << res << " data : " << data  << std::endl;
+                        std::cout << "!!!!!!! BEFORE FORWARD PAYLOAD !!!!" << std::endl;
+                        //emit forward_payload(data.copy());
+
+                        QString fieldname = QString::fromAscii(data.firstElementFieldName());
+                        QString fieldjson = QString::fromStdString(data.firstElement().toString(false));
+
+                        zerogw[fieldname] = fieldjson;
+
+                        std::cout << "!!!!!!! AFTER FORWARD PAYLOAD !!!!" << std::endl;
+                    }
+                    else
+                    {
+                        std::cout << "DATA NO VALID !" << std::endl;
+                        bodyMessage = buildResponse("error", "JSON not valid");
+                    }
+
+                }
+                catch (mongo::MsgAssertionException &e)
+                {
+                    bodyMessage = buildResponse("error", "JSON not valid");
+                }
+            }
+            else if (!zerogw["X-payload-filename"].isEmpty() && zerogw["X-payload-mime"] != "json")
+            {
+                key = "gfs_id";
+
+                if (request.size() == 0)
+                {
+                    zerogw["gfs_id"] = "-1";
+                    bodyMessage = buildResponse("error", "empty file");
+                }
+                else
+                {
+                    QByteArray requestContent((char*)request.data(), request.size());
+                    BSONObj gfs_file_struct = mongodb_->WriteFile(zerogw["X-payload-filename"].toStdString(), requestContent.constData (), requestContent.size ());
+                    if (gfs_file_struct.nFields() == 0)
+                    {
+                        qDebug() << "write on gridFS failed !";
+                        zerogw["gfs_id"] = "-1";
+                        bodyMessage = buildResponse("error", "error on write file to GridFS");
+                    }
+                    else
+                    {
+                        std::cout << "writefile : " << gfs_file_struct << std::endl;
+                        //std::cout << "writefile id : " << gfs_file_struct.getField("_id") << " date : " << gfs_file_struct.getField("uploadDate") << std::endl;
+
+                        be uploaded_at = gfs_file_struct.getField("uploadDate");
+                        be filename = gfs_file_struct.getField("filename");
+                        be length = gfs_file_struct.getField("length");
+
+                        std::cout << "uploaded : " << uploaded_at << std::endl;
+
+
+                        payload_builder.append("created_at", uploaded_at.date());
+                        payload_builder.append("filename", filename.str());
+                        payload_builder.append("length", length.numberLong());
+                        payload_builder.append("gfs_id", gfs_file_struct.getField("_id").OID());
+                        payload_builder.append("gridfs", true);
+
+                        zerogw["gfs_id"] = QString::fromStdString(gfs_file_struct.getField("_id").OID().toString());
+                    }
+
+                }
+            }
+            // not a json or binary
+            else
+            {
+                payload_builder.append("gridfs", false);
+                zerogw["data"]  = QString::fromAscii((char*)request.data(), request.size());
+                payload_builder.append("data", zerogw["data"].toStdString());
+            }
+            break;
+        }
+
+
+
+        if (!(events & ZMQ_RCVMORE))
+        {
+            qDebug() << "ZMQ_RCVMORE";
 
             if (bodyMessage.isEmpty())
             {
-                QDateTime timestamp = QDateTime::currentDateTime();
 
                 QUuid payload_uuid = QUuid::createUuid();
                 QString str_payload_uuid = payload_uuid.toString().mid(1,36);
@@ -468,8 +573,7 @@ void Api_payload::receive_http_payload()
 
             m_socket_zerogw->send(*m_message, 0);
             qDebug() << "returning : " << bodyMessage;
-
-        }
+       }
         counter++;
     }
     emit forward_payload(l_payload);
