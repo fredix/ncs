@@ -562,7 +562,6 @@ void Api_payload::receive_http_payload()
                                          "session_uuid" << session_uuid.toStdString() <<
                                          "timestamp" << timestamp.toTime_t());
 
-
             }
 
             // send response to client
@@ -571,11 +570,14 @@ void Api_payload::receive_http_payload()
 
             m_socket_zerogw->send(*m_message, 0);
             qDebug() << "returning : " << bodyMessage;
+            bodyMessage="";
+            counter=-1;
+
+            if (!l_payload.isEmpty())
+                emit forward_payload(l_payload);
        }
         counter++;
     }
-    if (!l_payload.isEmpty())
-        emit forward_payload(l_payload);
 
     qDebug() << "ZEROGW : " << zerogw;
     check_http_data->setEnabled(true);
