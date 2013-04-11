@@ -24,7 +24,7 @@
 
 Zerogw::Zerogw(QString basedirectory, int port, QObject *parent) : m_basedirectory(basedirectory), QObject(parent)
 {
-    std::cout << "Zerogw::Zerogw constructeur" << std::endl;
+    std::cout << "Zerogw::Zerogw construct" << std::endl;
 
     mongodb_ = Mongodb::getInstance();
     zeromq_ = Zeromq::getInstance ();
@@ -52,8 +52,18 @@ Zerogw::Zerogw(QString basedirectory, int port, QObject *parent) : m_basedirecto
     int hwm = 50000;
     m_socket_zerogw->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
     m_socket_zerogw->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
-    QString uri = "tcp://*:" + QString::number(port);
-    m_socket_zerogw->bind(uri.toAscii());
+
+    if (port == 0 )
+    {
+//        QString uri = "tcp://127.0.0.1:2504" + QString::number(port);
+        QString uri = "ipc://" + m_basedirectory + "/payloads";
+        m_socket_zerogw->connect(uri.toAscii());
+    }
+    else
+    {
+        QString uri = "tcp://*:" + QString::number(port);
+        m_socket_zerogw->bind(uri.toAscii());
+    }
 
     int http_socket_fd;
     size_t socket_size = sizeof(http_socket_fd);
@@ -205,8 +215,6 @@ Api_payload::Api_payload(QString basedirectory, int port) : Zerogw(basedirectory
 
 void Api_payload::receive_http_payload()
 {
-    m_mutex->lock();
-
     check_http_data->setEnabled(false);
 
     std::cout << "Api_payload::receive_payload" << std::endl;
@@ -578,10 +586,7 @@ void Api_payload::receive_http_payload()
        }
         counter++;
     }
-
-    qDebug() << "ZEROGW : " << zerogw;
     check_http_data->setEnabled(true);
-    m_mutex->unlock();
 }
 
 
@@ -601,8 +606,6 @@ Api_node::Api_node(QString basedirectory, int port) : Zerogw(basedirectory, port
 
 void Api_node::receive_http_payload()
 {
-    m_mutex->lock();
-
     check_http_data->setEnabled(false);
 
     std::cout << "Api_node::receive_payload" << std::endl;
@@ -720,7 +723,6 @@ void Api_node::receive_http_payload()
     }
     qDebug() << "ZEROGW : " << zerogw;
     check_http_data->setEnabled(true);
-    m_mutex->unlock();
 }
 
 
@@ -739,8 +741,6 @@ Api_workflow::Api_workflow(QString basedirectory, int port) : Zerogw(basedirecto
 
 void Api_workflow::receive_http_payload()
 {
-    m_mutex->lock();
-
     check_http_data->setEnabled(false);
 
     std::cout << "Api_workflow::receive_payload" << std::endl;
@@ -853,7 +853,6 @@ void Api_workflow::receive_http_payload()
     }
     qDebug() << "ZEROGW : " << zerogw;
     check_http_data->setEnabled(true);
-    m_mutex->unlock();
 }
 
 
@@ -870,8 +869,6 @@ Api_user::Api_user(QString basedirectory, int port) : Zerogw(basedirectory, port
 
 void Api_user::receive_http_payload()
 {
-    m_mutex->lock();
-
     check_http_data->setEnabled(false);
 
     std::cout << "Api_user::receive_payload" << std::endl;
@@ -1029,7 +1026,6 @@ void Api_user::receive_http_payload()
     }
     qDebug() << "ZEROGW : " << zerogw;
     check_http_data->setEnabled(true);
-    m_mutex->unlock();
 }
 
 

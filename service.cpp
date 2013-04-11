@@ -20,6 +20,58 @@
 
 #include "service.h"
 
+
+ZerogwProxy::ZerogwProxy(params a_ncs_params, QObject *parent) : m_ncs_params(a_ncs_params), QObject(parent)
+{
+    thread = new QThread;
+
+    this->moveToThread(thread);
+    thread->start();
+    thread->connect(thread, SIGNAL(started()), this, SLOT(init()));
+
+    qDebug() << "ZerogwProxy::ZerogwProxy";
+    zeromq_ = Zeromq::getInstance ();
+    qDebug() << "ZerogwProxy::getInstance";
+}
+
+ZerogwProxy::~ZerogwProxy()
+{
+    qDebug() << "!!!!!!! ZerogwProxy::CLOSE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
+
+    delete(api_payload);
+    delete(api_payload2);
+    zerogw->close();
+    worker_payload->close();
+}
+
+void ZerogwProxy::init()
+{
+    qDebug() << "ZerogwProxy::init";
+
+    zerogw = new zmq::socket_t(*zeromq_->m_context, ZMQ_ROUTER);
+    zerogw->bind ("tcp://*:2503");
+    worker_payload = new zmq::socket_t(*zeromq_->m_context, ZMQ_DEALER);
+    QString uri = "ipc://" + m_ncs_params.base_directory + "/payloads";
+    worker_payload->bind (uri.toLatin1());
+
+    QThread *thread_api_payload = new QThread;
+    api_payload = new Api_payload(m_ncs_params.base_directory, 0);
+    api_payload->moveToThread(thread_api_payload);
+    thread_api_payload->start();
+
+    QThread *thread_api_payload2 = new QThread;
+    api_payload2 = new Api_payload(m_ncs_params.base_directory, 0);
+    api_payload2->moveToThread(thread_api_payload2);
+    thread_api_payload2->start();
+
+
+    qDebug() << "ZerogwProxy::init BEFORE PROXY";
+    zmq::proxy (*zerogw, *worker_payload, NULL);
+    qDebug() << "ZerogwProxy::init AFTER PROXY";
+
+}
+
+
 Service::Service(params a_ncs_params, QObject *parent) : m_ncs_params(a_ncs_params), QObject(parent)
 {
     m_nodetrack = NULL;
@@ -27,6 +79,8 @@ Service::Service(params a_ncs_params, QObject *parent) : m_ncs_params(a_ncs_para
     m_http_api = NULL;
     m_xmpp_server = NULL;
     m_xmpp_client = NULL;
+    zerogwToPayload = NULL;
+
 }
 
 Service::~Service()
@@ -53,7 +107,8 @@ Service::~Service()
     qDebug() << "delete worker api";
     emit shutdown();
     delete(worker_api);
-    delete(api_payload);
+    //delete(api_payload);
+    if (zerogwToPayload) delete(zerogwToPayload);
     delete(api_node);
     delete(api_workflow);
     delete(api_user);
@@ -79,13 +134,37 @@ void Service::Http_api_init()
 
 void Service::Http_api_init()
 {
+    qDebug() << "Service::Http_api_init";
     int port;
     m_ncs_params.api_port == 0 ? port = 2502 : port = m_ncs_params.api_port;
+
+
+    zerogwToPayload = new ZerogwProxy(m_ncs_params);
+
+/*
+    zmq::socket_t zerogw (*zeromq_->m_context, ZMQ_ROUTER);
+    zerogw.bind ("tcp://*:2503");
+    zmq::socket_t worker_payload (*zeromq_->m_context, ZMQ_DEALER);
+    worker_payload.bind ("inproc://workers");
+    qDebug() << "Service::Http_api_init BEFORE PROXY";
+
+    zmq::proxy (zerogw, worker_payload, NULL);
+    qDebug() << "Service::Http_api_init AFTER PROXY";
+
+
+
 
     QThread *thread_api_payload = new QThread;
     api_payload = new Api_payload(m_ncs_params.base_directory, port);
     api_payload->moveToThread(thread_api_payload);
     thread_api_payload->start();
+
+    QThread *thread_api_payload2 = new QThread;
+    api_payload2 = new Api_payload(m_ncs_params.base_directory, port + 101);
+    api_payload2->moveToThread(thread_api_payload2);
+    thread_api_payload2->start();
+*/
+
     //connect(this, SIGNAL(shutdown()), api_payload, SLOT(destructor()), Qt::BlockingQueuedConnection);
     //connect(api_payload, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
