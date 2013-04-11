@@ -41,13 +41,14 @@ class ZerogwProxy : public QObject
 {
     Q_OBJECT
 public:
-    ZerogwProxy(params a_ncs_params, QObject *parent = 0);
+    ZerogwProxy(params a_ncs_params, QString port, QObject *parent = 0);
     ~ZerogwProxy();
 
 private slots:
     void init();
 
 private:
+    QString m_port;
     QThread *thread;
     Zeromq *zeromq_;
     zmq::socket_t *zerogw;
@@ -74,6 +75,8 @@ public:
     void link();
     Worker_api *worker_api;
     ZerogwProxy *zerogwToPayload;
+    ZerogwProxy *zerogwToPayload2;
+
     Api_node *api_node;
     Api_workflow *api_workflow;
     Api_user *api_user;

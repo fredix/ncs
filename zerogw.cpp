@@ -63,7 +63,7 @@ void Zerogw::init()
     m_socket_zerogw->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
     m_socket_zerogw->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
 
-    if (m_port == 0 )
+    if (m_port == 0 || m_port == 1)
     {
 //        QString uri = "tcp://127.0.0.1:2504" + QString::number(port);
         QString uri = "ipc://" + m_basedirectory + "/payloads";
@@ -227,7 +227,7 @@ void Api_payload::receive_http_payload()
 {
     check_http_data->setEnabled(false);
 
-    std::cout << "Api_payload::receive_payload" << std::endl;
+    std::cout << "Api_payload::receive_payload : API : " << m_port << std::endl;
 
     QHash <QString, QString> zerogw;
     QString key;
