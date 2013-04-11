@@ -22,15 +22,25 @@
 
 
 
-Zerogw::Zerogw(QString basedirectory, int port, QObject *parent) : m_basedirectory(basedirectory), QObject(parent)
+Zerogw::Zerogw(QString basedirectory, int port, QObject *parent) : m_basedirectory(basedirectory), m_port(port), QObject(parent)
 {
     std::cout << "Zerogw::Zerogw construct" << std::endl;
+
+    thread = new QThread;
+
+    this->moveToThread(thread);
+    thread->start();
+    thread->connect(thread, SIGNAL(started()), this, SLOT(init()));
 
     mongodb_ = Mongodb::getInstance();
     zeromq_ = Zeromq::getInstance ();
     m_context = zeromq_->m_context;
 
     m_mutex = new QMutex();
+}
+
+void Zerogw::init()
+{
 
 
     // Socket to ZPULL class
@@ -53,7 +63,7 @@ Zerogw::Zerogw(QString basedirectory, int port, QObject *parent) : m_basedirecto
     m_socket_zerogw->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
     m_socket_zerogw->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
 
-    if (port == 0 )
+    if (m_port == 0 )
     {
 //        QString uri = "tcp://127.0.0.1:2504" + QString::number(port);
         QString uri = "ipc://" + m_basedirectory + "/payloads";
@@ -61,7 +71,7 @@ Zerogw::Zerogw(QString basedirectory, int port, QObject *parent) : m_basedirecto
     }
     else
     {
-        QString uri = "tcp://*:" + QString::number(port);
+        QString uri = "tcp://*:" + QString::number(m_port);
         m_socket_zerogw->bind(uri.toAscii());
     }
 

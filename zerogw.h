@@ -67,10 +67,11 @@ public:
     ~Zerogw();
 
 protected:
+    QThread *thread;
     QBool checkAuth(QString token, BSONObjBuilder &payload_builder, BSONObj &a_user);
     QString buildResponse(QString action, QString data1, QString data2="");
     QString m_basedirectory;
-
+    int m_port;
     Mongodb *mongodb_;
     Zeromq *zeromq_;
     zmq::context_t *m_context;
@@ -89,6 +90,7 @@ signals:
 
 
 private slots:
+    void init();
     virtual void receive_http_payload()=0;
     void forward_payload_to_zpull(BSONObj payload);
 };

@@ -54,16 +54,8 @@ void ZerogwProxy::init()
     QString uri = "ipc://" + m_ncs_params.base_directory + "/payloads";
     worker_payload->bind (uri.toLatin1());
 
-    QThread *thread_api_payload = new QThread;
     api_payload = new Api_payload(m_ncs_params.base_directory, 0);
-    api_payload->moveToThread(thread_api_payload);
-    thread_api_payload->start();
-
-    QThread *thread_api_payload2 = new QThread;
     api_payload2 = new Api_payload(m_ncs_params.base_directory, 0);
-    api_payload2->moveToThread(thread_api_payload2);
-    thread_api_payload2->start();
-
 
     qDebug() << "ZerogwProxy::init BEFORE PROXY";
     zmq::proxy (*zerogw, *worker_payload, NULL);
@@ -169,26 +161,17 @@ void Service::Http_api_init()
     //connect(api_payload, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
 
-    QThread *thread_api_node = new QThread;
     api_node = new Api_node(m_ncs_params.base_directory, port + 1);
-    api_node->moveToThread(thread_api_node);
-    thread_api_node->start();
+
     //connect(this, SIGNAL(shutdown()), api_node, SLOT(destructor()), Qt::BlockingQueuedConnection);
     //connect(api_node, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
-    QThread *thread_api_workflow = new QThread;
     api_workflow = new Api_workflow(m_ncs_params.base_directory, port + 2);
-    api_workflow->moveToThread(thread_api_workflow);
-    thread_api_workflow->start();
     //connect(this, SIGNAL(shutdown()), api_workflow, SLOT(destructor()), Qt::BlockingQueuedConnection);
     //connect(api_workflow, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
 
-
-    QThread *thread_api_user = new QThread;
     api_user = new Api_user(m_ncs_params.base_directory, port + 3);
-    api_user->moveToThread(thread_api_user);
-    thread_api_user->start();
 }
 
 
