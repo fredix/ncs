@@ -52,11 +52,7 @@ void ZerogwProxy::init()
     zerogw->bind (zgw_uri.toLatin1());
     worker_payload = new zmq::socket_t(*zeromq_->m_context, ZMQ_DEALER);
     QString uri = "ipc://" + m_ncs_params.base_directory + "/payloads";
-
     worker_payload->bind (uri.toLatin1());
-
-    //api_payload = new Api_payload(Api_payload, 0);
-    //api_payload2 = new Api_payload(m_ncs_params.base_directory, 1);
 
     for(int i=0; i<2; i++)
     {

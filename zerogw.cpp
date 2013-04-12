@@ -59,11 +59,11 @@ void Zerogw::init()
     // socket from ZEROGW
     m_message = new zmq::message_t(2);
     m_socket_zerogw = new zmq::socket_t (*m_context, ZMQ_REP);
-    int hwm = 0;
+    int hwm = 1;
     m_socket_zerogw->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
     m_socket_zerogw->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
 
-    if (m_port == 0 || m_port == 1)
+    if (m_port == 0)
     {
 //        QString uri = "tcp://127.0.0.1:2504" + QString::number(port);
         QString uri = "ipc://" + m_basedirectory + "/payloads";
