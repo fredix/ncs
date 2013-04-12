@@ -54,7 +54,9 @@ void ZerogwProxy::init()
     QString uri = "ipc://" + m_ncs_params.base_directory + "/payloads";
     worker_payload->bind (uri.toLatin1());
 
-    for(int i=0; i<2; i++)
+    // 4 threads to receive HTTP payload from zerogw API
+    // should be enough for everybody :)
+    for(int i=0; i<4; i++)
     {
         api_payload_thread[i] = QSharedPointer<Api_payload> (new Api_payload(m_ncs_params.base_directory, 0));
     }
