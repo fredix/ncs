@@ -21,7 +21,7 @@
 #include "service.h"
 
 
-ZerogwProxy::ZerogwProxy(params a_ncs_params, QString port, QObject *parent) : m_ncs_params(a_ncs_params), m_port(port), QObject(parent)
+ZerogwProxy::ZerogwProxy(params a_ncs_params, int port, QObject *parent) : m_ncs_params(a_ncs_params), m_port(port), QObject(parent)
 {
     thread = new QThread;
 
@@ -38,8 +38,7 @@ ZerogwProxy::~ZerogwProxy()
 {
     qDebug() << "!!!!!!! ZerogwProxy::CLOSE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
 
-    delete(api_payload);
-    delete(api_payload2);
+    //delete(api_payload);
     zerogw->close();
     worker_payload->close();
 }
@@ -49,17 +48,20 @@ void ZerogwProxy::init()
     qDebug() << "ZerogwProxy::init";
 
     zerogw = new zmq::socket_t(*zeromq_->m_context, ZMQ_ROUTER);
-    QString zgw_uri = "tcp://*:" + m_port;
-    //zerogw->bind ("tcp://*:2503");
+    QString zgw_uri = "tcp://*:" + QString::number(m_port);
     zerogw->bind (zgw_uri.toLatin1());
     worker_payload = new zmq::socket_t(*zeromq_->m_context, ZMQ_DEALER);
-    //QString uri = "ipc://" + m_ncs_params.base_directory + "/payloads";
     QString uri = "ipc://" + m_ncs_params.base_directory + "/payloads";
 
     worker_payload->bind (uri.toLatin1());
 
-    api_payload = new Api_payload(m_ncs_params.base_directory, 0);
-    api_payload2 = new Api_payload(m_ncs_params.base_directory, 1);
+    //api_payload = new Api_payload(Api_payload, 0);
+    //api_payload2 = new Api_payload(m_ncs_params.base_directory, 1);
+
+    for(int i=0; i<2; i++)
+    {
+        api_payload_thread[i] = QSharedPointer<Api_payload> (new Api_payload(m_ncs_params.base_directory, 0));
+    }
 
     qDebug() << "ZerogwProxy::init BEFORE PROXY";
     zmq::proxy (*zerogw, *worker_payload, NULL);
@@ -76,8 +78,6 @@ Service::Service(params a_ncs_params, QObject *parent) : m_ncs_params(a_ncs_para
     m_xmpp_server = NULL;
     m_xmpp_client = NULL;
     zerogwToPayload = NULL;
-    zerogwToPayload2 = NULL;
-
 }
 
 Service::~Service()
@@ -106,7 +106,6 @@ Service::~Service()
     delete(worker_api);
     //delete(api_payload);
     if (zerogwToPayload) delete(zerogwToPayload);
-    if (zerogwToPayload2) delete(zerogwToPayload2);
 
     delete(api_node);
     delete(api_workflow);
@@ -138,8 +137,7 @@ void Service::Http_api_init()
     m_ncs_params.api_port == 0 ? port = 2502 : port = m_ncs_params.api_port;
 
 
-    zerogwToPayload = new ZerogwProxy(m_ncs_params, "2403");
-    zerogwToPayload2 = new ZerogwProxy(m_ncs_params, "2404");
+    zerogwToPayload = new ZerogwProxy(m_ncs_params, port);
 
 
 /*

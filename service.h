@@ -37,24 +37,29 @@
 #include "ncs_global.h"
 #include "zerogw.h"
 
+typedef QSharedPointer<Api_payload> Api_payload_pushPtr;
+
+
 class ZerogwProxy : public QObject
 {
     Q_OBJECT
 public:
-    ZerogwProxy(params a_ncs_params, QString port, QObject *parent = 0);
+    ZerogwProxy(params a_ncs_params, int port, QObject *parent = 0);
     ~ZerogwProxy();
 
 private slots:
     void init();
 
 private:
-    QString m_port;
+    int m_port;
     QThread *thread;
     Zeromq *zeromq_;
     zmq::socket_t *zerogw;
     zmq::socket_t *worker_payload;
-    Api_payload *api_payload;
-    Api_payload *api_payload2;
+    QHash<int, Api_payload_pushPtr> api_payload_thread;
+
+  //  Api_payload *api_payload;
+  //  Api_payload *api_payload2;
     params m_ncs_params;
 };
 
@@ -75,7 +80,6 @@ public:
     void link();
     Worker_api *worker_api;
     ZerogwProxy *zerogwToPayload;
-    ZerogwProxy *zerogwToPayload2;
 
     Api_node *api_node;
     Api_workflow *api_workflow;

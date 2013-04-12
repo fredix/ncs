@@ -59,7 +59,7 @@ void Zerogw::init()
     // socket from ZEROGW
     m_message = new zmq::message_t(2);
     m_socket_zerogw = new zmq::socket_t (*m_context, ZMQ_REP);
-    int hwm = 50000;
+    int hwm = 0;
     m_socket_zerogw->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
     m_socket_zerogw->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
 
