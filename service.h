@@ -79,7 +79,7 @@ public:
     void Worker_init();
     void link();
     Worker_api *worker_api;
-    ZerogwProxy *zerogwToPayload;
+    ZerogwProxy *zerogwToPayload[2];
 
     Api_node *api_node;
     Api_workflow *api_workflow;

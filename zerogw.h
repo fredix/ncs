@@ -63,10 +63,11 @@ class Zerogw : public QObject
 {
     Q_OBJECT
 public:
-    Zerogw(QString basedirectory, int port, QObject *parent = 0);
+    Zerogw(QString basedirectory, int port, QString ipc_name, QObject *parent = 0);
     ~Zerogw();
 
 protected:
+    QString m_ipc_name;
     QThread *thread;
     QBool checkAuth(QString token, BSONObjBuilder &payload_builder, BSONObj &a_user);
     QString buildResponse(QString action, QString data1, QString data2="");
@@ -101,7 +102,7 @@ class Api_payload : public Zerogw
 {
     Q_OBJECT
 public:
-    Api_payload(QString basedirectory, int port);
+    Api_payload(QString basedirectory, int port, QString ipc_name);
 
 
 private:

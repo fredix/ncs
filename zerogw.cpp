@@ -22,7 +22,7 @@
 
 
 
-Zerogw::Zerogw(QString basedirectory, int port, QObject *parent) : m_basedirectory(basedirectory), m_port(port), QObject(parent)
+Zerogw::Zerogw(QString basedirectory, int port, QString ipc_name="", QObject *parent) : m_basedirectory(basedirectory), m_port(port), m_ipc_name(ipc_name), QObject(parent)
 {
     std::cout << "Zerogw::Zerogw construct" << std::endl;
 
@@ -59,14 +59,14 @@ void Zerogw::init()
     // socket from ZEROGW
     m_message = new zmq::message_t(2);
     m_socket_zerogw = new zmq::socket_t (*m_context, ZMQ_REP);
-    int hwm = 1;
+    int hwm = 50;
     m_socket_zerogw->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
     m_socket_zerogw->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
 
-    if (m_port == 0)
+    if (m_port == 0 && !m_ipc_name.isEmpty())
     {
 //        QString uri = "tcp://127.0.0.1:2504" + QString::number(port);
-        QString uri = "ipc://" + m_basedirectory + "/payloads";
+        QString uri = "ipc://" + m_basedirectory + m_ipc_name;
         m_socket_zerogw->connect(uri.toAscii());
     }
     else
@@ -201,7 +201,7 @@ QString Zerogw::buildResponse(QString action, QString data1, QString data2)
 
 
 
-Api_payload::Api_payload(QString basedirectory, int port) : Zerogw(basedirectory, port)
+Api_payload::Api_payload(QString basedirectory, int port, QString ipc_name) : Zerogw(basedirectory, port, ipc_name)
 {
     std::cout << "Api_payload::Api_payload constructeur" << std::endl;
 

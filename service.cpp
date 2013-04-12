@@ -51,14 +51,14 @@ void ZerogwProxy::init()
     QString zgw_uri = "tcp://*:" + QString::number(m_port);
     zerogw->bind (zgw_uri.toLatin1());
     worker_payload = new zmq::socket_t(*zeromq_->m_context, ZMQ_DEALER);
-    QString uri = "ipc://" + m_ncs_params.base_directory + "/payloads";
+    QString uri = "ipc://" + m_ncs_params.base_directory + "/payloads_" + QString::number(m_port);
     worker_payload->bind (uri.toLatin1());
 
     // 4 threads to receive HTTP payload from zerogw API
     // should be enough for everybody :)
-    for(int i=0; i<4; i++)
+    for(int i=0; i<2; i++)
     {
-        api_payload_thread[i] = QSharedPointer<Api_payload> (new Api_payload(m_ncs_params.base_directory, 0));
+        api_payload_thread[i] = QSharedPointer<Api_payload> (new Api_payload(m_ncs_params.base_directory, 0, "/payloads_" + QString::number(m_port)));
     }
 
     qDebug() << "ZerogwProxy::init BEFORE PROXY";
@@ -75,7 +75,8 @@ Service::Service(params a_ncs_params, QObject *parent) : m_ncs_params(a_ncs_para
     m_http_api = NULL;
     m_xmpp_server = NULL;
     m_xmpp_client = NULL;
-    zerogwToPayload = NULL;
+    zerogwToPayload[0] = NULL;
+    zerogwToPayload[1] = NULL;
 }
 
 Service::~Service()
@@ -103,7 +104,8 @@ Service::~Service()
     emit shutdown();
     delete(worker_api);
     //delete(api_payload);
-    if (zerogwToPayload) delete(zerogwToPayload);
+    if (zerogwToPayload[0]) delete(zerogwToPayload[0]);
+    if (zerogwToPayload[1]) delete(zerogwToPayload[1]);
 
     delete(api_node);
     delete(api_workflow);
@@ -135,7 +137,8 @@ void Service::Http_api_init()
     m_ncs_params.api_port == 0 ? port = 2502 : port = m_ncs_params.api_port;
 
 
-    zerogwToPayload = new ZerogwProxy(m_ncs_params, port);
+    zerogwToPayload[0] = new ZerogwProxy(m_ncs_params, port);
+    zerogwToPayload[1] = new ZerogwProxy(m_ncs_params, port+1);
 
 
 /*
@@ -166,17 +169,17 @@ void Service::Http_api_init()
     //connect(api_payload, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
 
-    api_node = new Api_node(m_ncs_params.base_directory, port + 1);
+    api_node = new Api_node(m_ncs_params.base_directory, port + 2);
 
     //connect(this, SIGNAL(shutdown()), api_node, SLOT(destructor()), Qt::BlockingQueuedConnection);
     //connect(api_node, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
-    api_workflow = new Api_workflow(m_ncs_params.base_directory, port + 2);
+    api_workflow = new Api_workflow(m_ncs_params.base_directory, port + 3);
     //connect(this, SIGNAL(shutdown()), api_workflow, SLOT(destructor()), Qt::BlockingQueuedConnection);
     //connect(api_workflow, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
 
-    api_user = new Api_user(m_ncs_params.base_directory, port + 3);
+    api_user = new Api_user(m_ncs_params.base_directory, port + 4);
 }
 
 
