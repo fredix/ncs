@@ -100,9 +100,8 @@ void ZerogwProxy::init()
 void ZerogwProxy::receive_zerogw()
 {
     check_zerogw->setEnabled(false);
-    qDebug() << "ZerogwProxy::receive_zerogw !!!!!!!!!";
-
-    int counter=0;
+  //  qDebug() << "ZerogwProxy::receive_zerogw !!!!!!!!!";
+    //int counter=0;
 
     while (true)
     {
@@ -110,7 +109,7 @@ void ZerogwProxy::receive_zerogw()
             qint32 events = 0;
             std::size_t eventsSize = sizeof(events);
 
-            qDebug() << "MULTIPART !!!!!!!!!! : " << counter;
+          //  qDebug() << "MULTIPART !!!!!!!!!! : " << counter;
             //  Process all parts of the message
             //bool res = zerogw->recv(&message, ZMQ_NOBLOCK);
             bool res = zerogw->recv(&message, ZMQ_NOBLOCK);
@@ -120,12 +119,12 @@ void ZerogwProxy::receive_zerogw()
             zerogw->getsockopt(ZMQ_RCVMORE, &events, &eventsSize);
             worker_payload->send(message, events? ZMQ_SNDMORE: 0);
 
-            std::cout << "ZMQ_EVENTS : " <<  events << std::endl;
+            //std::cout << "ZMQ_EVENTS : " <<  events << std::endl;
 
-            QString tmp = QString::fromAscii((char*)message.data(), message.size());
-            qDebug() << "MESSAGE " << tmp;
+            //QString tmp = QString::fromAscii((char*)message.data(), message.size());
+            //qDebug() << "MESSAGE " << tmp;
 
-            counter++;
+        //    counter++;
     }
      check_zerogw->setEnabled(true);
 }
@@ -136,9 +135,9 @@ void ZerogwProxy::receive_zerogw()
 void ZerogwProxy::reply_payload()
 {
     check_reply->setEnabled(false);
-    qDebug() << "ZerogwProxy::reply_payload !!!!!!!!!";
+    //qDebug() << "ZerogwProxy::reply_payload !!!!!!!!!";
 
-    int counter=0;
+    //int counter=0;
 
     while (true)
     {
@@ -152,13 +151,13 @@ void ZerogwProxy::reply_payload()
         worker_payload->getsockopt(ZMQ_RCVMORE, &events, &eventsSize);
         zerogw->send(message, events? ZMQ_SNDMORE: 0);
 
-        std::cout << "ZMQ_EVENTS : " <<  events << std::endl;
+      //  std::cout << "ZMQ_EVENTS : " <<  events << std::endl;
 
 
-        QString tmp = QString::fromAscii((char*)message.data(), message.size());
-        qDebug() << "MESSAGE " << tmp;
+      //  QString tmp = QString::fromAscii((char*)message.data(), message.size());
+      //  qDebug() << "MESSAGE " << tmp;
 
-        counter++;
+      //  counter++;
     }
 
     check_reply->setEnabled(true);
