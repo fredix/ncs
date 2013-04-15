@@ -46,21 +46,28 @@ class ZerogwProxy : public QObject
 public:
     ZerogwProxy(params a_ncs_params, int port, QObject *parent = 0);
     ~ZerogwProxy();
+    QThread *thread;
 
 private slots:
     void init();
 
+signals:
+    void shutdown();
+
 private:
+    QSocketNotifier *check_zerogw;
+    QSocketNotifier *check_reply;
     int m_port;
-    QThread *thread;
     Zeromq *zeromq_;
     zmq::socket_t *zerogw;
     zmq::socket_t *worker_payload;
     QHash<int, Api_payload_pushPtr> api_payload_thread;
-
-  //  Api_payload *api_payload;
-  //  Api_payload *api_payload2;
     params m_ncs_params;
+
+private slots:
+    void receive_zerogw();
+    void reply_payload();
+
 };
 
 class Service : public QObject

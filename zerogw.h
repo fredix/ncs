@@ -92,8 +92,9 @@ signals:
 
 private slots:
     void init();
+    void destructor();
     virtual void receive_http_payload()=0;
-    void forward_payload_to_zpull(BSONObj payload);
+    void forward_payload_to_zpull(BSONObj payload);    
 };
 
 

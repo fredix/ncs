@@ -32,40 +32,139 @@ ZerogwProxy::ZerogwProxy(params a_ncs_params, int port, QObject *parent) : m_ncs
     qDebug() << "ZerogwProxy::ZerogwProxy";
     zeromq_ = Zeromq::getInstance ();
     qDebug() << "ZerogwProxy::getInstance";
+
 }
 
 ZerogwProxy::~ZerogwProxy()
 {
     qDebug() << "!!!!!!! ZerogwProxy::CLOSE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
+    check_zerogw->setEnabled(false);
+    check_reply->setEnabled(false);
 
-    //delete(api_payload);
     zerogw->close();
     worker_payload->close();
+
+    emit shutdown();
 }
 
 void ZerogwProxy::init()
 {
     qDebug() << "ZerogwProxy::init";
 
+
     zerogw = new zmq::socket_t(*zeromq_->m_context, ZMQ_ROUTER);
     QString zgw_uri = "tcp://*:" + QString::number(m_port);
     zerogw->bind (zgw_uri.toLatin1());
+
+
+    int socket_zerogw_fd;
+    size_t socket_size = sizeof(socket_zerogw_fd);
+    zerogw->getsockopt(ZMQ_FD, &socket_zerogw_fd, &socket_size);
+
+    qDebug() << "RES getsockopt : " << "res" <<  " FD : " << socket_zerogw_fd << " errno : " << zmq_strerror (errno);
+
+    check_zerogw = new QSocketNotifier(socket_zerogw_fd, QSocketNotifier::Read, this);
+    connect(check_zerogw, SIGNAL(activated(int)), this, SLOT(receive_zerogw()), Qt::DirectConnection);
+
+
+
     worker_payload = new zmq::socket_t(*zeromq_->m_context, ZMQ_DEALER);
     QString uri = "ipc://" + m_ncs_params.base_directory + "/payloads_" + QString::number(m_port);
     worker_payload->bind (uri.toLatin1());
 
-    // 4 threads to receive HTTP payload from zerogw API
+
+    int socket_reply_fd;
+    size_t socket_reply_size = sizeof(socket_reply_fd);
+    worker_payload->getsockopt(ZMQ_FD, &socket_reply_fd, &socket_reply_size);
+
+    qDebug() << "RES getsockopt : " << "res" <<  " FD : " << socket_reply_fd << " errno : " << zmq_strerror (errno);
+
+    check_reply = new QSocketNotifier(socket_reply_fd, QSocketNotifier::Read, this);
+    connect(check_reply, SIGNAL(activated(int)), this, SLOT(reply_payload()), Qt::DirectConnection);
+
+
+    // 2 threads to receive HTTP payload from zerogw API
     // should be enough for everybody :)
     for(int i=0; i<2; i++)
     {
         api_payload_thread[i] = QSharedPointer<Api_payload> (new Api_payload(m_ncs_params.base_directory, 0, "/payloads_" + QString::number(m_port)));
+        connect(this, SIGNAL(shutdown()), api_payload_thread[i].data(), SLOT(destructor()), Qt::BlockingQueuedConnection);
     }
 
-    qDebug() << "ZerogwProxy::init BEFORE PROXY";
+   /* qDebug() << "ZerogwProxy::init BEFORE PROXY";
     zmq::proxy (*zerogw, *worker_payload, NULL);
     qDebug() << "ZerogwProxy::init AFTER PROXY";
-
+*/
 }
+
+void ZerogwProxy::receive_zerogw()
+{
+    check_zerogw->setEnabled(false);
+    qDebug() << "ZerogwProxy::receive_zerogw !!!!!!!!!";
+
+    int counter=0;
+
+    while (true)
+    {
+            zmq::message_t message;
+            qint32 events = 0;
+            std::size_t eventsSize = sizeof(events);
+
+            qDebug() << "MULTIPART !!!!!!!!!! : " << counter;
+            //  Process all parts of the message
+            //bool res = zerogw->recv(&message, ZMQ_NOBLOCK);
+            bool res = zerogw->recv(&message, ZMQ_NOBLOCK);
+            if (!res && zmq_errno () == EAGAIN) break;
+
+
+            zerogw->getsockopt(ZMQ_RCVMORE, &events, &eventsSize);
+            worker_payload->send(message, events? ZMQ_SNDMORE: 0);
+
+            std::cout << "ZMQ_EVENTS : " <<  events << std::endl;
+
+            QString tmp = QString::fromAscii((char*)message.data(), message.size());
+            qDebug() << "MESSAGE " << tmp;
+
+            counter++;
+    }
+     check_zerogw->setEnabled(true);
+}
+
+
+
+
+void ZerogwProxy::reply_payload()
+{
+    check_reply->setEnabled(false);
+    qDebug() << "ZerogwProxy::reply_payload !!!!!!!!!";
+
+    int counter=0;
+
+    while (true)
+    {
+        zmq::message_t message;
+        qint32 events = 0;
+        std::size_t eventsSize = sizeof(events);
+
+        bool res = worker_payload->recv(&message, ZMQ_NOBLOCK);
+        if (!res && zmq_errno () == EAGAIN) break;
+
+        worker_payload->getsockopt(ZMQ_RCVMORE, &events, &eventsSize);
+        zerogw->send(message, events? ZMQ_SNDMORE: 0);
+
+        std::cout << "ZMQ_EVENTS : " <<  events << std::endl;
+
+
+        QString tmp = QString::fromAscii((char*)message.data(), message.size());
+        qDebug() << "MESSAGE " << tmp;
+
+        counter++;
+    }
+
+    check_reply->setEnabled(true);
+}
+
+
 
 
 Service::Service(params a_ncs_params, QObject *parent) : m_ncs_params(a_ncs_params), QObject(parent)
@@ -103,9 +202,20 @@ Service::~Service()
     qDebug() << "delete worker api";
     emit shutdown();
     delete(worker_api);
-    //delete(api_payload);
-    if (zerogwToPayload[0]) delete(zerogwToPayload[0]);
-    if (zerogwToPayload[1]) delete(zerogwToPayload[1]);
+    if (zerogwToPayload[0])
+    {
+        delete(zerogwToPayload[0]);
+        zerogwToPayload[0]->thread->quit();
+
+        while(!zerogwToPayload[0]->thread->isFinished ()){};
+    }
+    if (zerogwToPayload[1])
+    {
+        delete(zerogwToPayload[1]);
+        zerogwToPayload[1]->thread->quit();
+        while(!zerogwToPayload[1]->thread->isFinished ()){};
+    }
+
 
     delete(api_node);
     delete(api_workflow);
@@ -169,17 +279,17 @@ void Service::Http_api_init()
     //connect(api_payload, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
 
-    api_node = new Api_node(m_ncs_params.base_directory, port + 2);
+    api_node = new Api_node(m_ncs_params.base_directory, port + 100);
 
     //connect(this, SIGNAL(shutdown()), api_node, SLOT(destructor()), Qt::BlockingQueuedConnection);
     //connect(api_node, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
-    api_workflow = new Api_workflow(m_ncs_params.base_directory, port + 3);
+    api_workflow = new Api_workflow(m_ncs_params.base_directory, port + 101);
     //connect(this, SIGNAL(shutdown()), api_workflow, SLOT(destructor()), Qt::BlockingQueuedConnection);
     //connect(api_workflow, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
 
-    api_user = new Api_user(m_ncs_params.base_directory, port + 4);
+    api_user = new Api_user(m_ncs_params.base_directory, port + 102);
 }
 
 

@@ -86,13 +86,17 @@ void Zerogw::init()
 
 Zerogw::~Zerogw()
 {
-    qDebug() << "Zerogw destruct";
-    m_mutex->lock();
-    check_http_data->setEnabled(false);
-    m_socket_zerogw->close ();
+    qDebug() << "Zerogw destruct";   
     delete(m_socket_zerogw);
-    z_push_api->close();
     delete(z_push_api);
+}
+
+void Zerogw::destructor()
+{
+    qDebug() << "Zerogw destructor";
+    check_http_data->setEnabled(false);        
+    z_push_api->close();
+    m_socket_zerogw->close();
 }
 
 
