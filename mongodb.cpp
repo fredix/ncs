@@ -667,14 +667,18 @@ BSONObj Mongodb::GetGfsid(const string filename)
 QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &chunk_data, int &chunk_length)
 {
     QMutexLocker locker(m_mutex);
-    ScopedDbConnection *replicaset;
+    //ScopedDbConnection *replicaset;
 
     std::cout << "Mongodb::ExtractByChunck : " << gfs_id << std::endl;
     try {
-        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (replicaset->ok())
+        //replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+
+        scoped_ptr<ScopedDbConnection> connPtr( ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        ScopedDbConnection& replicaset = *connPtr;
+
+        if (replicaset.ok())
         {
-            GridFS gfs(replicaset->conn(), m_database.toAscii().data());
+            GridFS gfs(replicaset.conn(), m_database.toAscii().data());
 
 
             for (int i = 0; i < 5; i++)
@@ -711,7 +715,7 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
                         std::cout << "Mongodb::ExtractByChunck CHUNCK SIZE : " << chunk_data.size() << std::endl;
 
                         delete(m_grid_file);
-                        replicaset->done();
+                        replicaset.done();
                         return QBool(true);
                     }
                     else
@@ -719,18 +723,19 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
                         //*chunk_data = NULL;
                         chunk_data.clear();
                         delete(m_grid_file);
-                        replicaset->done();
+                        replicaset.done();
                         return QBool(false);
                     }
                 }
             }
-
+            replicaset.done();
+            return QBool(false);
         }
 
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on get file : " << e.what() << std::endl;
-        qDebug() << "Mongodb::ExtractByChunck ERROR ON GRIDFS";
+        qDebug() << "Mongodb::ExtractByChunck ERROR ON GRIDFS";        
         return QBool(false);
     }
     return QBool(false);
