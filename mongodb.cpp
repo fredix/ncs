@@ -503,7 +503,6 @@ QBool Mongodb::ExtractBinary(const be &gfs_id, string path, QString &filename)
 QBool Mongodb::ReadFile(const be &gfs_id, const mongo::GridFile **a_gf)
 {
     std::cout << "Mongodb::ReadFile : " << gfs_id << std::endl;
-    ScopedDbConnection *replicaset;
 
     try {
         QScopedPointer<ScopedDbConnection> connPtr(ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
@@ -589,9 +588,6 @@ string Mongodb::GetFilename(const be &gfs_id)
 
     std::cout << "Mongodb::GetFilename : " << gfs_id << std::endl;
 
-    ScopedDbConnection *replicaset;
-
-
     try {
         qDebug() << "Mongodb::GetFilename BEFORE GRID";
         QScopedPointer<ScopedDbConnection> connPtr( ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
@@ -633,7 +629,6 @@ string Mongodb::GetFilename(const be &gfs_id)
 BSONObj Mongodb::GetGfsid(const string filename)
 {
     QMutexLocker locker(m_mutex);
-    ScopedDbConnection *replicaset;
 
     std::cout << "Mongodb::GetGfsid : " << filename << std::endl;
     BSONElement gfsid;
@@ -683,7 +678,6 @@ BSONObj Mongodb::GetGfsid(const string filename)
 QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &chunk_data, int &chunk_length)
 {
     QMutexLocker locker(m_mutex);
-    //ScopedDbConnection *replicaset;
 
     std::cout << "Mongodb::ExtractByChunck : " << gfs_id << std::endl;
     try {
@@ -767,7 +761,6 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
 BSONObj Mongodb::WriteFile(const string filename, const char *data, int size)
 {        
     QMutexLocker locker(m_mutex);
-    ScopedDbConnection *replicaset;
 
     BSONObj struct_file;
     try {
