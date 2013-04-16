@@ -71,12 +71,12 @@ Mongodb::Mongodb(QString a_server, QString a_database) : m_server(a_server), m_d
 
     u_active = false; t_active = false; p_active = false; s_active = false; tok_active = false; hist_active = false;
 
-    ScopedDbConnection *replicaset;
 
     try {
-        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+        scoped_ptr<ScopedDbConnection> connPtr( ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        ScopedDbConnection& replicaset = *connPtr;
 
-        if (!replicaset->ok())
+        if (!replicaset.ok())
         {
             std::cout << "couldn't connect to mongodb : " << m_server.toStdString() << std::endl;
             exit(1);
@@ -89,8 +89,8 @@ Mongodb::Mongodb(QString a_server, QString a_database) : m_server(a_server), m_d
         string const database = this->m_database.toStdString();
         BSONObj info;
         //m_mongo_connection.runCommand(database, database_options, info);
-        replicaset->conn().runCommand(database, database_options, info);
-        replicaset->done();
+        replicaset.conn().runCommand(database, database_options, info);
+        replicaset.done();
 
         std::cout << "MONGODB OPTIONS : " << info << std::endl;
         /************************************/
@@ -223,10 +223,11 @@ int Mongodb::Count(QString a_document)
     tmp.append(this->m_database).append(".").append(a_document);
     //int counter = this->m_mongo_connection.count(tmp.toStdString());
 
-    ScopedDbConnection *replicaset =  ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
+    QScopedPointer<ScopedDbConnection> connPtr(  ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+    ScopedDbConnection& replicaset = *connPtr;
 
-    int counter = replicaset->conn().count(tmp.toStdString());
-    replicaset->done();
+    int counter = replicaset.conn().count(tmp.toStdString());
+    replicaset.done();
 
     return counter;
 }
@@ -242,7 +243,6 @@ void Mongodb::Flush(string a_document, BSONObj query)
     QString tmp;
     tmp.append(this->m_database).append(".").append(a_document.data());
     qDebug() << "m_database.a_document" << tmp;
-    ScopedDbConnection *replicaset;
 
     try {
         qDebug() << "before REMOVE";
@@ -250,11 +250,13 @@ void Mongodb::Flush(string a_document, BSONObj query)
         //auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toStdString(), mongo::Query(a_query));
         //qDebug() << "after cursor created";
 
-        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (replicaset->ok())
+        QScopedPointer<ScopedDbConnection> connPtr( ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        ScopedDbConnection& replicaset = *connPtr;
+
+        if (replicaset.ok())
         {
-            replicaset->conn().remove(tmp.toStdString(), mongo::Query(query));
-            replicaset->done();
+            replicaset.conn().remove(tmp.toStdString(), mongo::Query(query));
+            replicaset.done();
         }
         //m_mongo_connection.remove(tmp.toStdString(), mongo::Query(query));
         qDebug() << "AFTER REMOVE";
@@ -277,16 +279,17 @@ BSONObj Mongodb::Find(string a_document, const bo a_query)
 
     std::cout << "element : " << a_query.jsonString(Strict) << std::endl;
 
-     ScopedDbConnection *replicaset;
 
     try {        
         qDebug() << "before cursor created";
         //auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toStdString(), mongo::Query(a_query));
 
-        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (replicaset->ok())
+         QScopedPointer<ScopedDbConnection> connPtr( ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+         ScopedDbConnection& replicaset = *connPtr;
+
+        if (replicaset.ok())
         {
-            auto_ptr<DBClientCursor> cursor = replicaset->conn().query(tmp.toStdString(), mongo::Query(a_query));
+            auto_ptr<DBClientCursor> cursor = replicaset.conn().query(tmp.toStdString(), mongo::Query(a_query));
 
             qDebug() << "after cursor created";
     /*
@@ -298,13 +301,13 @@ BSONObj Mongodb::Find(string a_document, const bo a_query)
             }*/
 
             if ( !cursor->more() ) {
-                replicaset->done();
+                replicaset.done();
                 return BSONObj();
             }
             else
             {
                 BSONObj data = cursor->nextSafe().copy();
-                replicaset->done();
+                replicaset.done();
                 return data;
             }
         }
@@ -333,27 +336,28 @@ BSONObj Mongodb::Find(string a_document, const BSONObj a_query, BSONObj *a_field
     //std::cout << "element : " << datas.jsonString(TenGen) << std::endl;
 
     std::cout << "element : " << a_query.jsonString(Strict) << std::endl;
-    ScopedDbConnection *replicaset;
 
 
     try {
         qDebug() << "before cursor created";
         //auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toStdString(), mongo::Query(a_query), 0, 0, a_fields);
-        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (replicaset->ok())
+        QScopedPointer<ScopedDbConnection> connPtr( ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        ScopedDbConnection& replicaset = *connPtr;
+
+        if (replicaset.ok())
         {
-            auto_ptr<DBClientCursor> cursor = replicaset->conn().query(tmp.toStdString(), mongo::Query(a_query), 0, 0, a_fields);
+            auto_ptr<DBClientCursor> cursor = replicaset.conn().query(tmp.toStdString(), mongo::Query(a_query), 0, 0, a_fields);
 
             qDebug() << "after cursor created";
 
             if ( !cursor->more() ) {
-                replicaset->done();
+                replicaset.done();
                 return BSONObj();
             }
             else
             {
                 BSONObj data = cursor->nextSafe().copy();
-                replicaset->done();
+                replicaset.done();
                 return data;
             }
         }
@@ -379,22 +383,23 @@ QList <BSONObj> Mongodb::FindAll(string a_document, const bo datas)
     std::cout << "element : " << datas.jsonString(Strict) << std::endl;
 
     QList <BSONObj> res;
-    ScopedDbConnection *replicaset;
 
     try {
         qDebug() << "before cursor created";
        // auto_ptr<DBClientCursor> cursor = this->m_mongo_connection.query(tmp.toAscii().data(), mongo::Query(datas));
-        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (replicaset->ok())
+        QScopedPointer<ScopedDbConnection> connPtr(  ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        ScopedDbConnection& replicaset = *connPtr;
+
+        if (replicaset.ok())
         {
-            auto_ptr<DBClientCursor> cursor = replicaset->conn().query(tmp.toStdString(), mongo::Query(datas));
+            auto_ptr<DBClientCursor> cursor = replicaset.conn().query(tmp.toStdString(), mongo::Query(datas));
 
             qDebug() << "after cursor created";
 
             while( cursor->more() ) {
                 res << cursor->nextSafe().copy();
             }
-            replicaset->done();
+            replicaset.done();
             return res;
         }
     }
@@ -501,10 +506,12 @@ QBool Mongodb::ReadFile(const be &gfs_id, const mongo::GridFile **a_gf)
     ScopedDbConnection *replicaset;
 
     try {
-        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (replicaset->ok())
+        QScopedPointer<ScopedDbConnection> connPtr(ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        ScopedDbConnection& replicaset = *connPtr;
+
+        if (replicaset.ok())
         {
-            GridFS gfs(replicaset->conn(), m_database.toAscii().data());
+            GridFS gfs(replicaset.conn(), m_database.toAscii().data());
 
             for (int i = 0; i < 5; i++)
             {
@@ -519,7 +526,7 @@ QBool Mongodb::ReadFile(const be &gfs_id, const mongo::GridFile **a_gf)
                 }
                 else break;
             }
-            replicaset->done();
+            replicaset.done();
             return QBool(true);
         }
     }
@@ -534,14 +541,15 @@ QBool Mongodb::ReadFile(const be &gfs_id, const mongo::GridFile **a_gf)
 int Mongodb::GetNumChunck(const be &gfs_id)
 {
     QMutexLocker locker(m_mutex);
-    ScopedDbConnection *replicaset;
 
     std::cout << "Mongodb::GetNumChunck : " << gfs_id << std::endl;
     try {
-        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (replicaset->ok())
+        QScopedPointer<ScopedDbConnection> connPtr(  ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        ScopedDbConnection& replicaset = *connPtr;
+
+        if (replicaset.ok())
         {
-            GridFS gfs(replicaset->conn(), m_database.toAscii().data());
+            GridFS gfs(replicaset.conn(), m_database.toAscii().data());
 
 
 
@@ -552,6 +560,7 @@ int Mongodb::GetNumChunck(const be &gfs_id)
             if (!m_grid_file->exists()) {
                 std::cout << "Mongodb::ExtractByChunck file not found" << std::endl;
                 delete(m_grid_file);
+                replicaset.done();
                 return -1;
             }
             else
@@ -560,6 +569,7 @@ int Mongodb::GetNumChunck(const be &gfs_id)
                 std::cout << "Mongodb::ExtractByChunck FILE NAME : " << m_grid_file->getFilename() << std::endl;
                 std::cout << "Mongodb::ExtractByChunck NUM CHUCK : " << num << std::endl;
 
+                replicaset.done();
                 return num;
             }
         }
@@ -584,10 +594,12 @@ string Mongodb::GetFilename(const be &gfs_id)
 
     try {
         qDebug() << "Mongodb::GetFilename BEFORE GRID";
-        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (replicaset->ok())
+        QScopedPointer<ScopedDbConnection> connPtr( ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        ScopedDbConnection& replicaset = *connPtr;
+
+        if (replicaset.ok())
         {
-            GridFS gfs(replicaset->conn(), m_database.toAscii().data());
+            GridFS gfs(replicaset.conn(), m_database.toAscii().data());
 
             //const mongo::GridFile *m_grid_file = new mongo::GridFile(this->m_gfs->findFile(gfs_id.wrap()));
             const mongo::GridFile *m_grid_file = new mongo::GridFile(gfs.findFile(gfs_id.wrap()));
@@ -596,14 +608,14 @@ string Mongodb::GetFilename(const be &gfs_id)
             if (!m_grid_file->exists()) {
                 std::cout << "Mongodb::GetFilename file not found" << std::endl;
                 delete(m_grid_file);
-                replicaset->done();
+                replicaset.done();
                 return "";
             }
             else
             {
                 string filename = m_grid_file->getFilename();
                 std::cout << "Mongodb::GetFilename FILE NAME : " << filename << std::endl;
-                replicaset->done();
+                replicaset.done();
                 return filename;
             }
         }
@@ -629,10 +641,12 @@ BSONObj Mongodb::GetGfsid(const string filename)
 
     try {
         qDebug() << "Mongodb::GetFilename BEFORE GRID";
-        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (replicaset->ok())
+        QScopedPointer<ScopedDbConnection> connPtr( ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        ScopedDbConnection& replicaset = *connPtr;
+
+        if (replicaset.ok())
         {
-            GridFS gfs(replicaset->conn(), m_database.toAscii().data());
+            GridFS gfs(replicaset.conn(), m_database.toAscii().data());
 
 
             const mongo::GridFile *m_grid_file = new mongo::GridFile(gfs.findFile(filename));
@@ -641,6 +655,7 @@ BSONObj Mongodb::GetGfsid(const string filename)
             if (!m_grid_file->exists()) {
                 std::cout << "Mongodb::GetGfsid file not found" << std::endl;
                 delete(m_grid_file);
+                replicaset.done();
                 return gfsid_;
             }
             else
@@ -649,6 +664,7 @@ BSONObj Mongodb::GetGfsid(const string filename)
                 std::cout << "Mongodb::GetGfsid : " << gfsid << std::endl;
                 gfsid_ = BSON("_id" << gfsid);
                 std::cout << "Mongodb::GetGfsid2 : " << gfsid_ << std::endl;
+                replicaset.done();
                 return gfsid_;
             }
         }
@@ -673,7 +689,7 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
     try {
         //replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
 
-        scoped_ptr<ScopedDbConnection> connPtr( ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        QScopedPointer<ScopedDbConnection> connPtr( ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
         ScopedDbConnection& replicaset = *connPtr;
 
         if (replicaset.ok())
@@ -755,13 +771,15 @@ BSONObj Mongodb::WriteFile(const string filename, const char *data, int size)
 
     BSONObj struct_file;
     try {
-        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (replicaset->ok())
+        QScopedPointer<ScopedDbConnection> connPtr( ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        ScopedDbConnection& replicaset = *connPtr;
+
+        if (replicaset.ok())
         {
             //struct_file = this->m_gfs->storeFile(data, size, filename, "application/octet-stream");
-            GridFS gfs(replicaset->conn(), m_database.toAscii().data());
+            GridFS gfs(replicaset.conn(), m_database.toAscii().data());
             struct_file = gfs.storeFile(data, size, filename, "application/octet-stream");
-            replicaset->done();
+            replicaset.done();
         }
     }
     catch(mongo::DBException &e ) {
@@ -780,16 +798,17 @@ QBool Mongodb::Insert(QString a_document, BSONObj a_datas)
     tmp.append(m_database).append(".").append(a_document);
 
     qDebug() << "Mongodb::Insert tmp : " << tmp;
-    ScopedDbConnection *replicaset;
 
 
  try {
         //this->m_mongo_connection.insert(tmp.toAscii().data(), a_datas);
-        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (replicaset->ok())
+        QScopedPointer<ScopedDbConnection> connPtr( ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        ScopedDbConnection& replicaset = *connPtr;
+
+        if (replicaset.ok())
         {
-            replicaset->conn().insert(tmp.toAscii().data(), a_datas);
-            replicaset->done();
+            replicaset.conn().insert(tmp.toAscii().data(), a_datas);
+            replicaset.done();
             return QBool(true);
         }
         qDebug() << m_server + "." + a_document + " inserted";
@@ -812,16 +831,16 @@ QBool Mongodb::Remove(QString a_document, BSONObj a_datas)
     tmp.append(m_database).append(".").append(a_document);
 
     qDebug() << "Mongodb::Remove tmp : " << tmp;
-    ScopedDbConnection *replicaset;
-
 
  try {
         //this->m_mongo_connection.insert(tmp.toAscii().data(), a_datas);
-        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (replicaset->ok())
+        QScopedPointer<ScopedDbConnection> connPtr(  ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        ScopedDbConnection& replicaset = *connPtr;
+
+        if (replicaset.ok())
         {
-            replicaset->conn().remove(tmp.toAscii().data(), a_datas);
-            replicaset->done();
+            replicaset.conn().remove(tmp.toAscii().data(), a_datas);
+            replicaset.done();
             return QBool(true);
         }
         qDebug() << m_server + "." + a_document + " removed";
@@ -851,15 +870,16 @@ QBool Mongodb::Update(QString a_document, const BSONObj &element_id, const BSONO
 
     tmp.append(m_database).append(".").append(a_document);
     qDebug() << "Mongodb::Update tmp : " << tmp;
-    ScopedDbConnection *replicaset;
 
  try {
         //this->m_mongo_connection.update(tmp.toAscii().data(), mongo::Query(element_id), data, upsert ,multi);
-        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (replicaset->ok())
+        QScopedPointer<ScopedDbConnection> connPtr( ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        ScopedDbConnection& replicaset = *connPtr;
+
+        if (replicaset.ok())
         {
-            replicaset->conn().update(tmp.toAscii().data(), mongo::Query(element_id), data, upsert ,multi);
-            replicaset->done();
+            replicaset.conn().update(tmp.toAscii().data(), mongo::Query(element_id), data, upsert ,multi);
+            replicaset.done();
             qDebug() << m_server + "." + a_document + " updated";
             return QBool(true);
         }
@@ -888,15 +908,16 @@ QBool Mongodb::Update(QString a_document, const BSONObj &element_id, const BSONO
 
     tmp.append(m_database).append(".").append(a_document);
     qDebug() << "Mongodb::Update tmp : " << tmp;
-    ScopedDbConnection *replicaset;
 
  try {
         //this->m_mongo_connection.update(tmp.toAscii().data(), mongo::Query(element_id), data, upsert ,multi);
-        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (replicaset->ok())
+        QScopedPointer<ScopedDbConnection> connPtr( ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        ScopedDbConnection& replicaset = *connPtr;
+
+        if (replicaset.ok())
         {
-            replicaset->conn().update(tmp.toAscii().data(), mongo::Query(element_id), data, upsert ,multi);
-            replicaset->done();
+            replicaset.conn().update(tmp.toAscii().data(), mongo::Query(element_id), data, upsert ,multi);
+            replicaset.done();
             qDebug() << m_server + "." + a_document + " updated";
             return QBool(true);
         }
@@ -920,15 +941,16 @@ QBool Mongodb::Update_raw(mongo_query a_query)
 
     db.append(m_database).append(".").append(a_query.document);
     qDebug() << "Mongodb::Update db : " << db;
-    ScopedDbConnection *replicaset;
 
  try {
         //this->m_mongo_connection.update(db.toAscii().data(), a_query.query, a_query.data, true);
-        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (replicaset->ok())
+        QScopedPointer<ScopedDbConnection> connPtr(  ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        ScopedDbConnection& replicaset = *connPtr;
+
+        if (replicaset.ok())
         {
-            replicaset->conn().update(db.toAscii().data(), a_query.query, a_query.data, true);
-            replicaset->done();
+            replicaset.conn().update(db.toAscii().data(), a_query.query, a_query.data, true);
+            replicaset.done();
             qDebug() << m_server + "." + a_query.document + " updated";
             return QBool(true);
         }
@@ -951,15 +973,16 @@ QBool Mongodb::Addtoarray(QString a_document, const BSONObj &element_id, const B
 
     tmp.append(m_database).append(".").append(a_document);
     qDebug() << "Mongodb::Addtoarray tmp : " << tmp;
-    ScopedDbConnection *replicaset;
 
  try {
         //this->m_mongo_connection.update(tmp.toAscii().data(), mongo::Query(element_id), data);
-        replicaset = ScopedDbConnection::getScopedDbConnection( m_server.toStdString() );
-        if (replicaset->ok())
+        QScopedPointer<ScopedDbConnection> connPtr(ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        ScopedDbConnection& replicaset = *connPtr;
+
+        if (replicaset.ok())
         {
-            replicaset->conn().update(tmp.toAscii().data(), mongo::Query(element_id), data);
-            replicaset->done();
+            replicaset.conn().update(tmp.toAscii().data(), mongo::Query(element_id), data);
+            replicaset.done();
             qDebug() << m_server + "." + a_document + " updated";
             return QBool(true);
         }
