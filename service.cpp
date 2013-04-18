@@ -23,11 +23,17 @@
 
 ZerogwProxy::ZerogwProxy(params a_ncs_params, int port, QObject *parent) : m_ncs_params(a_ncs_params), m_port(port), QObject(parent)
 {
-    thread = new QThread;
+  /*  thread = new QThread;
+    connect(thread, SIGNAL(started()), this, SLOT(init()));
+    connect(thread, SIGNAL(finished()), this, SLOT(end()));
 
     this->moveToThread(thread);
     thread->start();
-    thread->connect(thread, SIGNAL(started()), this, SLOT(init()));
+*/
+
+   // QObject::connect(this, SIGNAL(destroyed()), this, SLOT(end()), Qt::DirectConnection);
+
+
 
     qDebug() << "ZerogwProxy::ZerogwProxy";
     zeromq_ = Zeromq::getInstance ();
@@ -43,8 +49,24 @@ ZerogwProxy::~ZerogwProxy()
 
     zerogw->close();
     worker_payload->close();
+}
 
-    emit shutdown();
+void ZerogwProxy::end()
+{
+    qDebug() << "!!!!!!! ZerogwProxy::clear 0 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
+    sleep(1);
+
+   api_payload_thread[0].clear();
+    qDebug() << "!!!!!!! ZerogwProxy::wait 0 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
+
+    thread_payload[0]->wait();
+
+    qDebug() << "!!!!!!! ZerogwProxy::clear 1 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
+
+   api_payload_thread[1].clear();
+   thread_payload[1]->wait();
+
+
 }
 
 void ZerogwProxy::init()
@@ -87,9 +109,26 @@ void ZerogwProxy::init()
     // should be enough for everybody :)
     for(int i=0; i<2; i++)
     {
-        api_payload_thread[i] = QSharedPointer<Api_payload> (new Api_payload(m_ncs_params.base_directory, 0, "/payloads_" + QString::number(m_port)));
-        connect(this, SIGNAL(shutdown()), api_payload_thread[i].data(), SLOT(destructor()), Qt::BlockingQueuedConnection);
+        thread_payload[i] = new QThread(this);
+        api_payload_thread[i] = QSharedPointer<Api_payload> (new Api_payload(m_ncs_params.base_directory, 0, "/payloads_" + QString::number(m_port)), &QObject::deleteLater);
+
+        connect(thread_payload[i], SIGNAL(started()), api_payload_thread[i].data(), SLOT(init()));
+        connect(api_payload_thread[i].data(), SIGNAL(destroyed()), thread_payload[i], SLOT(quit()), Qt::DirectConnection);
+
+        api_payload_thread[i]->moveToThread(thread_payload[i]);
+        thread_payload[i]->start();
     }
+
+ /*   thread_api_payload = new QThread(this);
+    api_payload = new Api_payload(m_ncs_params.base_directory, 0, "/payloads_" + QString::number(m_port));
+    connect(thread_api_payload, SIGNAL(started()), api_payload, SLOT(init()));
+    connect(api_payload, SIGNAL(destroyed()), thread_api_payload, SLOT(quit()), Qt::DirectConnection);
+
+
+    api_payload->moveToThread(thread_api_payload);
+    thread_api_payload->start();
+*/
+
 
    /* qDebug() << "ZerogwProxy::init BEFORE PROXY";
     zmq::proxy (*zerogw, *worker_payload, NULL);
@@ -189,36 +228,84 @@ Service::~Service()
     if (m_nodetrack) delete(m_nodetrack);
 
     qDebug() << "delete ftp";
-    if (m_nodeftp) delete(m_nodeftp);
+    if (m_nodeftp) {
+        //m_nodeftp->deleteLater();
+        delete(m_nodeftp);
+        node_thread_ftp->quit();
+    }
 
 
     qDebug() << "delete xmpp server";
-    if (m_xmpp_server) delete(m_xmpp_server);
+    if (m_xmpp_server)
+    {
+        m_xmpp_server->deleteLater();
+        thread_xmpp_server->wait();
+    }
+    //if (m_xmpp_server) delete(m_xmpp_server);
+
 
     qDebug() << "delete xmpp client";
-    if (m_xmpp_client) delete(m_xmpp_client);
+    if (m_xmpp_client)
+    {
+        m_xmpp_client->deleteLater();
+        thread_xmpp_client->wait();
+    }
+
+    //if (m_xmpp_client) delete(m_xmpp_client);
 
     qDebug() << "delete worker api";
-    emit shutdown();
-    delete(worker_api);
+    //emit shutdown();
+  //  delete(worker_api);
+    worker_api->deleteLater();
+    worker_thread_api->wait();
+
+
     if (zerogwToPayload[0])
     {
-        delete(zerogwToPayload[0]);
-        zerogwToPayload[0]->thread->quit();
+     //   delete(zerogwToPayload[0]);
+       // zerogwToPayload[0]->thread->quit();
 
-        while(!zerogwToPayload[0]->thread->isFinished ()){};
+        //while(!zerogwToPayload[0]->thread->isFinished ()){};
+
+        qDebug() << "zerogwToPayload[0]->deleteLater();";
+        zerogwToPayload[0]->deleteLater();
+
     }
     if (zerogwToPayload[1])
     {
-        delete(zerogwToPayload[1]);
+        /*delete(zerogwToPayload[1]);
         zerogwToPayload[1]->thread->quit();
         while(!zerogwToPayload[1]->thread->isFinished ()){};
+        */
+
+        qDebug() << "zerogwToPayload[1]->deleteLater();";
+        zerogwToPayload[1]->deleteLater();
     }
 
+    qDebug() << "zerogw_payload->deleteLater();";
+    zerogw_payload->deleteLater();
+    thread_ZerogwProxy->wait();
 
-    delete(api_node);
+    qDebug() << "zerogw_payload2->deleteLater();";
+    zerogw_payload2->deleteLater();
+    thread_ZerogwProxy2->wait();
+
+
+    qDebug() << "api_node->deleteLater();";
+    api_node->deleteLater();
+    thread_api_node->wait();
+
+    qDebug() << "api_workflow->deleteLater();";
+    api_workflow->deleteLater();
+    thread_api_workflow->wait();
+
+    qDebug() << "api_user->deleteLater();";
+    api_user->deleteLater();
+    thread_api_user->wait();
+
+   /* delete(api_node);
     delete(api_workflow);
-    delete(api_user);
+    delete(api_user);*/
 }
 
 
@@ -246,49 +333,62 @@ void Service::Http_api_init()
     m_ncs_params.api_port == 0 ? port = 2502 : port = m_ncs_params.api_port;
 
 
-    zerogwToPayload[0] = new ZerogwProxy(m_ncs_params, port);
-    zerogwToPayload[1] = new ZerogwProxy(m_ncs_params, port+1);
+    //zerogwToPayload[0] = new ZerogwProxy(m_ncs_params, port);
+   // zerogwToPayload[1] = new ZerogwProxy(m_ncs_params, port+1);
 
+    thread_ZerogwProxy = new QThread(this);
+    zerogw_payload = new ZerogwProxy(m_ncs_params, port);
 
-/*
-    zmq::socket_t zerogw (*zeromq_->m_context, ZMQ_ROUTER);
-    zerogw.bind ("tcp://*:2503");
-    zmq::socket_t worker_payload (*zeromq_->m_context, ZMQ_DEALER);
-    worker_payload.bind ("inproc://workers");
-    qDebug() << "Service::Http_api_init BEFORE PROXY";
+    connect(thread_ZerogwProxy, SIGNAL(started()), zerogw_payload, SLOT(init()));
+    connect(zerogw_payload, SIGNAL(destroyed()), thread_ZerogwProxy, SLOT(quit()), Qt::DirectConnection);
 
-    zmq::proxy (zerogw, worker_payload, NULL);
-    qDebug() << "Service::Http_api_init AFTER PROXY";
-
+    zerogw_payload->moveToThread(thread_ZerogwProxy);
+    thread_ZerogwProxy->start();
 
 
 
-    QThread *thread_api_payload = new QThread;
-    api_payload = new Api_payload(m_ncs_params.base_directory, port);
-    api_payload->moveToThread(thread_api_payload);
-    thread_api_payload->start();
+    thread_ZerogwProxy2 = new QThread(this);
+    zerogw_payload2 = new ZerogwProxy(m_ncs_params, port+1);
 
-    QThread *thread_api_payload2 = new QThread;
-    api_payload2 = new Api_payload(m_ncs_params.base_directory, port + 101);
-    api_payload2->moveToThread(thread_api_payload2);
-    thread_api_payload2->start();
-*/
+    connect(thread_ZerogwProxy2, SIGNAL(started()), zerogw_payload2, SLOT(init()));
+    connect(zerogw_payload2, SIGNAL(destroyed()), thread_ZerogwProxy2, SLOT(quit()), Qt::DirectConnection);
 
-    //connect(this, SIGNAL(shutdown()), api_payload, SLOT(destructor()), Qt::BlockingQueuedConnection);
-    //connect(api_payload, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
+    zerogw_payload2->moveToThread(thread_ZerogwProxy2);
+    thread_ZerogwProxy2->start();
 
 
+
+    thread_api_node = new QThread(this);
     api_node = new Api_node(m_ncs_params.base_directory, port + 100);
 
-    //connect(this, SIGNAL(shutdown()), api_node, SLOT(destructor()), Qt::BlockingQueuedConnection);
-    //connect(api_node, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
+    connect(thread_api_node, SIGNAL(started()), api_node, SLOT(init()));
+    connect(api_node, SIGNAL(destroyed()), thread_api_node, SLOT(quit()), Qt::DirectConnection);
 
+    api_node->moveToThread(thread_api_node);
+    thread_api_node->start();
+
+
+
+    thread_api_workflow = new QThread(this);
     api_workflow = new Api_workflow(m_ncs_params.base_directory, port + 101);
-    //connect(this, SIGNAL(shutdown()), api_workflow, SLOT(destructor()), Qt::BlockingQueuedConnection);
-    //connect(api_workflow, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
+
+    connect(thread_api_workflow, SIGNAL(started()), api_workflow, SLOT(init()));
+    connect(api_workflow, SIGNAL(destroyed()), thread_api_workflow, SLOT(quit()), Qt::DirectConnection);
+
+    api_workflow->moveToThread(thread_api_workflow);
+    thread_api_workflow->start();
 
 
+
+
+    thread_api_user = new QThread(this);
     api_user = new Api_user(m_ncs_params.base_directory, port + 102);
+
+    connect(thread_api_user, SIGNAL(started()), api_user, SLOT(init()));
+    connect(api_user, SIGNAL(destroyed()), thread_api_user, SLOT(quit()), Qt::DirectConnection);
+
+    api_user->moveToThread(thread_api_user);
+    thread_api_user->start();
 }
 
 
@@ -330,12 +430,13 @@ void Service::Nodeftp_init()
     int port;
     m_ncs_params.ftp_server_port == 0 ? port = 2121 : port = m_ncs_params.ftp_server_port;
 
-   QThread *node_ftp = new QThread;
-   m_nodeftp = new Nodeftp(m_ncs_params.base_directory, port);
-   m_nodeftp->moveToThread(node_ftp);
-   node_ftp->start();
+    node_thread_ftp = new QThread(this);
+    m_nodeftp = new Nodeftp(m_ncs_params.base_directory, port);
+    connect(m_nodeftp, SIGNAL(destroyed()), node_thread_ftp, SLOT(quit()), Qt::DirectConnection);
+    m_nodeftp->connect(node_thread_ftp, SIGNAL(started()), SLOT(ftp_init()));
 
-   m_nodeftp->connect(node_ftp, SIGNAL(started()), SLOT(ftp_init()));
+    m_nodeftp->moveToThread(node_thread_ftp);
+    node_thread_ftp->start();
 }
 
 void Service::Tracker_init()
@@ -354,19 +455,32 @@ void Service::Xmpp_init()
 {  
     qRegisterMetaType<QXmppLogger::MessageType>("QXmppLogger::MessageType");
 
+    thread_xmpp_server = new QThread;
     m_xmpp_server = new Xmpp_server(m_ncs_params.domain_name, m_ncs_params.xmpp_client_port, m_ncs_params.xmpp_server_port);
+    connect(m_xmpp_server, SIGNAL(destroyed()), thread_xmpp_server, SLOT(quit()), Qt::DirectConnection);
+    m_xmpp_server->moveToThread(thread_xmpp_server);
+    thread_xmpp_server->start();
+
+
+    thread_xmpp_client = new QThread;
     m_xmpp_client = new Xmpp_client(m_ncs_params.base_directory, m_ncs_params.domain_name, m_ncs_params.xmpp_client_port);
+    connect(m_xmpp_client, SIGNAL(destroyed()), thread_xmpp_client, SLOT(quit()), Qt::DirectConnection);
+    m_xmpp_client->moveToThread(thread_xmpp_client);
+    thread_xmpp_client->start();
 }
 
 
 
 void Service::Worker_init()
 {
-    QThread *worker_pull = new QThread;
+    worker_thread_api = new QThread;
     worker_api = new Worker_api(m_ncs_params.base_directory);
-    worker_api->moveToThread(worker_pull);
-    worker_pull->start();    
-    connect(this, SIGNAL(shutdown()), worker_api, SLOT(destructor()), Qt::BlockingQueuedConnection);
+
+    connect(worker_api, SIGNAL(destroyed()), worker_thread_api, SLOT(quit()), Qt::DirectConnection);
+
+    worker_api->moveToThread(worker_thread_api);
+    worker_thread_api->start();
+    //connect(this, SIGNAL(shutdown()), worker_api, SLOT(destructor()), Qt::BlockingQueuedConnection);
 
 
 }

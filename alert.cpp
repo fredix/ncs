@@ -93,4 +93,7 @@ void Alert::success()
 
 
 Alert::~Alert()
-{}
+{
+    if (m_smtp) delete(m_smtp);
+    if (m_message) delete(m_message);
+}

@@ -46,15 +46,17 @@ class ZerogwProxy : public QObject
 public:
     ZerogwProxy(params a_ncs_params, int port, QObject *parent = 0);
     ~ZerogwProxy();
-    QThread *thread;
 
 private slots:
     void init();
+    void end();
 
 signals:
     void shutdown();
 
 private:
+    QThread *thread;
+    QThread *thread_payload[2];
     QSocketNotifier *check_zerogw;
     QSocketNotifier *check_reply;
     int m_port;
@@ -88,14 +90,33 @@ public:
     Worker_api *worker_api;
     ZerogwProxy *zerogwToPayload[2];
 
+    ZerogwProxy *zerogw_payload;
+    ZerogwProxy *zerogw_payload2;
+
     Api_node *api_node;
     Api_workflow *api_workflow;
     Api_user *api_user;
 
 private:
+    QThread *thread_ZerogwProxy;
+    QThread *thread_ZerogwProxy2;
+
+    QThread *thread_api_node;
+    QThread *thread_api_workflow;
+    QThread *thread_api_user;
+
+    QThread *thread_xmpp_server;
+    QThread *thread_xmpp_client;
+
+
+
+    QThread *node_thread_ftp;
+    Nodeftp *m_nodeftp;
+
+    QThread *worker_thread_api;
+
 
     Http_admin *m_http_admin;
-    Nodeftp *m_nodeftp;
     Http_api *m_http_api;
     Xmpp_server *m_xmpp_server;
     Xmpp_client *m_xmpp_client;

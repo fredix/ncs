@@ -22,7 +22,7 @@
 #include <fstream>
 
 
-Ztracker::Ztracker(zmq::context_t *a_context) : m_context(a_context)
+Ztracker::Ztracker(zmq::context_t *a_context, QObject *parent) : m_context(a_context), QObject(parent)
 {
     std::cout << "Ztracker::Ztracker construct" << std::endl;
 
@@ -372,16 +372,7 @@ void Ztracker::worker_update_ticker()
 
 Ztracker::~Ztracker()
 {
-    qDebug() << "Ztracker deleted socket";
-    delete(m_socket);
-}
-
-
-void Ztracker::destructor()
-{
-    m_mutex->lock();
-
-    qDebug() << "Ztracker destructor";
+    qDebug() << "Ztracker destruct";
     check_tracker->setEnabled(false);
 
     qDebug() << "Ztracker worker_timer stop";
@@ -389,207 +380,15 @@ void Ztracker::destructor()
 
     qDebug() << "Ztracker close socket";
     m_socket->close ();
-}
 
-
-Zapi::Zapi(zmq::context_t *a_context) : m_context(a_context)
-{
-    std::cout << "Zapi::Zapi constructeur" << std::endl;    
-    m_mutex = new QMutex();
-    mongodb_ = Mongodb::getInstance();
-
-    m_message = new zmq::message_t(2);
-    m_socket_http = new zmq::socket_t (*m_context, ZMQ_REP);
-    int hwm = 50000;
-    m_socket_http->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
-    m_socket_http->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
-    m_socket_http->bind("tcp://*:2503");
-
-
-    int http_socket_fd;
-    size_t socket_size = sizeof(http_socket_fd);
-    m_socket_http->getsockopt(ZMQ_FD, &http_socket_fd, &socket_size);
-
-    qDebug() << "RES getsockopt : " << "res" <<  " FD : " << http_socket_fd << " errno : " << zmq_strerror (errno);
-
-    check_http_data = new QSocketNotifier(http_socket_fd, QSocketNotifier::Read, this);
-    connect(check_http_data, SIGNAL(activated(int)), this, SLOT(receive_http_payload()), Qt::DirectConnection);
-
-}
-
-
-Zapi::~Zapi()
-{
-    qDebug() << "Zapi::~Zapi";
-    delete(m_socket_http);
-}
-
-
-void Zapi::receive_http_payload()
-{
-    m_mutex->lock();
-
-    check_http_data->setEnabled(false);
-
-    std::cout << "Zapi::receive_payload" << std::endl;
-
-    QHash <QString, QString> zerogw;
-    QString key;
-    int counter=0;
-    while (true)
-    {
-        zmq::message_t request;
-        bool res = m_socket_http->recv(&request, ZMQ_NOBLOCK);
-        if (!res && zmq_errno () == EAGAIN) break;
-
-        qint32 events = 0;
-        std::size_t eventsSize = sizeof(events);
-        m_socket_http->getsockopt(ZMQ_RCVMORE, &events, &eventsSize);
-
-        std::cout << "Zapi::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
-
-        BSONObj data;
-        try {
-            data = mongo::fromjson(QString::fromAscii((char*)request.data()).toStdString());
-
-            if (data.isValid() && !data.isEmpty())
-            {
-                std::cout << "Zapi received : " << res << " data : " << data  << std::endl;
-                std::cout << "!!!!!!! BEFORE FORWARD PAYLOAD !!!!" << std::endl;
-                //emit forward_payload(data.copy());
-
-                QString fieldname = QString::fromAscii(data.firstElementFieldName());
-                QString fieldjson = QString::fromStdString(data.firstElement().toString(false));
-
-                zerogw[fieldname] = fieldjson;
-
-                std::cout << "!!!!!!! AFTER FORWARD PAYLOAD !!!!" << std::endl;
-            }
-            else
-            {
-                std::cout << "DATA NO VALID !" << std::endl;
-            }
-
-        }
-        catch (mongo::MsgAssertionException &e)
-        {
-            // received not a json
-            QString tmp;
-
-            qDebug() << "COUNTER : " << counter;
-            key = counter == 0? "METHOD" : "";
-            key = counter == 1? "URI" : key;
-            key = counter == 2? "X-node-uuid" : key;
-            key = counter == 3? "X-node-password" : key;
-            key = counter == 4? "X-workflow-uuid" : key;
-            key = counter == 5? "X-payload-filename" : key;
-            key = counter == 6? "X-payload-type" : key;
-
-            // body
-            if (counter==7)
-            {
-                key = "gfs_id";
-
-                QByteArray requestContent((char*)request.data(), request.size());
-                BSONObj gfs_file_struct = mongodb_->WriteFile(zerogw["X-payload-filename"].toStdString(), requestContent.constData (), requestContent.size ());
-                if (gfs_file_struct.nFields() == 0)
-                {
-                    qDebug() << "write on gridFS failed !";
-                    tmp = "42";
-                }
-                else tmp = QString::fromStdString(gfs_file_struct.getField("_id").OID().toString());
-            }
-            else tmp = QString::fromAscii((char*)request.data(), request.size());
-
-            zerogw[key] = tmp.replace("/", "");
-
-            std::cout << "error on data : " <<  tmp.toStdString() << std::endl;
-            std::cout << "error on data BSON : " << e.what() << std::endl;
-        }
-
-        if (!(events & ZMQ_RCVMORE))
-        {
-            QString bodyMessage;
-
-            if (zerogw["METHOD"] == "POST")
-            {
-                QUuid tmp_session_uuid = QUuid::createUuid();
-                QString session_uuid = tmp_session_uuid.toString().mid(1,36);
-                bodyMessage = buildResponse("push", session_uuid);
-                //qDebug() << "SESSION UUID : " << bodyMessage;
-            }
-            else bodyMessage = "BAD REQUEST";
-
-            m_message->rebuild(bodyMessage.length());
-            memcpy(m_message->data(), bodyMessage.toAscii(), bodyMessage.length());
-
-            m_socket_http->send(*m_message, 0);
-            qDebug() << "returning : " << bodyMessage;
-        }
-        counter++;
-    }
-    qDebug() << "ZEROGW : " << zerogw;
-    check_http_data->setEnabled(true);
-    m_mutex->unlock();
-}
-
-
-QString Zapi::buildResponse(QString action, QString data1, QString data2)
-{
-    QVariantMap data;
-    QString body;
-
-
-    if (action == "update")
-    {
-        data.insert("uuid", data1);
-    }
-    else if (action == "register")
-    {
-        data.insert("node_uuid", data1);
-        data.insert("node_password", data2);
-    }
-    else if (action == "push" || action == "publish" || action == "create")
-    {
-        data.insert("uuid", data1);
-    }
-    else if (action == "file")
-    {
-        data.insert("gridfs", data1);
-    }
-    else if (action == "error")
-    {
-        data.insert("error", data1);
-        data.insert("code", data2);
-    }
-    else if (action == "status")
-    {
-        data.insert("status", data1);
-    }
-    else
-    {
-        data.insert(action, data1);
-    }
-    body = QxtJSON::stringify(data);
-
-    return body;
+    qDebug() << "Ztracker deleted socket";
+    delete(m_socket);
 }
 
 
 
 
-void Zapi::destructor()
-{
-    qDebug() << "Zapi destructor";
-
-    m_mutex_http->lock();
-    check_http_data->setEnabled(false);
-    m_socket_http->close ();
-}
-
-
-
-Zpull::Zpull(QString base_directory, zmq::context_t *a_context) : m_context(a_context)
+Zpull::Zpull(QString base_directory, zmq::context_t *a_context, QObject *parent) : m_context(a_context), QObject(parent)
 {        
     std::cout << "Zpull::Zpull constructeur" << std::endl;
     QString directory;
@@ -660,16 +459,8 @@ Zpull::Zpull(QString base_directory, zmq::context_t *a_context) : m_context(a_co
 Zpull::~Zpull()
 {
     qDebug() << "Zpull::~Zpull";
-    delete(m_socket_http);
-    delete(m_socket_workers);
-    delete(m_socket_zeromq);
-}
 
-void Zpull::destructor()
-{
-    qDebug() << "Zpull destructor";
-
-    m_mutex_http->lock();
+//    m_mutex_http->lock();
     check_http_data->setEnabled(false);
     m_socket_http->close ();
 
@@ -681,7 +472,12 @@ void Zpull::destructor()
     check_worker_response->setEnabled(false);
     m_socket_workers->close ();
 
+
+    delete(m_socket_http);
+    delete(m_socket_workers);
+    delete(m_socket_zeromq);
 }
+
 
 
 void Zpull::receive_http_payload()
@@ -952,7 +748,7 @@ void Zpull::worker_response()
 
 
 
-Zdispatch::Zdispatch(zmq::context_t *a_context) : m_context(a_context)
+Zdispatch::Zdispatch(zmq::context_t *a_context, QObject *parent) : m_context(a_context), QObject(parent)
 {
     m_mutex_replay_payload = new QMutex();
     m_mutex_push_payload = new QMutex();
@@ -998,12 +794,8 @@ Zdispatch::Zdispatch(zmq::context_t *a_context) : m_context(a_context)
 
 
 Zdispatch::~Zdispatch()
-{}
-
-
-void Zdispatch::destructor()
 {
-    qDebug() << "Zdispatch destructor";
+    qDebug() << "Zdispatch destruct";
     m_mutex_replay_payload->lock();
     m_mutex_push_payload->lock();
 
@@ -1026,6 +818,7 @@ void Zdispatch::destructor()
         if (workers_push.contains (w_name)) workers_push[w_name].clear ();
     }
 }
+
 
 
 
@@ -1646,7 +1439,7 @@ void Zworker_push::push_payload(bson::bo a_payload)
 
 
 
-Zstream_push::Zstream_push(zmq::context_t *a_context) : m_context(a_context)
+Zstream_push::Zstream_push(zmq::context_t *a_context, QObject *parent) : m_context(a_context), QObject(parent)
 {
 
     std::cout << "Zstream_push::Zstream_push constructeur" << std::endl;
@@ -1677,17 +1470,15 @@ Zstream_push::Zstream_push(zmq::context_t *a_context) : m_context(a_context)
 
 
 Zstream_push::~Zstream_push()
-{}
-
-void Zstream_push::destructor()
 {
-    qDebug() << "Zstream_push destructor";
+    qDebug() << "Zstream_push destruct";
     m_mutex->lock();
 
     check_stream->setEnabled(false);
     z_stream->close ();
     delete(z_stream);
 }
+
 
 
 void Zstream_push::stream_payload()
@@ -1945,33 +1736,31 @@ Zeromq::~Zeromq()
     qDebug() << "pull_timer stop";
     pull_timer->stop ();
 
-    qDebug() << "BEFORE SHUTDOWN";
-    emit shutdown();
-    qDebug() << "AFTER SHUTDOWN";
 
     qDebug() << "Zeromq delete ztracker";
+    ztracker->deleteLater();
     qDebug() << "stop ztracker thread";
-    thread_tracker->quit ();
-    while(!thread_tracker->isFinished ()){};
-    delete(ztracker);
+    thread_tracker->wait();
+
+
+
 
     qDebug() << "Zeromq delete pull";
+    pull->deleteLater();
     qDebug() << "stop pull thread";
-    thread_pull->quit ();
-    while(!thread_pull->isFinished ()){};
-    delete(pull);
+    thread_pull->wait();
+
 
     qDebug() << "Zeromq delete dispatch";
+    dispatch->deleteLater();
     qDebug() << "stop dispatch thread";
-    thread_dispatch->quit ();
-    while(!thread_dispatch->isFinished ()){};
-    delete(dispatch);
+    thread_dispatch->wait();
+
 
     qDebug() << "Zeromq delete stream_push";
+    stream_push->deleteLater();
     qDebug() << "stop stream_push thread";
-    thread_stream->quit ();
-    while(!thread_stream->isFinished ()){};
-    delete(stream_push);
+    thread_stream->wait();
 
     qDebug() << "Zeromq close zworkers socket";
     z_workers->close ();
@@ -2012,56 +1801,41 @@ void Zeromq::init()
 
     z_workers->bind("inproc://payload");
 
-    thread_dispatch = new QThread;
+    thread_dispatch = new QThread(this);
     dispatch = new Zdispatch(m_context);
+    connect(dispatch, SIGNAL(destroyed()), thread_dispatch, SLOT(quit()), Qt::DirectConnection);
     dispatch->moveToThread(thread_dispatch);
     thread_dispatch->start();
-    connect(this, SIGNAL(shutdown()), dispatch, SLOT(destructor()), Qt::BlockingQueuedConnection);
 
 
 
-    thread_tracker = new QThread;
+    thread_tracker = new QThread(this);
     ztracker = new Ztracker(m_context);
+    connect(ztracker, SIGNAL(destroyed()), thread_tracker, SLOT(quit()), Qt::DirectConnection);
+    connect(ztracker, SIGNAL(create_server(QString,QString)), dispatch, SLOT(bind_server(QString,QString)), Qt::QueuedConnection);
     ztracker->moveToThread(thread_tracker);
     thread_tracker->start();
 
-    connect(this, SIGNAL(shutdown()), ztracker, SLOT(destructor()), Qt::BlockingQueuedConnection);
-    connect(ztracker, SIGNAL(create_server(QString,QString)), dispatch, SLOT(bind_server(QString,QString)), Qt::QueuedConnection);
 
 
-
-    thread_pull = new QThread;
+    thread_pull = new QThread(this);
     pull = new Zpull(m_base_directory, m_context);
+    connect(pull, SIGNAL(destroyed()), thread_pull, SLOT(quit()), Qt::DirectConnection);
+    connect(pull, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
     pull->moveToThread(thread_pull);    
     thread_pull->start();
-    connect(this, SIGNAL(shutdown()), pull, SLOT(destructor()), Qt::BlockingQueuedConnection);
-    connect(pull, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
 
 
-
-/*
-    thread_api = new QThread;
-    zapi = new Zapi(m_context);
-    zapi->moveToThread(thread_api);
-    thread_api->start();
-    connect(this, SIGNAL(shutdown()), zapi, SLOT(destructor()), Qt::BlockingQueuedConnection);
-    connect(zapi, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
-*/
-
-
-
-
-    thread_stream = new QThread;
+    thread_stream = new QThread(this);
     stream_push = new Zstream_push(m_context);
+    connect(stream_push, SIGNAL(destroyed()), thread_stream, SLOT(quit()), Qt::DirectConnection);
+
     stream_push->moveToThread(thread_stream);
     thread_stream->start();
-    connect(this, SIGNAL(shutdown()), stream_push, SLOT(destructor()), Qt::BlockingQueuedConnection);
 
     //connect(pull, SIGNAL(forward_payload(BSONObj)), dispatch, SLOT(push_payload(BSONObj)), Qt::QueuedConnection);
 
 
-
     std::cout << "Zeromq::Zeromq AFTER thread_receive" << std::endl;
-
 }

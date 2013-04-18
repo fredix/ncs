@@ -26,11 +26,14 @@ Zerogw::Zerogw(QString basedirectory, int port, QString ipc_name="", QObject *pa
 {
     std::cout << "Zerogw::Zerogw construct" << std::endl;
 
-    thread = new QThread;
+ //   thread = new QThread;
+//    connect(thread, SIGNAL(started()), this, SLOT(init()));
+//    connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
 
-    this->moveToThread(thread);
-    thread->start();
-    thread->connect(thread, SIGNAL(started()), this, SLOT(init()));
+ //   moveToThread(thread);
+ //   thread->start();
+
+
 
     mongodb_ = Mongodb::getInstance();
     zeromq_ = Zeromq::getInstance ();
@@ -87,6 +90,14 @@ void Zerogw::init()
 Zerogw::~Zerogw()
 {
     qDebug() << "Zerogw destruct";   
+
+    check_http_data->setEnabled(false);
+    z_push_api->close();
+    m_socket_zerogw->close();
+
+
+    qDebug() << "Zerogw DELETE destruct";
+
     delete(m_socket_zerogw);
     delete(z_push_api);
 }
@@ -94,9 +105,7 @@ Zerogw::~Zerogw()
 void Zerogw::destructor()
 {
     qDebug() << "Zerogw destructor";
-    check_http_data->setEnabled(false);        
-    z_push_api->close();
-    m_socket_zerogw->close();
+
 }
 
 

@@ -511,10 +511,6 @@ void Worker_api::receive_payload()
 
 
 Worker_api::~Worker_api()
-{}
-
-
-void Worker_api::destructor()
 {
     qDebug() << "Worker_api destructor";
 
@@ -533,4 +529,26 @@ void Worker_api::destructor()
 
     qDebug() << "Worker_api delete z_publish_api socket";
     delete(z_publish_api);
+}
+
+
+void Worker_api::destructor()
+{
+ /*   qDebug() << "Worker_api destructor";
+
+    check_payload->setEnabled(false);
+
+
+    z_receive_api->close ();
+    z_push_api->close();
+    z_publish_api->close ();
+
+    qDebug() << "Worker_api delete z_receive_api socket";
+    delete(z_receive_api);
+
+    qDebug() << "Worker_api delete z_push_api socket";
+    delete(z_push_api);
+
+    qDebug() << "Worker_api delete z_publish_api socket";
+    delete(z_publish_api);*/
 }

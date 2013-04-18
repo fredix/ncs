@@ -70,7 +70,7 @@ class Zstream_push : public QObject
 {
     Q_OBJECT
 public:
-    Zstream_push(zmq::context_t *a_context);
+    Zstream_push(zmq::context_t *a_context, QObject *parent = 0);
     ~Zstream_push();
 
 private:
@@ -83,9 +83,6 @@ private:
     zmq::message_t *z_message;
     QMutex *m_mutex;
 
-public slots:
-    void destructor();
-
 private slots:
     void stream_payload();
 };
@@ -95,7 +92,7 @@ class Ztracker : public QObject
 {
     Q_OBJECT
 public:
-    Ztracker(zmq::context_t *a_context);
+    Ztracker(zmq::context_t *a_context, QObject *parent = 0);
     ~Ztracker();
     QTimer *worker_timer;
 
@@ -120,9 +117,6 @@ signals:
     void sendAlert(QString worker);   
     void create_server(QString name, QString port);
 
-public slots:
-    void destructor();
-
 private slots:
     void receive_payload();
     void worker_update_ticker();
@@ -134,40 +128,12 @@ private slots:
 
 typedef QSharedPointer<Zworker_push> Zworker_pushPtr;
 
-class Zapi : public QThread
+
+class Zpull : public QObject
 {
     Q_OBJECT
 public:
-    Zapi(zmq::context_t *a_context);
-    ~Zapi();
-
-private:                
-    QString buildResponse(QString action, QString data1, QString data2="");
-
-    Mongodb *mongodb_;
-    QSocketNotifier *check_http_data;
-    zmq::context_t *m_context;
-    zmq::socket_t *m_socket_http;
-    QMutex *m_mutex_http;
-    zmq::message_t *m_message;
-    QMutex *m_mutex;
-
-signals:
-    void forward_payload(BSONObj data);
-
-public slots:
-    void destructor();
-
-private slots:
-    void receive_http_payload();
-};
-
-
-class Zpull : public QThread
-{
-    Q_OBJECT
-public:
-    Zpull(QString base_directory, zmq::context_t *a_context);
+    Zpull(QString base_directory, zmq::context_t *a_context, QObject *parent = 0);
     ~Zpull();
 
 private:
@@ -185,9 +151,6 @@ private:
 signals:
     void forward_payload(BSONObj data);
 
-public slots:
-    void destructor();
-
 private slots:
     void receive_http_payload();
     void receive_zeromq_payload();
@@ -201,7 +164,7 @@ class Zdispatch : public QObject
 {
     Q_OBJECT
 public:
-    Zdispatch(zmq::context_t *a_context);
+    Zdispatch(zmq::context_t *a_context, QObject *parent = 0);
     ~Zdispatch();
 
 
@@ -229,8 +192,6 @@ private slots:
 public slots:
     void bind_server(QString name, QString port);
     void push_payload(BSONObj data);
-    void destructor();
-
 };
 
 
@@ -246,7 +207,6 @@ public:
 
     zmq::context_t *m_context;
 
-    Zapi *zapi;
     Zpull *pull;
     Zdispatch *dispatch;
     Ztracker *ztracker;

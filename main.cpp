@@ -90,11 +90,14 @@ Dispatcher::Dispatcher(params ncs_params)
     zeromq->init();
     connect(zeromq->dispatch, SIGNAL(emit_pubsub(bson::bo)), service->worker_api, SLOT(pubsub_payload(bson::bo)), Qt::QueuedConnection);
 
-    QThread *thread_alert = new QThread;
+    thread_alert = new QThread;
     alert = new Alert(ncs_params.alert_email);
-    alert->moveToThread(thread_alert);
-    thread_alert->start();
+    connect(alert, SIGNAL(destroyed()), thread_alert, SLOT(quit()), Qt::DirectConnection);
+
     connect(zeromq->ztracker, SIGNAL(sendAlert(QString)), alert, SLOT(sendEmail(QString)), Qt::QueuedConnection);
+
+    alert->moveToThread(thread_alert);
+    thread_alert->start();    
 }
 
 Dispatcher::~Dispatcher()
@@ -136,9 +139,16 @@ void Dispatcher::handleSigHup()
     // do Qt stuff
     std::cout << "Received SIGHUP" << std::endl;
 
-    delete(alert);
+/*    delete(alert);
     delete(service);
-    delete(zeromq);
+    delete(zeromq);*/
+
+    alert->deleteLater();
+    thread_alert->wait();
+
+    service->deleteLater();
+    zeromq->deleteLater();
+
     mongodb_->kill ();
 
     snHup->setEnabled(true);

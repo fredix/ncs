@@ -21,7 +21,7 @@
 
 #include "xmpp_client.h"
 
-Xmpp_client::Xmpp_client(QString basedirectory, QString a_domain, int a_xmpp_client_port, QObject *parent) : m_basedirectory(basedirectory), QXmppClient(parent), m_domain(a_domain), m_xmpp_client_port(a_xmpp_client_port)
+Xmpp_client::Xmpp_client(QString basedirectory, QString a_domain, int a_xmpp_client_port, QObject *parent) : m_basedirectory(basedirectory), m_domain(a_domain), m_xmpp_client_port(a_xmpp_client_port), QXmppClient(parent)
 {
     qDebug() << "Xmpp_client::Xmpp_client !!!";
 

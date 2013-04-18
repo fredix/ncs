@@ -62,6 +62,8 @@ private:
 
     QSocketNotifier *snHup;
     QSocketNotifier *snTerm;
+
+    QThread *thread_alert;
 };
 
 

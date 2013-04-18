@@ -105,7 +105,7 @@ Mongodb::Mongodb(QString a_server, QString a_database) : m_server(a_server), m_d
       }
 
 
-    connect(this, SIGNAL(forward_payload(BSONObj)), this, SLOT(push_payload(BSONObj)), Qt::DirectConnection);
+    //connect(this, SIGNAL(forward_payload(BSONObj)), this, SLOT(push_payload(BSONObj)), Qt::DirectConnection);
 
 
 /*
