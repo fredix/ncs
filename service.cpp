@@ -22,23 +22,10 @@
 
 
 ZerogwProxy::ZerogwProxy(params a_ncs_params, int port, QObject *parent) : m_ncs_params(a_ncs_params), m_port(port), QObject(parent)
-{
-  /*  thread = new QThread;
-    connect(thread, SIGNAL(started()), this, SLOT(init()));
-    connect(thread, SIGNAL(finished()), this, SLOT(end()));
-
-    this->moveToThread(thread);
-    thread->start();
-*/
-
-   // QObject::connect(this, SIGNAL(destroyed()), this, SLOT(end()), Qt::DirectConnection);
-
-
-
+{ 
     qDebug() << "ZerogwProxy::ZerogwProxy";
     zeromq_ = Zeromq::getInstance ();
     qDebug() << "ZerogwProxy::getInstance";
-
 }
 
 ZerogwProxy::~ZerogwProxy()
@@ -49,24 +36,14 @@ ZerogwProxy::~ZerogwProxy()
 
     zerogw->close();
     worker_payload->close();
-}
 
-void ZerogwProxy::end()
-{
-    qDebug() << "!!!!!!! ZerogwProxy::clear 0 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
-    sleep(1);
+    qDebug() << "!!!!!!! ApiPayload clear !!!!!!!!!!!!!!!!!!!!!!!";
+    api_payload_thread.clear();
 
-   api_payload_thread[0].clear();
-    qDebug() << "!!!!!!! ZerogwProxy::wait 0 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
-
+    qDebug() << "!!!!!!! ApiPayload::wait 0 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
     thread_payload[0]->wait();
-
-    qDebug() << "!!!!!!! ZerogwProxy::clear 1 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
-
-   api_payload_thread[1].clear();
-   thread_payload[1]->wait();
-
-
+    qDebug() << "!!!!!!! ApiPayload::wait 1 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
+    thread_payload[1]->wait();
 }
 
 void ZerogwProxy::init()
@@ -119,18 +96,9 @@ void ZerogwProxy::init()
         thread_payload[i]->start();
     }
 
- /*   thread_api_payload = new QThread(this);
-    api_payload = new Api_payload(m_ncs_params.base_directory, 0, "/payloads_" + QString::number(m_port));
-    connect(thread_api_payload, SIGNAL(started()), api_payload, SLOT(init()));
-    connect(api_payload, SIGNAL(destroyed()), thread_api_payload, SLOT(quit()), Qt::DirectConnection);
-
-
-    api_payload->moveToThread(thread_api_payload);
-    thread_api_payload->start();
-*/
-
 
    /* qDebug() << "ZerogwProxy::init BEFORE PROXY";
+    * Do not use because of blocked zmq device.
     zmq::proxy (*zerogw, *worker_payload, NULL);
     qDebug() << "ZerogwProxy::init AFTER PROXY";
 */
@@ -209,7 +177,7 @@ Service::Service(params a_ncs_params, QObject *parent) : m_ncs_params(a_ncs_para
 {
     m_nodetrack = NULL;
     m_nodeftp = NULL;
-    m_http_api = NULL;
+   // m_http_api = NULL;
     m_xmpp_server = NULL;
     m_xmpp_client = NULL;
     zerogwToPayload[0] = NULL;
@@ -218,22 +186,25 @@ Service::Service(params a_ncs_params, QObject *parent) : m_ncs_params(a_ncs_para
 
 Service::~Service()
 {
-    qDebug() << "delete http api server";
-    if (m_http_api) delete(m_http_api);
+    //qDebug() << "delete http api server";
+    //if (m_http_api) delete(m_http_api);
 
     qDebug() << "delete http admin server";
+    m_admin_session.deleteLater();
     delete(m_http_admin);
 
-    qDebug() << "delete tracker";
-    if (m_nodetrack) delete(m_nodetrack);
+    if (m_nodetrack)
+    {
+        qDebug() << "delete tracker";
+        m_nodetrack_session.deleteLater();
+        delete(m_nodetrack);
+    }
 
     qDebug() << "delete ftp";
     if (m_nodeftp) {
-        //m_nodeftp->deleteLater();
-        delete(m_nodeftp);
-        node_thread_ftp->quit();
+        m_nodeftp->deleteLater();
+        node_thread_ftp->wait();
     }
-
 
     qDebug() << "delete xmpp server";
     if (m_xmpp_server)
@@ -241,8 +212,6 @@ Service::~Service()
         m_xmpp_server->deleteLater();
         thread_xmpp_server->wait();
     }
-    //if (m_xmpp_server) delete(m_xmpp_server);
-
 
     qDebug() << "delete xmpp client";
     if (m_xmpp_client)
@@ -251,11 +220,8 @@ Service::~Service()
         thread_xmpp_client->wait();
     }
 
-    //if (m_xmpp_client) delete(m_xmpp_client);
 
     qDebug() << "delete worker api";
-    //emit shutdown();
-  //  delete(worker_api);
     worker_api->deleteLater();
     worker_thread_api->wait();
 
@@ -455,14 +421,14 @@ void Service::Xmpp_init()
 {  
     qRegisterMetaType<QXmppLogger::MessageType>("QXmppLogger::MessageType");
 
-    thread_xmpp_server = new QThread;
+    thread_xmpp_server = new QThread(this);
     m_xmpp_server = new Xmpp_server(m_ncs_params.domain_name, m_ncs_params.xmpp_client_port, m_ncs_params.xmpp_server_port);
     connect(m_xmpp_server, SIGNAL(destroyed()), thread_xmpp_server, SLOT(quit()), Qt::DirectConnection);
     m_xmpp_server->moveToThread(thread_xmpp_server);
     thread_xmpp_server->start();
 
 
-    thread_xmpp_client = new QThread;
+    thread_xmpp_client = new QThread(this);
     m_xmpp_client = new Xmpp_client(m_ncs_params.base_directory, m_ncs_params.domain_name, m_ncs_params.xmpp_client_port);
     connect(m_xmpp_client, SIGNAL(destroyed()), thread_xmpp_client, SLOT(quit()), Qt::DirectConnection);
     m_xmpp_client->moveToThread(thread_xmpp_client);
@@ -473,7 +439,7 @@ void Service::Xmpp_init()
 
 void Service::Worker_init()
 {
-    worker_thread_api = new QThread;
+    worker_thread_api = new QThread(this);;
     worker_api = new Worker_api(m_ncs_params.base_directory);
 
     connect(worker_api, SIGNAL(destroyed()), worker_thread_api, SLOT(quit()), Qt::DirectConnection);

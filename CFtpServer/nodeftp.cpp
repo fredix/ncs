@@ -163,7 +163,7 @@ bool Nodeftp::ncs_auth(QString email, QString &token, QString &directory)
     return true;
 }
 
-Nodeftp::Nodeftp(QString a_directory, int port) : m_directory(a_directory), m_port(port)
+Nodeftp::Nodeftp(QString a_directory, int port, QObject *parent) : m_directory(a_directory), m_port(port), QObject(parent)
 {
     mongodb_ = Mongodb::getInstance ();
     FtpServer = new CFtpServer();
@@ -238,13 +238,8 @@ void Nodeftp::ftp_init()
             qDebug( "FTP : Server successfuly started !" );
             populate();
 
-            for( ;; )
-                sleep(1);
-
         } else
             qDebug( "FTP : Unable to accept incoming connections" );
-
-        FtpServer->StopListening();
 
     } else
         qErrnoWarning( "FTP : Unable to listen" );
@@ -266,6 +261,7 @@ void Nodeftp::populate()
 
 Nodeftp::~Nodeftp()
 {
-    qErrnoWarning( "FTP Exiting" );
+    qDebug() << "FTP Exiting";
+    FtpServer->StopListening();
     delete FtpServer;
 }

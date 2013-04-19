@@ -26,7 +26,7 @@ Ztracker::Ztracker(zmq::context_t *a_context, QObject *parent) : m_context(a_con
 {
     std::cout << "Ztracker::Ztracker construct" << std::endl;
 
-    m_mutex = new QMutex();
+//    m_mutex = new QMutex();
 
 
     mongodb_ = Mongodb::getInstance();
@@ -268,7 +268,7 @@ void Ztracker::worker_update_ticker()
 {
     std::cout << "Ztracker::update_ticker" << std::endl;
 
-    m_mutex->lock();
+  //  m_mutex->lock();
 
 
     QDateTime l_timestamp = QDateTime::currentDateTime();
@@ -363,7 +363,7 @@ void Ztracker::worker_update_ticker()
 
     }
 
-    m_mutex->unlock();
+    //m_mutex->unlock();
 }
 
 
@@ -393,9 +393,9 @@ Zpull::Zpull(QString base_directory, zmq::context_t *a_context, QObject *parent)
     std::cout << "Zpull::Zpull constructeur" << std::endl;
     QString directory;
 
-    m_mutex_zeromq = new QMutex();
-    m_mutex_http = new QMutex();
-    m_mutex_worker_response = new QMutex();
+  //  m_mutex_zeromq = new QMutex();
+//    m_mutex_http = new QMutex();
+//    m_mutex_worker_response = new QMutex();
 
 
     m_socket_http = new zmq::socket_t (*m_context, ZMQ_PULL);
@@ -464,11 +464,11 @@ Zpull::~Zpull()
     check_http_data->setEnabled(false);
     m_socket_http->close ();
 
-    m_mutex_zeromq->lock();
+   // m_mutex_zeromq->lock();
     check_zeromq_data->setEnabled(false);
     m_socket_zeromq->close ();
 
-    m_mutex_worker_response->lock();
+   // m_mutex_worker_response->lock();
     check_worker_response->setEnabled(false);
     m_socket_workers->close ();
 
@@ -482,7 +482,7 @@ Zpull::~Zpull()
 
 void Zpull::receive_http_payload()
 {
-    m_mutex_http->lock();
+   // m_mutex_http->lock();
 
     check_http_data->setEnabled(false);
 
@@ -564,7 +564,7 @@ void Zpull::receive_http_payload()
 
     }
     check_http_data->setEnabled(true);
-    m_mutex_http->unlock();
+   // m_mutex_http->unlock();
 }
 
 
@@ -572,7 +572,7 @@ void Zpull::receive_http_payload()
 
 void Zpull::receive_zeromq_payload()
 {
-    m_mutex_zeromq->lock();
+  //  m_mutex_zeromq->lock();
     check_zeromq_data->setEnabled(false);
 
     std::cout << "Zpull::receive_zeromq_payload" << std::endl;
@@ -653,14 +653,14 @@ void Zpull::receive_zeromq_payload()
 
     }
     check_zeromq_data->setEnabled(true);
-    m_mutex_zeromq->unlock();
+  //  m_mutex_zeromq->unlock();
 }
 
 
 
 void Zpull::worker_response()
 {
-    m_mutex_worker_response->lock();
+   // m_mutex_worker_response->lock();
 
     check_worker_response->setEnabled(false);
 
@@ -742,7 +742,7 @@ void Zpull::worker_response()
         }
     }
     check_worker_response->setEnabled(true);
-    m_mutex_worker_response->unlock();
+   // m_mutex_worker_response->unlock();
 }
 
 
@@ -750,8 +750,8 @@ void Zpull::worker_response()
 
 Zdispatch::Zdispatch(zmq::context_t *a_context, QObject *parent) : m_context(a_context), QObject(parent)
 {
-    m_mutex_replay_payload = new QMutex();
-    m_mutex_push_payload = new QMutex();
+  //  m_mutex_replay_payload = new QMutex();
+//    m_mutex_push_payload = new QMutex();
 
     std::cout << "Zdispatch::Zdispatch constructeur" << std::endl;
     mongodb_ = Mongodb::getInstance();
@@ -796,8 +796,8 @@ Zdispatch::Zdispatch(zmq::context_t *a_context, QObject *parent) : m_context(a_c
 Zdispatch::~Zdispatch()
 {
     qDebug() << "Zdispatch destruct";
-    m_mutex_replay_payload->lock();
-    m_mutex_push_payload->lock();
+ //   m_mutex_replay_payload->lock();
+//    m_mutex_push_payload->lock();
 
     BSONObj empty;
     worker_list = mongodb_->FindAll("workers", empty);
@@ -826,7 +826,7 @@ Zdispatch::~Zdispatch()
 void Zdispatch::replay_payload()
 {
     qDebug() << "Zdispatch::replay_payload";
-    m_mutex_replay_payload->lock();
+  //  m_mutex_replay_payload->lock();
 
     // Try to lock lock_collections. Usefull when many ncs try to update the same collection
     QDateTime timestamp = QDateTime::currentDateTime();
@@ -876,7 +876,7 @@ void Zdispatch::replay_payload()
         //mongodb_->Flush("lost_pushpull_payloads", BSON("pushed" << true << "finished" << true));
         mongodb_->Flush("lost_pushpull_payloads", BSON("pushed" << true));
     }
-    m_mutex_replay_payload->unlock();
+   // m_mutex_replay_payload->unlock();
 }
 
 void Zdispatch::bind_server(QString name, QString port)
@@ -897,7 +897,7 @@ void Zdispatch::bind_server(QString name, QString port)
 void Zdispatch::push_payload(BSONObj a_data)
 {
 
-    m_mutex_push_payload->lock();
+  //  m_mutex_push_payload->lock();
     std::cout << "Zdispatch received data : " << a_data << std::endl;
 
 
@@ -1352,7 +1352,7 @@ void Zdispatch::push_payload(BSONObj a_data)
 
 
     std::cout << "!!!!!!! PAYLOAD SEND !!!!" << std::endl;
-    m_mutex_push_payload->unlock();
+   // m_mutex_push_payload->unlock();
 }
 
 
@@ -1366,7 +1366,7 @@ Zworker_push::Zworker_push(zmq::context_t *a_context, string a_worker, string a_
     std::cout << "Zworker_push::Zworker_push constructeur" << std::endl;
     std::cout << "m context : " << *m_context << std::endl;
 
-    m_mutex = new QMutex();
+   // m_mutex = new QMutex();
 
     mongodb_ = Mongodb::getInstance();
 
@@ -1387,7 +1387,7 @@ Zworker_push::Zworker_push(zmq::context_t *a_context, string a_worker, string a_
 
 Zworker_push::~Zworker_push()
 {
-    m_mutex->lock();
+   // m_mutex->lock();
     qDebug() << "Zworker_push deleted";
     z_sender->close ();
     delete(z_sender);
@@ -1396,7 +1396,7 @@ Zworker_push::~Zworker_push()
 
 void Zworker_push::push_payload(bson::bo a_payload)
 {
-    m_mutex->lock();
+   // m_mutex->lock();
     /***************** PUSH ********************/
     std::cout << "Zworker_push::push_payload Sending tasks to workers..." << std::endl;
 
@@ -1434,7 +1434,7 @@ void Zworker_push::push_payload(bson::bo a_payload)
     std::cout << "Zworker_push::push_payload after send" << std::endl;
 
     //delete(z_message);
-    m_mutex->unlock();
+ //  m_mutex->unlock();
 }
 
 
@@ -1445,7 +1445,7 @@ Zstream_push::Zstream_push(zmq::context_t *a_context, QObject *parent) : m_conte
     std::cout << "Zstream_push::Zstream_push constructeur" << std::endl;
     std::cout << "m context : " << *m_context << std::endl;
 
-    m_mutex = new QMutex();
+//    m_mutex = new QMutex();
     mongodb_ = Mongodb::getInstance();
 
     z_stream = new zmq::socket_t(*m_context, ZMQ_REP);
@@ -1472,7 +1472,7 @@ Zstream_push::Zstream_push(zmq::context_t *a_context, QObject *parent) : m_conte
 Zstream_push::~Zstream_push()
 {
     qDebug() << "Zstream_push destruct";
-    m_mutex->lock();
+ //   m_mutex->lock();
 
     check_stream->setEnabled(false);
     z_stream->close ();
@@ -1483,7 +1483,7 @@ Zstream_push::~Zstream_push()
 
 void Zstream_push::stream_payload()
 {
-    m_mutex->lock();
+  //  m_mutex->lock();
     check_stream->setEnabled(false);
 
     std::cout << "Zstream_push::stream_payload" << std::endl;
@@ -1693,7 +1693,7 @@ void Zstream_push::stream_payload()
         }
     }
     check_stream->setEnabled(true);
-    m_mutex->unlock();
+  //  m_mutex->unlock();
 }
 
 
@@ -1720,29 +1720,21 @@ Zeromq::Zeromq(QString base_directory) : m_base_directory(base_directory)
     http://labs.qt.nokia.com/2010/06/17/youre-doing-it-wrong/
     ******************************/
 
-    m_http_mutex = new QMutex();
-    m_xmpp_mutex = new QMutex();
+  //  m_http_mutex = new QMutex();
+//    m_xmpp_mutex = new QMutex();
 
     m_context = new zmq::context_t(2);
 
     _singleton = this;       
-    pull_timer = new QTimer();
-
 }
 
 
 Zeromq::~Zeromq()
 {
-    qDebug() << "pull_timer stop";
-    pull_timer->stop ();
-
-
     qDebug() << "Zeromq delete ztracker";
     ztracker->deleteLater();
     qDebug() << "stop ztracker thread";
     thread_tracker->wait();
-
-
 
 
     qDebug() << "Zeromq delete pull";

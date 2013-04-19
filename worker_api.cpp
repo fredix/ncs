@@ -20,7 +20,7 @@
 
 #include "worker_api.h"
 
-Worker_api::Worker_api(QString basedirectory)
+Worker_api::Worker_api(QString basedirectory, QObject *parent) : QObject(parent)
 {
     mongodb_ = Mongodb::getInstance ();
     zeromq_ = Zeromq::getInstance ();

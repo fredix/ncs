@@ -68,7 +68,6 @@ public:
 
 protected:
     QString m_ipc_name;
-    QThread *thread;
     QBool checkAuth(QString token, BSONObjBuilder &payload_builder, BSONObj &a_user);
     QString buildResponse(QString action, QString data1, QString data2="");
     QString m_basedirectory;
@@ -81,7 +80,6 @@ protected:
     zmq::socket_t *m_socket_zerogw;
     QMutex *m_mutex_http;
     zmq::message_t *m_message;
-    QMutex *m_mutex;
 
     zmq::socket_t *z_push_api;
     zmq::message_t *z_message;
@@ -92,7 +90,6 @@ signals:
 
 private slots:
     void init();
-    void destructor();
     virtual void receive_http_payload()=0;
     void forward_payload_to_zpull(BSONObj payload);    
 };

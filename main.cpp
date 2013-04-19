@@ -136,12 +136,7 @@ void Dispatcher::handleSigHup()
     char tmp;
     ::read(sighupFd[1], &tmp, sizeof(tmp));
 
-    // do Qt stuff
     std::cout << "Received SIGHUP" << std::endl;
-
-/*    delete(alert);
-    delete(service);
-    delete(zeromq);*/
 
     alert->deleteLater();
     thread_alert->wait();
@@ -149,11 +144,12 @@ void Dispatcher::handleSigHup()
     service->deleteLater();
     zeromq->deleteLater();
 
-    mongodb_->kill ();
+    //mongodb_->kill ();
+    mongodb_->deleteLater();
 
     snHup->setEnabled(true);
 
-    std::cout << "ncs shutdown successfull" << std::endl;
+    std::cout << "ncs shutdown init" << std::endl;
     qApp->exit();
 }
 

@@ -211,12 +211,7 @@ public:
     Zdispatch *dispatch;
     Ztracker *ztracker;
     Zstream_push *stream_push;
-
-    //Zreceive *receive_http;
-    //Zreceive *receive_xmpp;
-    //Zreceive *receive_zeromq;
     Zworker_push *worker_push;
-
 
 private:
     QString m_base_directory;
@@ -227,7 +222,6 @@ private:
     QThread *thread_api;
 
     zmq::socket_t *z_workers;
-    QTimer *pull_timer;
     static Zeromq *_singleton;
     QMutex *m_http_mutex;
     QMutex *m_xmpp_mutex;

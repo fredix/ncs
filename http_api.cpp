@@ -86,7 +86,6 @@ QBool Http_api::checkAuth(QString token, BSONObjBuilder &payload_builder, BSONOb
 */
 
     BSONObj auth = BSON("token" << token.toStdString());
-
     std::cout << "USER TOKEN : " << auth << std::endl;
 
     BSONObj l_user = mongodb_->Find("users", auth);

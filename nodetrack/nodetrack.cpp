@@ -66,7 +66,7 @@ Nodetrack::Nodetrack(QString basedirectory, QxtAbstractWebSessionManager * sm, Q
 
 Nodetrack::~Nodetrack()
 {
-    qDebug() << "Nodetrack : close socket";
+    qDebug() << "Nodetrack : close";
     z_push_api->close ();
     delete(z_push_api);
 }

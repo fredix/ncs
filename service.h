@@ -49,7 +49,6 @@ public:
 
 private slots:
     void init();
-    void end();
 
 signals:
     void shutdown();

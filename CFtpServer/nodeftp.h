@@ -31,7 +31,7 @@ class Nodeftp : public QObject
 {
     Q_OBJECT
 public:
-    Nodeftp(QString a_directory, int port);
+    Nodeftp(QString a_directory, int port, QObject *parent = 0);
     ~Nodeftp();
 
 private:

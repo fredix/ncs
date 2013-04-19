@@ -50,7 +50,7 @@ Http_admin::Http_admin(QString basedirectory, QxtAbstractWebSessionManager * sm,
 
 Http_admin::~Http_admin()
 {
-    qDebug() << "Http_admin : close socket";
+    qDebug() << "Http_admin : close";
 }
 
 bool Http_admin::check_user_login(QxtWebRequestEvent *event, QString &alert)

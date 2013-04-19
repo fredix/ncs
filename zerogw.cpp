@@ -26,26 +26,13 @@ Zerogw::Zerogw(QString basedirectory, int port, QString ipc_name="", QObject *pa
 {
     std::cout << "Zerogw::Zerogw construct" << std::endl;
 
- //   thread = new QThread;
-//    connect(thread, SIGNAL(started()), this, SLOT(init()));
-//    connect(thread, SIGNAL(finished()), thread, SLOT(deleteLater()));
-
- //   moveToThread(thread);
- //   thread->start();
-
-
-
     mongodb_ = Mongodb::getInstance();
     zeromq_ = Zeromq::getInstance ();
     m_context = zeromq_->m_context;
-
-    m_mutex = new QMutex();
 }
 
 void Zerogw::init()
 {
-
-
     // Socket to ZPULL class
     z_message = new zmq::message_t(2);
     z_push_api = new zmq::socket_t(*m_context, ZMQ_PUSH);
@@ -56,7 +43,6 @@ void Zerogw::init()
 
     QString directory = "ipc://" + m_basedirectory + "/http";
     z_push_api->connect(directory.toLatin1());
-
 
 
     // socket from ZEROGW
@@ -95,17 +81,8 @@ Zerogw::~Zerogw()
     z_push_api->close();
     m_socket_zerogw->close();
 
-
-    qDebug() << "Zerogw DELETE destruct";
-
     delete(m_socket_zerogw);
     delete(z_push_api);
-}
-
-void Zerogw::destructor()
-{
-    qDebug() << "Zerogw destructor";
-
 }
 
 
