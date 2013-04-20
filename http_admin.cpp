@@ -1471,12 +1471,13 @@ void Http_admin::admin_workflow_post(QxtWebRequestEvent* event)
         qDebug() << "URL : " << worker.toString();
 
         BSONObj b_workflow;
-
-        try {
-            b_workflow = mongo::fromjson(worker.toString().toAscii());
+        try
+        {
+            b_workflow = mongo::fromjson(worker.toString().toStdString());
         }
         catch (mongo::MsgAssertionException &e)
         {
+            std::cout << "e : " << e.what() << std::endl;
             set_user_alert(event, errorMessage("workers's' field is not a JSON format", "error"));
             redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "createworkflow", 302 );
             postEvent(redir);
