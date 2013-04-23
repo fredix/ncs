@@ -883,8 +883,9 @@ void Http_admin::admin_user_post(QxtWebRequestEvent* event)
         mongodb_->Insert("users", t_user);
 
         if (ftp) {
-            emit create_ftp_user(form_field["email"]);
-            qDebug() << "EMIT CREATE FTP USER";
+            QString command = "{\"email\": \"" + form_field["email"] + "\", \"password\": \"" + str_ftp_token + "\", \"path\": \"" + str_ftp_directory + "\"}";
+            emit create_ftp_user("ftp", command);
+            qDebug() << "EMIT CREATE FTP USER : " << command;
         }
 
 

@@ -25,6 +25,10 @@
 #include <QObject>
 #include <QDir>
 #include <QCryptographicHash>
+#include <QSocketNotifier>
+#include <QxtJSON>
+#include <QTextStream>
+#include <QDebug>
 
 class Nodeftp : public QObject
 {
@@ -34,17 +38,24 @@ public:
     ~Nodeftp();
 
 private:
-    bool ncs_auth(QString login, QString &token, QString &directory);
-    void populate();
+    void writeStdout(QString s);
 
     QString m_directory;
     int m_port;
     CFtpServer *FtpServer;
-    //Mongodb *mongodb_;
+    QString user_email;
+    QString user_password;
+    QString user_path;
+
+    QTextStream* output;
+    QFile *log;
+
 
 public slots:
     void ftp_init();
-    void add_ftp_user(QString email);
+    bool add_ftp_user(QString email, QString password, QString path);
+    void receive_payload(QString s);
+
     //void remove_user(QString username);
 };
 

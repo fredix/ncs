@@ -82,7 +82,7 @@ Dispatcher::Dispatcher(params ncs_params)
     service->Http_admin_init();
     if (ncs_params.api_port != 0) service->Http_api_init();
     if (ncs_params.tracker_port != 0) service->Nodetrack_init();
-    if (ncs_params.ftp_server_port != 0) service->Nodeftp_init();
+    //if (ncs_params.ftp_server_port != 0) service->Nodeftp_init();
     if (ncs_params.xmpp_client_port != 0 && ncs_params.xmpp_server_port != 0 ) service->Xmpp_init();
     service->Worker_init();
     service->link();

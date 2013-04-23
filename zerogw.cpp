@@ -1010,7 +1010,8 @@ void Api_user::receive_http_payload()
                 mongodb_->Insert("users", l_user);
 
                 if (ftp) {
-                    emit create_ftp_user(QString::fromStdString(b_user.getField("email").str()));
+                    QString command = "{\"email\": \"" + QString::fromStdString(b_user.getField("email").str()) + "\", \"password\": \"" + str_ftp_token + "\", \"path\": \"" + str_ftp_directory + "\"}";
+                    emit create_ftp_user("ftp", command);
                     qDebug() << "EMIT CREATE FTP USER";
                 }
                 bodyMessage = buildResponse("token", str_token);

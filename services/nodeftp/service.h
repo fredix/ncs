@@ -27,8 +27,34 @@
 
 struct params {
     QString base_directory;
-    int server_port;
+    int ftp_server_port;
+    QString mongodb_ip;
+    QString mongodb_base;
 };
+
+
+
+class Io : public QObject
+{
+    Q_OBJECT
+
+public:
+    Io();
+    ~Io();
+
+private slots:
+    void readStdin();
+
+private:
+    QFile *io_log;
+    QSocketNotifier* notifier;
+    QTextStream* input;
+
+signals:
+    void parseData(QString s);
+
+};
+
 
 class Service : public QObject
 {
@@ -36,11 +62,32 @@ class Service : public QObject
 public:
     Service(params a_ncs_params, QObject *parent = 0);
     ~Service();
-    void Nodeftp_init();
+    void Nodeftp_init();    
+
+    // Unix signal handlers.
+    static void hupSignalHandler(int unused);
+    static void termSignalHandler(int unused);
+
+
+public slots:
+    void handleSigHup();
+    void handleSigTerm();
+
 
 private:
+    static int sighupFd[2];
+    static int sigtermFd[2];
+
+    QSocketNotifier *snHup;
+    QSocketNotifier *snTerm;
+
     Nodeftp *m_nodeftp;
-    params m_ftp_params;
+    Io *ncw;
+
+    params m_params;
+    QThread *node_thread_ftp;
+    QThread *ncw_thread;
+
 };
 
 #endif // SERVICE_H

@@ -38,7 +38,7 @@
  * @def  CFTPSERVER_ENABLE_EVENTS
  * Enable or disable events.
  */
-#define CFTPSERVER_ENABLE_EVENTS
+//#define CFTPSERVER_ENABLE_EVENTS
 
 /**
  * @def  CFTPSERVER_ENABLE_ZLIB

@@ -30,7 +30,8 @@ SOURCES += main.cpp \
     service.cpp \
     mongodb.cpp \
     http_admin.cpp \
-    zerogw.cpp
+    zerogw.cpp \
+    statemachine.cpp
 LIBS += ./externals/mongo-cxx-driver/libmongoclient.a \
         -lz \
         -lboost_system \
@@ -70,4 +71,5 @@ HEADERS += main.h \
     service.h \
     mongodb.h \
     http_admin.h \
-    zerogw.h
+    zerogw.h \
+    statemachine.h

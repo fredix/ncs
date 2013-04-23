@@ -142,7 +142,7 @@ public:
     Api_user(QString basedirectory, int port);
 
 signals:
-    void create_ftp_user(QString);
+    void create_ftp_user(QString, QString);
 
 private slots:
     void receive_http_payload();

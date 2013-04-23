@@ -24,6 +24,10 @@ Worker_api::Worker_api(QString basedirectory, QObject *parent) : QObject(parent)
 {
     mongodb_ = Mongodb::getInstance ();
     zeromq_ = Zeromq::getInstance ();
+
+    z_message_command = new zmq::message_t(2);
+
+
     z_message = new zmq::message_t(2);
     z_message_publish = new zmq::message_t(2);
     z_message_publish_replay = new zmq::message_t(2);
@@ -66,7 +70,6 @@ Worker_api::Worker_api(QString basedirectory, QObject *parent) : QObject(parent)
 
     int linger_push = 0;
     z_push_api->setsockopt (ZMQ_LINGER, &linger_push, sizeof (linger_push));
-
 
 
     //replay_payload_timer = new QTimer();
@@ -186,6 +189,62 @@ void Worker_api::replay_pubsub_payload(bson::bo a_payload)
 
 
 
+/********** SEND FTP USERS ************/
+void Worker_api::get_ftp_users(bson::bo a_payload)
+{
+    std::cout << "Worker_api::get_ftp_users : " << a_payload << std::endl;
+
+    QString dest = QString::fromStdString(a_payload.getFieldDotted("payload.dest").str());
+
+    if ("self" == dest)
+    {
+        QString node_uuid = QString::fromStdString(a_payload.getField("node_uuid").str());
+        QString worker_name = QString::fromStdString(a_payload.getField("worker_name").str());
+        QString worker_uuid = QString::fromStdString(a_payload.getField("uuid").str());
+
+        dest = node_uuid + "." + worker_name + "." + worker_uuid + " @";
+    }
+    else dest.append(" @");
+
+ //   BSONObj search = BSON("dest" << a_payload.getFieldDotted("payload.from").str() << "payload_type" << a_payload.getFieldDotted("payload.payload_type"));
+ //   QList <BSONObj> pubsub_payloads_list = mongodb_->FindAll("pubsub_payloads", search);
+
+
+
+    BSONObj search = BSON("ftp.activated" << true);
+    QList <BSONObj> ftp_users_list = mongodb_->FindAll("users", search);
+
+
+    foreach (BSONObj ftp_user, ftp_users_list)
+    {
+        //std::cout << "pubsub_payload : " << pubsub_payload.getField("data") << std::endl;
+
+        QString payload = dest;
+        //payload.append(QString::fromStdString(pubsub_payload.getField("data").str()));
+
+        QString json = "{\"email\": \"" + QString::fromStdString(ftp_user.getField("email").str()) + "\", " +
+                "\"password\": \"" + QString::fromStdString(ftp_user.getFieldDotted("ftp.token").str()) + "\", " +
+                "\"path\": \"" + QString::fromStdString(ftp_user.getFieldDotted("ftp.directory").str()) + "\"}";
+
+        payload.append(json);
+
+        qDebug() << "Worker_api::get_ftp_users payload send : " << payload;
+
+
+        /****** REPLAY API PAYLOAD *******/
+        qDebug() << "Worker_api::get_ftp_users SEND PAYLOAD";
+
+        QByteArray s_payload = payload.toAscii();
+
+        z_message_publish_replay->rebuild(s_payload.size()+1);
+        memcpy(z_message_publish_replay->data(), s_payload.constData(), s_payload.size()+1);
+        z_publish_api->send(*z_message_publish_replay);
+        //delete(z_message_publish_replay);
+        /************************/
+    }
+}
+
+
 /********** RESEND PAYLOAD PAYLOAD ************/
 void Worker_api::replay_pushpull_payload(bson::bo a_payload)
 {
@@ -194,12 +253,41 @@ void Worker_api::replay_pushpull_payload(bson::bo a_payload)
 
     std::cout << "Worker_api::replay_pushpull_payload : " << a_payload << std::endl;
 
+}
 
 
 
 
+
+/********** SEND COMMAND PAYLOAD ************/
+void Worker_api::publish_command(QString dest, QString command)
+{
+
+    qDebug() << "Worker_api::receive_command PAYLOAD : dest : " << dest << " command : " << command;
+
+
+    QString payload = dest + " @";
+    payload.append(command);
+
+    qDebug() << "SEND COMMAND : " << payload;
+
+
+    /****** SEND COMMAND PAYLOAD *******/
+    qDebug() << "Worker_api::receive_command SEND COMMAND PAYLOAD";
+
+    QByteArray s_payload = payload.toAscii();
+
+    z_message_command->rebuild(s_payload.size()+1);
+    memcpy(z_message_command->data(), s_payload.constData(), s_payload.size()+1);
+    z_publish_api->send(*z_message_command);
+    //delete(z_message_publish_replay);
+    /************************/
 
 }
+
+
+
+
 
 /********** CREATE PAYLOAD ************/
 void Worker_api::receive_payload()
@@ -276,6 +364,12 @@ void Worker_api::receive_payload()
                 std::cout << "RECEIVE REPLAY : " << payload << std::endl;
 
                 replay_pubsub_payload(payload.copy());
+            }
+            else if (payload_action == "get_ftp_users")
+            {
+                std::cout << "RECEIVE GET FTP USERS : " << payload << std::endl;
+
+                get_ftp_users(payload.copy());
             }
             else if (payload_action == "push")
             {
@@ -512,7 +606,7 @@ void Worker_api::receive_payload()
 
 Worker_api::~Worker_api()
 {
-    qDebug() << "Worker_api destructor";
+    qDebug() << "Worker_api destruct";
 
     check_payload->setEnabled(false);
 
@@ -529,26 +623,4 @@ Worker_api::~Worker_api()
 
     qDebug() << "Worker_api delete z_publish_api socket";
     delete(z_publish_api);
-}
-
-
-void Worker_api::destructor()
-{
- /*   qDebug() << "Worker_api destructor";
-
-    check_payload->setEnabled(false);
-
-
-    z_receive_api->close ();
-    z_push_api->close();
-    z_publish_api->close ();
-
-    qDebug() << "Worker_api delete z_receive_api socket";
-    delete(z_receive_api);
-
-    qDebug() << "Worker_api delete z_push_api socket";
-    delete(z_push_api);
-
-    qDebug() << "Worker_api delete z_publish_api socket";
-    delete(z_publish_api);*/
 }

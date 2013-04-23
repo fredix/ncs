@@ -8,7 +8,9 @@ QMAKE_CXXFLAGS += -D_FILE_OFFSET_BITS=64
 
 QT       += core \
         network \
-        xml
+        xml \
+        testlib
+
 QT       -= gui
 
 TARGET = nodeftp
@@ -31,3 +33,13 @@ HEADERS += \
     CFtpServer.h \
     service.h \
     main.h
+
+
+LIBS += -lz \
+        -lboost_system \
+        -lboost_filesystem-mt \
+        -lboost_thread-mt \
+        -lQxtCore
+
+INCLUDEPATH += ../../externals/libqxt/
+INCLUDEPATH += ../../externals/libqxt/src/core

@@ -26,11 +26,11 @@ void OnServerEvent( int Event )
     switch( Event )
     {
         case CFtpServer::START_LISTENING:
-            printf("* Server is listening !\r\n");
+            //printf("* Server is listening !\r\n");
             break;
 
         case CFtpServer::START_ACCEPTING:
-            printf("* Server is accepting incoming connexions !\r\n");
+            //printf("* Server is accepting incoming connexions !\r\n");
             break;
 
         case CFtpServer::STOP_LISTENING:
@@ -60,9 +60,9 @@ void OnUserEvent( int Event, CFtpServer::CUserEntry *pUser, void *pArg )
     switch( Event )
     {
         case CFtpServer::NEW_USER:
-            printf("* A new user has been created:\r\n"
+           /* printf("* A new user has been created:\r\n"
                     "\tLogin: %s\r\n" "\tPassword: %s\r\n" "\tStart directory: %s\r\n",
-                pUser->GetLogin(), pUser->GetPassword(), pUser->GetStartDirectory() );
+                pUser->GetLogin(), pUser->GetPassword(), pUser->GetStartDirectory() );*/
             break;
 
         case CFtpServer::DELETE_USER:
@@ -76,9 +76,9 @@ void OnClientEvent( int Event, CFtpServer::CClientEntry *pClient, void *pArg )
     switch( Event )
     {
         case CFtpServer::NEW_CLIENT:
-            printf( "* A new client has been created:\r\n"
+          /*  printf( "* A new client has been created:\r\n"
                 "\tClient IP: [%s]\r\n\tServer IP: [%s]\r\n",
-                inet_ntoa( *pClient->GetIP() ), inet_ntoa( *pClient->GetServerIP() ) );
+                inet_ntoa( *pClient->GetIP() ), inet_ntoa( *pClient->GetServerIP() ) );*/
             break;
 
         case CFtpServer::DELETE_CLIENT:
@@ -86,7 +86,7 @@ void OnClientEvent( int Event, CFtpServer::CClientEntry *pClient, void *pArg )
             break;
 
         case CFtpServer::CLIENT_AUTH:
-            printf( "* A client has logged-in as \"%s\".\r\n", pClient->GetUser()->GetLogin() );
+            //printf( "* A client has logged-in as \"%s\".\r\n", pClient->GetUser()->GetLogin() );
             break;
 
         case CFtpServer::CLIENT_SOFTWARE:
@@ -140,33 +140,8 @@ void OnClientEvent( int Event, CFtpServer::CClientEntry *pClient, void *pArg )
 }
 
 
-bool Nodeftp::ncs_auth(QString email, QString &token, QString &directory)
-{
-   /* QCryptographicHash cipher( QCryptographicHash::Sha1 );
-    cipher.addData(password.simplified().toAscii());
-    QByteArray password_hash = cipher.result();
-
-    qDebug() << "password_hash : " << password_hash.toHex();
-
-    password_hashed = QString::fromLatin1(password_hash.toHex());
-*/
-    BSONObj bauth = BSON("email" << email.toStdString());
-    //BSONObj l_user = mongodb_->Find("users", bauth);
-    BSONObj l_user;
-
-    if (l_user.nFields() == 0)
-    {
-        qDebug() << "Nodeftp::ncs_auth auth failed !";
-        return false;
-    }
-    token = QString::fromStdString(l_user.getFieldDotted("ftp.token").str());
-    directory = QString::fromStdString(l_user.getFieldDotted("ftp.directory").str());
-    return true;
-}
-
 Nodeftp::Nodeftp(QString a_directory, int port) : m_directory(a_directory), m_port(port)
 {
-    //mongodb_ = Mongodb::getInstance ();
     FtpServer = new CFtpServer();
 
 #ifdef CFTPSERVER_ENABLE_EVENTS
@@ -190,22 +165,23 @@ Nodeftp::Nodeftp(QString a_directory, int port) : m_directory(a_directory), m_po
 }
 
 
-void Nodeftp::add_ftp_user(QString email)
+bool Nodeftp::add_ftp_user(QString email, QString password, QString path)
 {
     qDebug() << "Nodeftp::add_user : " << email;
     // check auth
     QString token, directory;
-    if (ncs_auth(email, token, directory))
-    {
+    //if (ncs_auth(email, token, directory))
+    //{
         // create user's directory
-        QString userdirectory = m_directory + "/ftp/" + directory;
+
+        QString userdirectory = m_directory + "/" + path;
         if (!QDir(userdirectory).exists()) QDir().mkdir(userdirectory);
 
 
-        CFtpServer::CUserEntry *pUser = FtpServer->AddUser( email.toAscii(), token.toAscii(), userdirectory.toAscii() );
+        CFtpServer::CUserEntry *pUser = FtpServer->AddUser( email.toAscii(), password.toAscii(), userdirectory.toAscii() );
         if( pUser )
         {
-            printf( "-User successfully created ! :)\r\n" );
+            //printf( "-User successfully created ! :)\r\n" );
             pUser->SetMaxNumberOfClient( 5 ); // 0 Unlimited
 
     /*        pUser->SetPrivileges( CFtpServer::READFILE | CFtpServer::WRITEFILE |
@@ -222,30 +198,35 @@ void Nodeftp::add_ftp_user(QString email)
     #endif
 
         }
-        else qErrnoWarning( "-Unable to create pUser" );
-    }
-    else qErrnoWarning( "-Failed to create user" );
+        else return false;
+    //}
+    //else return false;
+
+    return true;
 }
 
 void Nodeftp::ftp_init()
 {
+    output = new QTextStream( stdout, QIODevice::WriteOnly );
+
+    log = new QFile("/tmp/ftp");
+     if (!log->open(QIODevice::Append | QIODevice::Text))
+             return;
+
+
     // If you only want to listen on the TCP Loopback interface,
     // replace 'INNADDR_ANY' by 'inet_addr("127.0.0.1")'.
     if( FtpServer->StartListening( INADDR_ANY, m_port ) ) {
-        qDebug( "FTP : Server is listening !" );
+       // qDebug( "FTP : Server is listening !" );
 
         if( FtpServer->StartAccepting() ) {
 
-            qDebug( "FTP : Server successfuly started !" );
-            populate();
-
-            for( ;; )
-                sleep(1);
+         //   qDebug( "FTP : Server successfuly started !" );
+            writeStdout("{\"action\": \"get_ftp_users\", \"from\": \"ftp\", \"dest\": \"self\"}");
 
         } else
             qDebug( "FTP : Unable to accept incoming connections" );
 
-        FtpServer->StopListening();
 
     } else
         qErrnoWarning( "FTP : Unable to listen" );
@@ -253,21 +234,85 @@ void Nodeftp::ftp_init()
 }
 
 
-void Nodeftp::populate()
-{
-    BSONObj filter = BSON("ftp.activated" << true);
-    //QList <BSONObj> users_list = mongodb_->FindAll("users", filter);
-    QList <BSONObj> users_list;
-
-    foreach (BSONObj l_user, users_list)
-    {
-        add_ftp_user(QString::fromStdString(l_user.getField("email").str()));
-    }
-}
 
 
 Nodeftp::~Nodeftp()
 {
     qErrnoWarning( "FTP Exiting" );
+    FtpServer->StopListening();
     delete FtpServer;
+    log->close();
+}
+
+
+
+void Nodeftp::writeStdout(QString s)
+{
+    (*output) << s;
+    //while (!(*output).atEnd()) {};
+    (*output).flush();
+}
+
+
+void Nodeftp::receive_payload(QString s)
+{
+
+   // writeStdout("PARSE : " + s);
+
+    //return;
+
+
+    //std::cout << s.toStdString() << std::endl;
+
+    // Do something with your received data here
+    //writeStdout(s);
+
+
+    QVariant json = QxtJSON::parse(s);
+
+
+
+    if (json.toMap().contains("email") &&
+            json.toMap().contains("password") &&
+            json.toMap().contains("path"))
+    {
+         user_email = json.toMap()["email"].toString();
+         user_password = json.toMap()["password"].toString();
+         user_path = json.toMap()["path"].toString();
+
+
+      /*  writeStdout("event : " + event);
+        qDebug() << "usageid : " << usageid;
+        qDebug() << "value : " << value;
+        qDebug() << "contentid : " << contentid;
+        */
+
+        //$datetime=date('Y-m-d H:i:s',$dt);
+        //QDateTime l_timestamp = QDateTime::currentDateTimeUtc();
+        //QString timestamp = l_timestamp.toString("yyyy-MM-dd HH:mm:ss");
+
+         bool res = add_ftp_user(user_email, user_password, user_path);
+
+
+        //writeStdout("REQ SQL : " + req);
+
+
+        /*query->exec("SELECT VERSION()");
+
+        while (query->next())
+        {
+            QString name = query->value(0).toString();
+            //qDebug() << name;
+            writeStdout(name);
+        }*/
+
+
+        QString t_bool = res ? "ok" : "ko";
+        writeStdout("{\"action\": \"terminate\", \"status\": \"" + t_bool + "\"}");
+    }
+    else
+        writeStdout("{\"error\": \"parsing json\", \"status\": \"false\"}");
+
+
+
 }

@@ -20,29 +20,159 @@
 
 #include "service.h"
 
-Service::Service(params ftp_params, QObject *parent) : m_ftp_params(ftp_params), QObject(parent)
-{
-    m_nodeftp = NULL;
- }
 
-Service::~Service()
+Io::~Io()
 {
-    qDebug() << "delete ftp";
-    delete(m_nodeftp);
+    notifier->setEnabled(false);
+    delete(input);
+    io_log->close();
+    qDebug() << "END IO";
+}
+
+Io::Io() : QObject()
+{
+    input  = new QTextStream( stdin,  QIODevice::ReadOnly );
+
+    // Demand notification when there is data to be read from stdin
+    notifier = new QSocketNotifier( STDIN_FILENO, QSocketNotifier::Read );
+    connect(notifier, SIGNAL(activated(int)), this, SLOT(readStdin()), Qt::DirectConnection);
+
+
+    io_log = new QFile("/tmp/ncw_nodeftp");
+    if (!io_log->open(QIODevice::Append | QIODevice::Text))
+            return;
+
+
+    //*cout << prompt;
+}
+
+void Io::readStdin()
+{
+    notifier->setEnabled(false);
+
+
+//    qDebug() << "READ STDIN";
+    // Read the data
+    QString line = input->readLine();
+
+    io_log->write(line.toAscii());
+    io_log->write("\n");
+    io_log->flush();
+
+    //writeStdout("LINE : " + line);
+    //if (!line.isNull() && !line.isEmpty())
+    //{
+    // Parse received data
+
+    emit parseData(line);
+
+
+    //}
+
+    notifier->setEnabled(true);
+}
+
+
+void Service::hupSignalHandler(int)
+{
+    char a = 1;
+    ::write(sighupFd[0], &a, sizeof(a));
+}
+
+void Service::termSignalHandler(int)
+{
+    char a = 1;
+    ::write(sigtermFd[0], &a, sizeof(a));
+}
+
+void Service::handleSigTerm()
+{
+    snTerm->setEnabled(false);
+    char tmp;
+    ::read(sigtermFd[1], &tmp, sizeof(tmp));
+
+    // do Qt stuff
+    qDebug() << "Received SIGTERM";
+    snTerm->setEnabled(true);
+}
+
+void Service::handleSigHup()
+{
+    snHup->setEnabled(false);
+    char tmp;
+    ::read(sighupFd[1], &tmp, sizeof(tmp));
+
+    qDebug() << "Received SIGHUP";
+
+
+    qDebug() << "Service::handleSigHup delete ncw";
+    ncw->deleteLater();
+    ncw_thread->wait();
+
+    qDebug() << "Service::handleSigHup delete ftp";
+    m_nodeftp->deleteLater();
+    node_thread_ftp->wait();
+
+
+    //mongodb_->kill ();
+    //mongodb_->deleteLater();
+
+    snHup->setEnabled(true);
+
+    qDebug() << "nodeftp shutdown init";
+    qApp->exit();
 }
 
 
 
-void Service::Nodeftp_init()
-{      
+Service::~Service()
+{
+    qDebug() << "Service::~Service delete ncw";
+    ncw->deleteLater();
+    ncw_thread->wait();
+
+
+    qDebug() << "Service::~Service delete ftp";
+    m_nodeftp->deleteLater();
+    node_thread_ftp->wait();
+}
+
+
+
+Service::Service(params a_params, QObject *parent) : m_params(a_params), QObject(parent)
+{
+    if (::socketpair(AF_UNIX, SOCK_STREAM, 0, sighupFd))
+        qFatal("Couldn't create HUP socketpair");
+
+    if (::socketpair(AF_UNIX, SOCK_STREAM, 0, sigtermFd))
+        qFatal("Couldn't create TERM socketpair");
+    snHup = new QSocketNotifier(sighupFd[1], QSocketNotifier::Read, this);
+    connect(snHup, SIGNAL(activated(int)), this, SLOT(handleSigHup()));
+    snTerm = new QSocketNotifier(sigtermFd[1], QSocketNotifier::Read, this);
+    connect(snTerm, SIGNAL(activated(int)), this, SLOT(handleSigTerm()));
+
+
+
     int port;
-    m_ftp_params.server_port == 0 ? port = 2121 : port = m_ftp_params.server_port;
+    m_params.ftp_server_port == 0 ? port = 2121 : port = m_params.ftp_server_port;
 
-   QThread *node_ftp = new QThread;
-   m_nodeftp = new Nodeftp(m_ftp_params.base_directory, port);
-   m_nodeftp->moveToThread(node_ftp);
-   node_ftp->start();
 
-   m_nodeftp->connect(node_ftp, SIGNAL(started()), SLOT(ftp_init()));
+    ncw_thread = new QThread(this);
+    ncw = new Io();
+    connect(ncw, SIGNAL(destroyed()), ncw_thread, SLOT(quit()), Qt::DirectConnection);
+
+
+    node_thread_ftp = new QThread(this);
+    m_nodeftp = new Nodeftp(m_params.base_directory, port);
+    connect(m_nodeftp, SIGNAL(destroyed()), node_thread_ftp, SLOT(quit()), Qt::DirectConnection);
+    connect(node_thread_ftp, SIGNAL(started()), m_nodeftp, SLOT(ftp_init()));
+    connect(ncw, SIGNAL(parseData(QString)), m_nodeftp, SLOT(receive_payload(QString)), Qt::QueuedConnection);
+
+
+    ncw->moveToThread(ncw_thread);
+    ncw_thread->start();
+
+    m_nodeftp->moveToThread(node_thread_ftp);
+    node_thread_ftp->start();
 }
 

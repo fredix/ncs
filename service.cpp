@@ -446,13 +446,10 @@ void Service::Worker_init()
 
     worker_api->moveToThread(worker_thread_api);
     worker_thread_api->start();
-    //connect(this, SIGNAL(shutdown()), worker_api, SLOT(destructor()), Qt::BlockingQueuedConnection);
-
-
 }
 
 void Service::link()
 {
-    if (m_nodeftp) connect(m_http_admin, SIGNAL(create_ftp_user(QString)), m_nodeftp, SLOT(add_ftp_user(QString)), Qt::DirectConnection);
-    if (m_nodeftp) connect(api_user, SIGNAL(create_ftp_user(QString)), m_nodeftp, SLOT(add_ftp_user(QString)), Qt::DirectConnection);
+    connect(m_http_admin, SIGNAL(create_ftp_user(QString,QString)), worker_api, SLOT(publish_command(QString,QString)), Qt::QueuedConnection);
+    connect(api_user, SIGNAL(create_ftp_user(QString,QString)), worker_api, SLOT(publish_command(QString,QString)), Qt::QueuedConnection);
 }

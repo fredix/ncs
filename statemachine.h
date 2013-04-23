@@ -18,44 +18,50 @@
 **   along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ****************************************************************************/
 
-#ifndef ZEROMQ_API_H
-#define ZEROMQ_API_H
+#ifndef STATEMACHINE_H
+#define STATEMACHINE_H
 
-#include "mongodb.h"
-#include "zeromq.h"
+#include <QObject>
+#include <QStateMachine>
+#include <QSharedPointer>
+#include <QThreadPool>
+#include <QRunnable>
 
-class Worker_api : public QObject
+
+
+class workflow_statemachine : public QObject
 {
     Q_OBJECT
 public:
-    Worker_api(QString basedirectory, QObject *parent = 0);
-    ~Worker_api();
+    explicit workflow_statemachine();
+    ~workflow_statemachine();
 
 
 private:
-    void replay_pubsub_payload(bson::bo l_payload);
-    void get_ftp_users(bson::bo a_payload);
+   //  QStateMachine *machine;
 
-    QSocketNotifier *check_payload;
-
-    zmq::socket_t *z_receive_api;
-    zmq::socket_t *z_push_api;
-    zmq::socket_t *z_publish_api;
-    zmq::message_t *z_message;
-    zmq::message_t *z_message_publish;
-    zmq::message_t *z_message_publish_replay;
-    zmq::message_t *z_message_command;
-
-    Mongodb *mongodb_;
-    Zeromq *zeromq_;
 
 public slots:
-    void pubsub_payload(bson::bo l_payload);
-    void publish_command(QString dest, QString command);
-
-private slots:
-    void receive_payload();
-    void replay_pushpull_payload(bson::bo a_payload);
+    void spawn_workflow(QString session);
 };
 
-#endif // ZEROMQ_API_H
+
+//typedef QSharedPointer<workflow_statemachine> workflow_statemachine_Ptr;
+
+class Statemachine : public QObject
+{
+    Q_OBJECT
+public:
+    explicit Statemachine(QObject *parent = 0);
+    ~Statemachine();
+    void init();
+
+signals:
+    void invoke(QString session);
+
+
+private:
+  //  QHash<QString, workflow_statemachine_Ptr> workflow_statemachine_thread;
+};
+
+#endif // STATEMACHINE_H

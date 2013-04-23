@@ -50,7 +50,7 @@
 #include <stdarg.h>
 #include <sys/stat.h>
 
-//#include <QTest>
+#include <QTest>
 
 #include "CFtpServerConfig.h"
 

@@ -19,19 +19,102 @@
 ****************************************************************************/
 
 #include "main.h"
-
 #include <QCoreApplication>
+
+
+int Service::sighupFd[2]={};
+int Service::sigtermFd[2]={};
+
+QSettings settings("nodecast", "nodeftp");
+
+
+// http://doc.qt.nokia.com/4.7/unix-signals.html
+static void setup_unix_signal_handlers()
+{
+    struct sigaction hup, term;
+
+    hup.sa_handler = Service::hupSignalHandler;
+    sigemptyset(&hup.sa_mask);
+    hup.sa_flags = 0;
+    hup.sa_flags |= SA_RESTART;
+
+    /*if (sigaction(SIGHUP, &hup, 0) > 0)
+       return 1;*/
+
+    term.sa_handler = Service::termSignalHandler;
+    sigemptyset(&term.sa_mask);
+    term.sa_flags |= SA_RESTART;
+
+    /*if (sigaction(SIGTERM, &term, 0) > 0)
+       return 2;
+
+    return 0;*/
+
+    sigaction (SIGINT, &hup, NULL);
+    sigaction (SIGTERM, &term, NULL);
+}
+
+
 
 int main(int argc, char *argv[])
 {
     QCoreApplication a(argc, argv);
-    params ftp_params;
+    params nodeftp_params;
+    bool debug;
+    bool verbose;
 
-    ftp_params.base_directory="/tmp";
-    ftp_params.server_port=2121;
+
+    QxtCommandOptions options;
+    options.add("debug", "show debug informations");
+    options.alias("debug", "d");
+
+    options.add("base-directory", "set the ftp base directory", QxtCommandOptions::Required);
+    options.alias("base-directory", "bd");
+
+    options.add("ftp-server-port", "set the ftp server port", QxtCommandOptions::Optional);
+    options.alias("ftp-server-port", "fsp");
+
+    options.add("help", "show this help text");
+    options.alias("help", "h");
+    options.parse(QCoreApplication::arguments());
+    if(options.count("help") || options.showUnrecognizedWarning()) {
+        options.showUsage();
+        return -1;
+    }
+
+
+    if(options.count("base-directory")) {
+        nodeftp_params.base_directory = options.value("base-directory").toString();
+        settings.setValue("base-directory", nodeftp_params.base_directory);
+    }
+    else if(settings.contains("base-directory"))
+    {
+        nodeftp_params.base_directory = settings.value("base-directory").toString();
+    }
+    else {
+        std::cout << "ncs: --ncs-base-directory requires a parameter" << std::endl;
+        options.showUsage();
+        return -1;
+    }
+
+
+    if(options.count("ftp-server-port")) {
+        nodeftp_params.ftp_server_port = options.value("ftp-server-port").toInt();
+        settings.setValue("ftp-server-port", nodeftp_params.ftp_server_port);
+    }
+    else if(settings.contains("ftp-server-port"))
+    {
+        nodeftp_params.ftp_server_port = settings.value("ftp-server-port").toInt();
+    }
+    else nodeftp_params.ftp_server_port = 0;
+
+
+    settings.sync();
+    setup_unix_signal_handlers();
+
 
     Service *service;
-    service = new Service(ftp_params);
+    service = new Service(nodeftp_params);
 
     return a.exec();
 }
