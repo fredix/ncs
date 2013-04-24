@@ -338,6 +338,7 @@ void Api_payload::receive_http_payload()
                         nodes.elems(list_nodes);
                         list<be>::iterator i;
 
+                        bool node_found = false;
                         /********   Iterate over each user's nodes   *******/
                         /********  find node with uuid and set the node id to payload collection *******/
                         for(i = list_nodes.begin(); i != list_nodes.end(); ++i)
@@ -352,9 +353,11 @@ void Api_payload::receive_http_payload()
                             if (zerogw["X-node-uuid"].toStdString().compare(l_node.getField("uuid").str()) == 0)
                             {
                                 payload_builder.append("node_id", node_id.OID());
+                                node_found = true;
                                 break;
                             }
-                        }
+                        }                        
+                        if (!node_found) bodyMessage = buildResponse("error", "node", "unknown");
                     }
                 }
 
