@@ -429,7 +429,7 @@ void Api_payload::receive_http_payload()
         case BODY:
             if (!bodyMessage.isEmpty()) break;
 
-            if (zerogw["X-payload-mime"] == "json")
+         /*   if (zerogw["X-payload-mime"] == "json")
             {
                 BSONObj data;
                 try {
@@ -459,8 +459,8 @@ void Api_payload::receive_http_payload()
                 {
                     bodyMessage = buildResponse("error", "JSON not valid");
                 }
-            }
-            else if (!zerogw["X-payload-filename"].isEmpty() && zerogw["X-payload-mime"] != "json")
+            }*/
+            if (!zerogw["X-payload-filename"].isEmpty() && zerogw["X-payload-mime"] != "json")
             {
                 key = "gfs_id";
 
@@ -502,7 +502,7 @@ void Api_payload::receive_http_payload()
 
                 }
             }
-            // not a json or binary
+            // not a binary
             else
             {
                 payload_builder.append("gridfs", false);
