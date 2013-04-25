@@ -357,7 +357,7 @@ void Api_payload::receive_http_payload()
                                 break;
                             }
                         }                        
-                        if (!node_found) bodyMessage = buildResponse("error", "node", "unknown");
+                        //if (!node_found) {bodyMessage = buildResponse("error", "node", "unknown");}
                     }
                 }
 
@@ -1014,7 +1014,7 @@ void Api_user::receive_http_payload()
 
                 if (ftp) {
                     QString command = "{\"email\": \"" + QString::fromStdString(b_user.getField("email").str()) + "\", \"password\": \"" + str_ftp_token + "\", \"path\": \"" + str_ftp_directory + "\"}";
-                    emit create_ftp_user("ftp", command);
+                    emit create_ftp_user("nodeftp", command);
                     qDebug() << "EMIT CREATE FTP USER";
                 }
                 bodyMessage = buildResponse("token", str_token);

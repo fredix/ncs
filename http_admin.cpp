@@ -884,7 +884,7 @@ void Http_admin::admin_user_post(QxtWebRequestEvent* event)
 
         if (ftp) {
             QString command = "{\"email\": \"" + form_field["email"] + "\", \"password\": \"" + str_ftp_token + "\", \"path\": \"" + str_ftp_directory + "\"}";
-            emit create_ftp_user("ftp", command);
+            emit create_ftp_user("nodeftp", command);
             qDebug() << "EMIT CREATE FTP USER : " << command;
         }
 
@@ -1469,12 +1469,13 @@ void Http_admin::admin_workflow_post(QxtWebRequestEvent* event)
 
 
         QUrl worker = QUrl::fromPercentEncoding(form_field["workers"].toAscii().replace("+", "%20"));
-        qDebug() << "URL : " << worker.toString();
+        string json = worker.toString().toStdString();
+        std::cout << "WORKFLOW JSON : " << json << std::endl;
 
-        BSONObj b_workflow;
+        mongo::BSONObj b_workflow;
         try
         {
-            b_workflow = mongo::fromjson(worker.toString().toStdString());
+            b_workflow = mongo::fromjson(json);
         }
         catch (mongo::MsgAssertionException &e)
         {
@@ -1484,7 +1485,7 @@ void Http_admin::admin_workflow_post(QxtWebRequestEvent* event)
             postEvent(redir);
             return;
         }
-         std::cout << "WORKFLOW : " << b_workflow.toString() << std::endl;
+        std::cout << "WORKFLOW : " << b_workflow.toString() << std::endl;
 
         BSONObj user_id;
         if (!user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
