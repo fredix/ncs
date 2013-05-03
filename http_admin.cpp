@@ -317,6 +317,16 @@ void Http_admin::admin(QxtWebRequestEvent* event, QString action)
 
                 admin_user_post(event);
             }
+            else if (action == "apps")
+            {
+
+                admin_apps_get(event);
+            }
+            else if (action == "createapp")
+            {
+
+                admin_app_post(event);
+            }
             else if (action == "nodes")
             {
 
@@ -387,6 +397,11 @@ void Http_admin::admin(QxtWebRequestEvent* event, QString action)
                 admin_user_post(event);
                 return;
             }
+            else if (action == "createapp")
+            {
+                admin_app_post(event);
+                return;
+            }
             else if (action == "createnode")
             {
                 admin_node_post(event);
@@ -404,8 +419,8 @@ void Http_admin::admin(QxtWebRequestEvent* event, QString action)
             }
             else if (action == "createworkflow")
             {
-
-                admin_workflow_post(event);
+                admin_workflow_post(event);                                
+                return;
             }
 
             break;
@@ -898,6 +913,283 @@ void Http_admin::admin_user_post(QxtWebRequestEvent* event)
 }
 
 
+
+/********** ADMIN PAGE ************/
+void Http_admin::admin_apps_get(QxtWebRequestEvent* event)
+{
+
+    /*    QString bodyMessage;
+        bodyMessage = buildResponse("error", "ncs version 0.9.1");
+
+        qDebug() << bodyMessage;
+
+
+{ "_id" : ObjectId("50f91cbda159811513a8b729"), "nodename" : "samsung@dev", "email" : "fredix@gmail.com", "user_id" : ObjectId("50f91c85a7a5dbe8e2f35b29"), "node_uuid" : "0d7f9bdc-37a2-4290-be41-62598bd7a525", "node_password" : "6786a141-6dff-4f91-891a-a9107915ad76" }
+
+
+      */
+
+
+    QxtHtmlTemplate header;
+    QxtHtmlTemplate body;
+    QxtHtmlTemplate footer;
+    QxtWebPageEvent *page;
+
+//            if(!body.open("html_templates/admin_users_get.html"))
+
+    if(!body.open(m_basedirectory + "/html_templates/admin_apps_get.html"))
+            {
+                body["content"]="error 404";
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           body.render().toUtf8());
+                page->status = 404;
+                qDebug() << "error 404";
+            }
+            else
+            {
+                header.open(m_basedirectory + "/html_templates/header.html");
+                footer.open(m_basedirectory + "/html_templates/footer.html");
+                header["connection"] = "<li><a href=\"/admin/logout\">Logout</a></li>";
+
+
+                qDebug() << "COOKIES : " << event->cookies.value("nodecast");
+                QString l_alert;
+                if (!check_user_login(event, l_alert)) return;
+                if (!l_alert.isEmpty()) header["alert"] = l_alert;
+                header["user_login"] = "connected as " + QString::fromStdString(user_bson[event->cookies.value("nodecast")].getField("login").toString(false));
+
+
+                BSONObj filter;
+                if (!user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
+                {
+                    filter = BSON("user_id" << user_bson[event->cookies.value("nodecast")].getField("_id"));
+                }
+
+                QList <BSONObj> apps = mongodb_->FindAll("apps", filter);
+
+                QString output;
+                int counter=0;
+                foreach (BSONObj app, apps)
+                {
+
+                    BSONObj user_id = BSON("_id" << app.getField("user_id"));
+                    BSONObj user = mongodb_->Find("users", user_id);
+
+                    QString trclass = (counter %2 == 0) ? "odd" : "even";
+
+                    output.append("<tr class=\"" + trclass +  "\"><td><input type=\"checkbox\" class=\"checkbox\" name=\"id_" + QString::number(counter) + "\" value=\"" + QString::fromStdString(app.getField("_id").OID().str()) + "\"></td><td>" +
+                            QString::fromStdString(app.getField("appname").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(app.getField("app_uuid").str()) + "</td>" +
+                            "<td>" + QString::fromStdString(user.getField("email").str()) + "</td>" +
+                            "<td class=\"last\"><a href=\"#\">show</a> | <a href=\"#\">edit</a> | <a href=\"#\">destroy</a></td></tr>");
+
+                    counter++;
+                }
+
+
+
+                body["data"]=output;
+                body["data_count"]=QString::number(counter);
+
+
+                /*
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+                */
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+
+
+                page->contentType="text/html";
+            }
+
+            postEvent(page);
+
+
+            /* postEvent(new QxtWebPageEvent(event->sessionID,
+                                          event->requestID,
+                                          index.render().toUtf8()));
+
+            */
+}
+
+
+
+/********** ADMIN PAGE ************/
+void Http_admin::admin_app_post(QxtWebRequestEvent* event)
+{
+
+    /*    QString bodyMessage;
+        bodyMessage = buildResponse("error", "ncs version 0.9.1");
+
+        qDebug() << bodyMessage;
+
+      */
+
+
+    QxtHtmlTemplate header;
+    QxtHtmlTemplate body;
+    QxtHtmlTemplate footer;
+    QxtWebPageEvent *page;
+    QxtWebContent *form;
+    QxtWebRedirectEvent *redir=NULL;
+
+
+//            if(!body.open("html_templates/admin_users_get.html"))
+
+
+
+    switch (enumToHTTPmethod[event->method.toUpper()])
+    {
+    case GET:
+        if(!body.open(m_basedirectory + "/html_templates/admin_app_post.html"))
+            {
+                body["content"]="error 404";
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           body.render().toUtf8());
+                page->status = 404;
+                qDebug() << "error 404";
+            }
+            else
+            {
+                header.open(m_basedirectory + "/html_templates/header.html");
+                footer.open(m_basedirectory + "/html_templates/footer.html");
+
+                qDebug() << "COOKIES : " << event->cookies.value("nodecast");
+                QString l_alert;
+                if (!check_user_login(event, l_alert)) return;
+                if (!l_alert.isEmpty()) header["alert"] = l_alert;
+
+                if (user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
+                {
+                    QString output="<label class=\"label\">Choose a owner</label>";
+                    BSONObj empty;
+                    QList <BSONObj> users = mongodb_->FindAll("users", empty);
+
+                    output.append("<select name=\"user\">");
+
+                    foreach (BSONObj user, users)
+                    {
+                        output.append("<option value=\"" + QString::fromStdString(user.getField("_id").OID().str()) + "\">" +  QString::fromStdString(user.getField("login").str()) + "</option>");
+                    }
+                    output.append("</select>");
+
+
+                    body["users"] = output;
+                }
+                /*
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+                */
+                page = new QxtWebPageEvent(event->sessionID,
+                                           event->requestID,
+                                           header.render().toUtf8() +
+                                           body.render().toUtf8() +
+                                           footer.render().toUtf8());
+
+
+                page->contentType="text/html";
+            }
+
+            postEvent(page);
+
+        break;
+    case POST:
+
+        qDebug() << "COOKIES : " << event->cookies.value("nodecast");
+        QString l_alert;
+        if (!check_user_login(event, l_alert)) return;
+
+        form = event->content;
+        form->waitForAllContent();
+
+        QByteArray requestContent = form->readAll();
+        //RECEIVE :  "firstname=fred&lastname=ix&email=fredix%40gmail.com"
+
+        qDebug() << "RECEIVE : " << requestContent;
+
+        //QxtWebStoreCookieEvent cookie_mail (event->sessionID, "email", hauth["email"],  QDateTime::currentDateTime().addMonths(1));
+        //QxtWebStoreCookieEvent cookie_pass (event->sessionID, "password", hauth["password"],  QDateTime::currentDateTime().addMonths(1));
+
+
+        //RECEIVE :  "login=fredix&email=fredix%40gmail.com"
+
+        QHash <QString, QString> form_field;
+        QStringList list_field = QString::fromAscii(requestContent).split("&");
+
+        for (int i = 0; i < list_field.size(); ++i)
+        {
+            QStringList field = list_field.at(i).split("=");
+
+            if (field[1].isEmpty())
+            {
+                set_user_alert(event, errorMessage("field " + field[0] + " is empty", "error"));
+                redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "createnode", 302 );
+                postEvent(redir);
+                return;
+            }
+
+            form_field[field[0]] = field[1].replace(QString("%40"), QString("@"));
+        }
+
+        qDebug() << "form field : " << form_field;
+
+
+
+        QUuid app_uuid = QUuid::createUuid();
+        QString str_app_uuid = app_uuid.toString().mid(1,36);
+
+        qDebug() << "str_app_uuid : " << str_app_uuid;
+
+        BSONObj user_id;
+        if (!user_bson[event->cookies.value("nodecast")].getBoolField("admin"))
+        {
+            user_id = BSON("_id" << user_bson[event->cookies.value("nodecast")].getField("_id"));
+        }
+        else user_id = BSON("_id" << mongo::OID(form_field["user"].toStdString()));
+
+        BSONObj t_user = mongodb_->Find("users", user_id);
+        std::cout << "T USER : " << t_user.toString() << std::endl;
+
+        BSONObj t_app = BSON(GENOID <<
+                              "appname" << form_field["appname"].toStdString()  <<
+                              "user_id" << t_user.getField("_id").OID() <<
+                              "app_uuid" << str_app_uuid.toStdString());
+        mongodb_->Insert("apps", t_app);
+
+        be t_user_id = t_user.getField("_id");
+        bo app = BSON("apps" << t_app);
+        mongodb_->Addtoarray("users", t_user_id.wrap(), app);
+
+
+
+        //doc = { login : 'user', email : 'user@email.com', authentication_token : 'token'}
+        //db.users.insert(doc);
+
+
+
+        redir = new QxtWebRedirectEvent( event->sessionID, event->requestID, "apps", 302 );
+        postEvent(redir);
+
+        break;
+    }
+
+}
+
+
+
+
 /********** ADMIN PAGE ************/
 void Http_admin::admin_nodes_get(QxtWebRequestEvent* event)
 {
@@ -1227,6 +1519,7 @@ void Http_admin::admin_node_post(QxtWebRequestEvent* event)
     }
 
 }
+
 
 
 

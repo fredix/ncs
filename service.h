@@ -95,6 +95,9 @@ public:
     Api_node *api_node;
     Api_workflow *api_workflow;
     Api_user *api_user;
+    Api_session *api_session;
+    Api_app *api_app;
+
 
 private:
     QThread *thread_ZerogwProxy;
@@ -103,6 +106,9 @@ private:
     QThread *thread_api_node;
     QThread *thread_api_workflow;
     QThread *thread_api_user;
+    QThread *thread_api_session;
+    QThread *thread_api_app;
+
 
     QThread *thread_xmpp_server;
     QThread *thread_xmpp_client;

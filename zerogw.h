@@ -33,6 +33,8 @@
 #include <QxtCore/QxtCommandOptions>
 #include <QxtJSON>
 #include <QCryptographicHash>
+#include <QRunnable>
+#include <QThreadPool>
 
 #include <zmq.hpp>
 #include "mongodb.h"
@@ -41,22 +43,48 @@
 
 
 
-enum ZerogwHeaderPayload {
-    METHOD=0,
-    URI=1,
-    X_user_token=2,
-    X_node_uuid=3,
-    X_node_password=4,
-    X_workflow_uuid=5,
-    X_payload_filename=6,
-    X_payload_type=7,
-    X_payload_mime=8,
-    X_payload_action=9,
-    BODY=10
+enum ZerogwHeader {
+    HTTP_METHOD,
+    URI,
+    X_user_token,
+    X_node_uuid,
+    X_node_password,
+    X_workflow_uuid,
+    X_payload_filename,
+    X_payload_type,
+    X_payload_mime,
+    X_payload_action,
+    X_session_uuid,
+    BODY
 };
 
 
-typedef QMap<int, ZerogwHeaderPayload> IntToZerogwHeaderPayload;
+
+
+typedef QMap<int, ZerogwHeader> IntToZerogwHeaderPayload;
+typedef QMap<int, ZerogwHeader> IntToZerogwHeaderSession;
+typedef QMap<int, ZerogwHeader> IntToZerogwHeaderApp;
+
+
+
+class GridfsTask : public QObject, public QRunnable
+{
+    Q_OBJECT
+
+public:
+    GridfsTask(QHash <QString, QString> a_zerogw);
+    void run();
+    QByteArray *m_requestContent;
+
+private:
+    Mongodb *mongodb_;
+    QHash <QString, QString> m_zerogw;
+
+
+signals:
+    void forward_payload(BSONObj data);
+};
+
 
 
 class Zerogw : public QObject
@@ -69,6 +97,7 @@ public:
 protected:
     QString m_ipc_name;
     QBool checkAuth(QString token, BSONObjBuilder &payload_builder, BSONObj &a_user);
+    QBool checkAuth(QString token, QHash <QString, QString> &hash_builder, BSONObj &a_user);
     QString buildResponse(QString action, QString data1, QString data2="");
     QString m_basedirectory;
     int m_port;
@@ -84,8 +113,6 @@ protected:
     zmq::socket_t *z_push_api;
     zmq::message_t *z_message;
 
-signals:
-    void forward_payload(BSONObj data);
 
 
 private slots:
@@ -104,7 +131,7 @@ public:
 
 
 private:
-    IntToZerogwHeaderPayload enumToZerogwHeader;
+    IntToZerogwHeaderPayload enumToZerogwHeaderPayload;
 
 private slots:
     void receive_http_payload();
@@ -143,6 +170,37 @@ public:
 
 signals:
     void create_ftp_user(QString, QString);
+
+private slots:
+    void receive_http_payload();
+};
+
+
+
+class Api_session : public Zerogw
+{
+    Q_OBJECT
+public:
+    Api_session(QString basedirectory, int port);
+
+private:
+    IntToZerogwHeaderSession enumToZerogwHeaderSession;
+
+private slots:
+    void receive_http_payload();
+};
+
+
+class Api_app : public Zerogw
+{
+    Q_OBJECT
+public:
+    Api_app(QString basedirectory, int port);
+
+
+private:
+    IntToZerogwHeaderApp enumToZerogwHeaderApp;
+
 
 private slots:
     void receive_http_payload();

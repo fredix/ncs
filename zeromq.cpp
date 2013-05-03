@@ -930,8 +930,8 @@ void Zdispatch::push_payload(BSONObj a_data)
 
     BSONElement payload_type = payload.getField("payload_type");
 
-
     bool gridfs = payload.getField("gridfs").Bool();
+
     string filename;
 
     if (gridfs)

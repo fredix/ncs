@@ -60,6 +60,8 @@ public slots:
 private:
     void admin_users_get(QxtWebRequestEvent* event);
     void admin_user_post(QxtWebRequestEvent* event);
+    void admin_apps_get(QxtWebRequestEvent* event);
+    void admin_app_post(QxtWebRequestEvent* event);
     void admin_nodes_get(QxtWebRequestEvent* event);
     void admin_node_post(QxtWebRequestEvent* event);
     void admin_node_or_workflow_delete(QxtWebRequestEvent* event, QString collection);

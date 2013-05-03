@@ -269,6 +269,16 @@ Service::~Service()
     api_user->deleteLater();
     thread_api_user->wait();
 
+
+    qDebug() << "api_session->deleteLater();";
+    api_session->deleteLater();
+    thread_api_session->wait();
+
+
+    qDebug() << "api_app->deleteLater();";
+    api_app->deleteLater();
+    thread_api_app->wait();
+
    /* delete(api_node);
     delete(api_workflow);
     delete(api_user);*/
@@ -355,6 +365,27 @@ void Service::Http_api_init()
 
     api_user->moveToThread(thread_api_user);
     thread_api_user->start();
+
+
+    thread_api_session = new QThread(this);
+    api_session = new Api_session(m_ncs_params.base_directory, port + 103);
+
+    connect(thread_api_session, SIGNAL(started()), api_session, SLOT(init()));
+    connect(api_session, SIGNAL(destroyed()), thread_api_session, SLOT(quit()), Qt::DirectConnection);
+
+    api_session->moveToThread(thread_api_session);
+    thread_api_session->start();
+
+
+
+    thread_api_app = new QThread(this);
+    api_app = new Api_app(m_ncs_params.base_directory, port + 104);
+
+    connect(thread_api_app, SIGNAL(started()), api_app, SLOT(init()));
+    connect(api_app, SIGNAL(destroyed()), thread_api_app, SLOT(quit()), Qt::DirectConnection);
+
+    api_app->moveToThread(thread_api_app);
+    thread_api_app->start();
 }
 
 
