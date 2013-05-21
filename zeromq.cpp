@@ -1560,8 +1560,7 @@ void Zstream_push::stream_payload()
 
                 z_message.rebuild(b_filename.objsize());
                 memcpy ((void *) z_message.data(), (char*)b_filename.objdata(), b_filename.objsize());
-                //z_stream->send (&z_message, ZMQ_NOBLOCK);
-                z_stream->send (z_message);
+                z_stream->send (z_message, ZMQ_NOBLOCK);
                 goto flush_socket;
             }
 
@@ -1654,7 +1653,7 @@ void Zstream_push::stream_payload()
 
 
                              // bool l_res = z_stream->send(&z_message, (chunk_index+1<num_chunck)? ZMQ_SNDMORE | ZMQ_NOBLOCK: 0);
-                            bool l_res = z_stream->send(z_message, (chunk_index+1<num_chunck)? ZMQ_SNDMORE : 0);
+                            bool l_res = z_stream->send(z_message, (chunk_index+1<num_chunck)? ZMQ_SNDMORE | ZMQ_NOBLOCK: 0);
 
                             if (!l_res)
                             {
@@ -1694,8 +1693,7 @@ void Zstream_push::stream_payload()
                 zmq::message_t z_message(2);
                 z_message.rebuild(b_error.objsize());
                 memcpy ((void *) z_message.data(), (char*)b_error.objdata(), b_error.objsize());
-                //z_stream->send (&z_message, ZMQ_NOBLOCK);
-                z_stream->send (z_message);
+                z_stream->send (z_message, ZMQ_NOBLOCK);
                 goto flush_socket;
             }
         }
