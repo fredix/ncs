@@ -114,7 +114,7 @@ void Ztracker::receive_payload()
             std::cout << "Ztracker::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
 
             if (request.size() == 0) {
-                std::cout << "Zpull::worker_response received request 0" << std::endl;
+                std::cout << "Ztracker::worker_response received request 0" << std::endl;
                 break;
             }
 
@@ -1454,7 +1454,7 @@ Zstream_push::Zstream_push(zmq::context_t *a_context, QObject *parent) : m_conte
     z_stream->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
 
     z_stream->bind("tcp://*:5556");
-    z_message = new zmq::message_t(2);
+    //z_message = new zmq::message_t(2);
 
 
     int socket_stream_fd;
@@ -1556,9 +1556,11 @@ void Zstream_push::stream_payload()
 
 
                 BSONObj b_filename = BSON("filename" << filename);
-                z_message->rebuild(b_filename.objsize());
-                memcpy ((void *) z_message->data(), (char*)b_filename.objdata(), b_filename.objsize());
-                z_stream->send (*z_message, ZMQ_NOBLOCK);
+                zmq::message_t z_message;
+
+                z_message.rebuild(b_filename.objsize());
+                memcpy ((void *) z_message.data(), (char*)b_filename.objdata(), b_filename.objsize());
+                z_stream->send (&z_message, ZMQ_NOBLOCK);
                 goto flush_socket;
             }
 
@@ -1641,16 +1643,16 @@ void Zstream_push::stream_payload()
                             //std::cout << "Zstream_push::stream_payload CHUNK toBase64 LEN : " << chunk_length << " size : " << s_chunk_data.size() << std::endl;
 
 
-
-                            z_message->rebuild(chunk_data.size());
-                            memcpy((void *) z_message->data(), chunk_data.constData(), chunk_data.size());
-
-
-                            std::cout << "Zstream_push::stream_payload MESSAGE LEN : " << z_message->size() << std::endl;
+                            zmq::message_t z_message;
+                            z_message.rebuild(chunk_data.size());
+                            memcpy((void *) z_message.data(), chunk_data.constData(), chunk_data.size());
 
 
+                            std::cout << "Zstream_push::stream_payload MESSAGE LEN : " << z_message.size() << std::endl;
 
-                            bool l_res = z_stream->send(*z_message, (chunk_index+1<num_chunck)? ZMQ_SNDMORE | ZMQ_NOBLOCK: 0);
+
+
+                            bool l_res = z_stream->send(&z_message, (chunk_index+1<num_chunck)? ZMQ_SNDMORE | ZMQ_NOBLOCK: 0);
                             if (!l_res)
                             {
                                 std::cout << "ERROR ON STREAMING DATA" << std::endl;
@@ -1667,10 +1669,11 @@ void Zstream_push::stream_payload()
                 {
                     gfsid = BSON("error" << "filename not found : " + t_payload.getField("filename").str());
 
-                    z_message->rebuild(gfsid.objsize());
-                    memcpy((void *) z_message->data(), gfsid.objdata(), gfsid.objsize());
+                    zmq::message_t z_message;
+                    z_message.rebuild(gfsid.objsize());
+                    memcpy((void *) z_message.data(), gfsid.objdata(), gfsid.objsize());
 
-                    bool l_res = z_stream->send(*z_message, 0);
+                    bool l_res = z_stream->send(&z_message, 0);
                     if (!l_res)
                     {
                         std::cout << "ERROR ON ERROR DATA" << std::endl;
@@ -1685,9 +1688,10 @@ void Zstream_push::stream_payload()
             else
             {
                 BSONObj b_error = BSON("error" << "action unknown : " + payload_action.toStdString());
-                z_message->rebuild(b_error.objsize());
-                memcpy ((void *) z_message->data(), (char*)b_error.objdata(), b_error.objsize());
-                z_stream->send (*z_message, ZMQ_NOBLOCK);
+                zmq::message_t z_message;
+                z_message.rebuild(b_error.objsize());
+                memcpy ((void *) z_message.data(), (char*)b_error.objdata(), b_error.objsize());
+                z_stream->send (&z_message, ZMQ_NOBLOCK);
                 goto flush_socket;
             }
         }

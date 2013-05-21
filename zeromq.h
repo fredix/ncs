@@ -80,7 +80,7 @@ private:
     string m_port;
     zmq::context_t *m_context;
     zmq::socket_t *z_stream;
-    zmq::message_t *z_message;
+ //   zmq::message_t *z_message;
     QMutex *m_mutex;
 
 private slots:

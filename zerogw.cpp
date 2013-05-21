@@ -609,6 +609,7 @@ void Api_payload::receive_http_payload()
                 //QByteArray requestContent((char*)request.data(), request.size());
 
                 GridfsTask *gfstask = new GridfsTask(zerogw);
+                gfstask->setAutoDelete(true);
                 gfstask->m_requestContent = new QByteArray ((char*)request.data(), request.size());
                 connect(gfstask, SIGNAL(forward_payload(BSONObj)), this, SLOT(forward_payload_to_zpull(BSONObj)), Qt::QueuedConnection);
 
