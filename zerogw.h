@@ -108,12 +108,7 @@ protected:
     QSocketNotifier *check_http_data;
     zmq::socket_t *m_socket_zerogw;
     QMutex *m_mutex_http;
-    zmq::message_t *m_message;
-
     zmq::socket_t *z_push_api;
-    zmq::message_t *z_message;
-
-
 
 private slots:
     void init();

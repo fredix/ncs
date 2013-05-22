@@ -32,7 +32,7 @@ Ztracker::Ztracker(zmq::context_t *a_context, QObject *parent) : m_context(a_con
     mongodb_ = Mongodb::getInstance();
 
     /***************** SERVICE SOCKET *************/
-    m_message = new zmq::message_t(2);
+    //m_message = new zmq::message_t(2);
     m_socket = new zmq::socket_t (*m_context, ZMQ_REP);
 
     int hwm = 50000;
@@ -106,6 +106,7 @@ void Ztracker::receive_payload()
         while (true) {
             flush_socket:
             zmq::message_t request;
+            zmq::message_t m_message(2);
 
             bool res = m_socket->recv (&request, ZMQ_NOBLOCK);
             if (!res && zmq_errno () == EAGAIN) break;
@@ -195,9 +196,8 @@ void Ztracker::receive_payload()
                 be worker_id = worker.getField("_id");
                 mongodb_->Addtoarray("workers", worker_id.wrap(), node);
 
-
-                m_message->rebuild(payload.objsize());
-                memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
+                m_message.rebuild(payload.objsize());
+                memcpy(m_message.data(), (char*)payload.objdata(), payload.objsize());
             }
             else if (payload_action == "watchdog")
                {
@@ -211,15 +211,15 @@ void Ztracker::receive_payload()
                    mongodb_->Update("workers", bo_node_uuid, workers_node);
 
                    BSONObj payload = BSON("status" << "ACK");
-                   m_message->rebuild(payload.objsize());
-                   memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
+                   m_message.rebuild(payload.objsize());
+                   memcpy(m_message.data(), (char*)payload.objdata(), payload.objsize());
                }
             else if (payload_action == "ping")
             {
                 qDebug() << "RECEIVE INIT SOCKET";
                 BSONObj payload = BSON("status" << "pong");
-                m_message->rebuild(payload.objsize());
-                memcpy(m_message->data(), (char*)payload.objdata(), payload.objsize());
+                m_message.rebuild(payload.objsize());
+                memcpy(m_message.data(), (char*)payload.objdata(), payload.objsize());
             }
             /*else
             {
@@ -255,7 +255,7 @@ void Ztracker::receive_payload()
                }*/
 
 
-            m_socket->send(*m_message);
+            m_socket->send(m_message);
             //delete(m_message);
         }
     }
@@ -1381,7 +1381,7 @@ Zworker_push::Zworker_push(zmq::context_t *a_context, string a_worker, string a_
     std::cout << "ADDR : " << addr << std::endl;
 
     z_sender->bind(addr.data());
-    z_message = new zmq::message_t(2);
+    //z_message = new zmq::message_t(2);
 }
 
 
@@ -1400,9 +1400,9 @@ void Zworker_push::push_payload(bson::bo a_payload)
     /***************** PUSH ********************/
     std::cout << "Zworker_push::push_payload Sending tasks to workers..." << std::endl;
 
-    z_message->rebuild(a_payload.objsize());
-    memcpy(z_message->data(), (char*)a_payload.objdata(), a_payload.objsize());
-    bool res = z_sender->send(*z_message, ZMQ_NOBLOCK);
+    zmq::message_t z_message(a_payload.objsize());
+    memcpy(z_message.data(), (char*)a_payload.objdata(), a_payload.objsize());
+    bool res = z_sender->send(z_message, ZMQ_NOBLOCK);
 
     qint32 events = 0;
     std::size_t eventsSize = sizeof(events);
@@ -1452,10 +1452,7 @@ Zstream_push::Zstream_push(zmq::context_t *a_context, QObject *parent) : m_conte
     int hwm = 50000;
     z_stream->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
     z_stream->setsockopt(ZMQ_RCVHWM, &hwm, sizeof (hwm));
-
     z_stream->bind("tcp://*:5556");
-    //z_message = new zmq::message_t(2);
-
 
     int socket_stream_fd;
     size_t socket_size = sizeof(socket_stream_fd);
@@ -1503,6 +1500,7 @@ void Zstream_push::stream_payload()
             flush_socket:
 
             zmq::message_t request;
+            zmq::message_t z_message(2);
 
             bool res = z_stream->recv (&request, ZMQ_NOBLOCK);
             if (!res && zmq_errno () == EAGAIN) break;
@@ -1556,8 +1554,6 @@ void Zstream_push::stream_payload()
 
 
                 BSONObj b_filename = BSON("filename" << filename);
-                zmq::message_t z_message(2);
-
                 z_message.rebuild(b_filename.objsize());
                 memcpy ((void *) z_message.data(), (char*)b_filename.objdata(), b_filename.objsize());
                 z_stream->send (z_message, ZMQ_NOBLOCK);
@@ -1642,15 +1638,9 @@ void Zstream_push::stream_payload()
 
                             //std::cout << "Zstream_push::stream_payload CHUNK toBase64 LEN : " << chunk_length << " size : " << s_chunk_data.size() << std::endl;
 
-
-                            zmq::message_t z_message(2);
                             z_message.rebuild(chunk_data.size());
                             memcpy((void *) z_message.data(), chunk_data.constData(), chunk_data.size());
-
-
                             std::cout << "Zstream_push::stream_payload MESSAGE LEN : " << z_message.size() << std::endl;
-
-
 
                              // bool l_res = z_stream->send(&z_message, (chunk_index+1<num_chunck)? ZMQ_SNDMORE | ZMQ_NOBLOCK: 0);
                             bool l_res = z_stream->send(z_message, (chunk_index+1<num_chunck)? ZMQ_SNDMORE | ZMQ_NOBLOCK: 0);
@@ -1671,7 +1661,6 @@ void Zstream_push::stream_payload()
                 {
                     gfsid = BSON("error" << "filename not found : " + t_payload.getField("filename").str());
 
-                    zmq::message_t z_message(2);
                     z_message.rebuild(gfsid.objsize());
                     memcpy((void *) z_message.data(), gfsid.objdata(), gfsid.objsize());
 
@@ -1690,7 +1679,6 @@ void Zstream_push::stream_payload()
             else
             {
                 BSONObj b_error = BSON("error" << "action unknown : " + payload_action.toStdString());
-                zmq::message_t z_message(2);
                 z_message.rebuild(b_error.objsize());
                 memcpy ((void *) z_message.data(), (char*)b_error.objdata(), b_error.objsize());
                 z_stream->send (z_message, ZMQ_NOBLOCK);

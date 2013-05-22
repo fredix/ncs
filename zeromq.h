@@ -56,7 +56,6 @@ private:
     string m_port;
     zmq::context_t *m_context;
     zmq::socket_t *z_sender;
-    zmq::message_t *z_message;
     QList <BSONObj> m_payload_list;
     QMutex *m_mutex;
 
@@ -80,7 +79,6 @@ private:
     string m_port;
     zmq::context_t *m_context;
     zmq::socket_t *z_stream;
- //   zmq::message_t *z_message;
     QMutex *m_mutex;
 
 private slots:
@@ -102,7 +100,7 @@ private:
     QHash<QString, Zworker_push*> workers_push;
     int get_available_port();
     zmq::socket_t *m_socket;
-    zmq::message_t *m_message;
+   // zmq::message_t *m_message;
 
     zmq::socket_t *m_data_socket;
     zmq::message_t *m_data_message;

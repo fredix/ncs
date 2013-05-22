@@ -25,12 +25,6 @@ Worker_api::Worker_api(QString basedirectory, QObject *parent) : QObject(parent)
     mongodb_ = Mongodb::getInstance ();
     zeromq_ = Zeromq::getInstance ();
 
-    z_message_command = new zmq::message_t(2);
-
-
-    z_message = new zmq::message_t(2);
-    z_message_publish = new zmq::message_t(2);
-    z_message_publish_replay = new zmq::message_t(2);
     z_receive_api = new zmq::socket_t (*zeromq_->m_context, ZMQ_PULL);
     int hwm = 50000;
     z_receive_api->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
@@ -135,11 +129,9 @@ void Worker_api::pubsub_payload(bson::bo l_payload)
     qDebug() << "Worker_api::publish_payload PUBLISH PAYLOAD";
 
     QByteArray s_payload = payload.toAscii();
-
-    z_message_publish->rebuild(s_payload.size()+1);
-    memcpy(z_message_publish->data(), s_payload.constData(), s_payload.size()+1);
-    z_publish_api->send(*z_message_publish);
-    //delete(z_message_publish);
+    zmq::message_t z_message(s_payload.size()+1);
+    memcpy(z_message.data(), s_payload.constData(), s_payload.size()+1);
+    z_publish_api->send(z_message);
     /************************/
 }
 
@@ -178,10 +170,9 @@ void Worker_api::replay_pubsub_payload(bson::bo a_payload)
         qDebug() << "Worker_api::publish_payload REPLAY PAYLOAD";
 
         QByteArray s_payload = payload.toAscii();
-
-        z_message_publish_replay->rebuild(s_payload.size()+1);
-        memcpy(z_message_publish_replay->data(), s_payload.constData(), s_payload.size()+1);
-        z_publish_api->send(*z_message_publish_replay);
+        zmq::message_t z_message(s_payload.size()+1);
+        memcpy(z_message.data(), s_payload.constData(), s_payload.size()+1);
+        z_publish_api->send(z_message);
         //delete(z_message_publish_replay);
         /************************/
     }
@@ -235,11 +226,9 @@ void Worker_api::get_ftp_users(bson::bo a_payload)
         qDebug() << "Worker_api::get_ftp_users SEND PAYLOAD";
 
         QByteArray s_payload = payload.toAscii();
-
-        z_message_publish_replay->rebuild(s_payload.size()+1);
-        memcpy(z_message_publish_replay->data(), s_payload.constData(), s_payload.size()+1);
-        z_publish_api->send(*z_message_publish_replay);
-        //delete(z_message_publish_replay);
+        zmq::message_t z_message(s_payload.size()+1);
+        memcpy(z_message.data(), s_payload.constData(), s_payload.size()+1);
+        z_publish_api->send(z_message);
         /************************/
     }
 }
@@ -276,11 +265,9 @@ void Worker_api::publish_command(QString dest, QString command)
     qDebug() << "Worker_api::receive_command SEND COMMAND PAYLOAD";
 
     QByteArray s_payload = payload.toAscii();
-
-    z_message_command->rebuild(s_payload.size()+1);
-    memcpy(z_message_command->data(), s_payload.constData(), s_payload.size()+1);
-    z_publish_api->send(*z_message_command);
-    //delete(z_message_publish_replay);
+    zmq::message_t z_message(s_payload.size()+1);
+    memcpy(z_message.data(), s_payload.constData(), s_payload.size()+1);
+    z_publish_api->send(z_message);
     /************************/
 
 }
@@ -315,6 +302,7 @@ void Worker_api::receive_payload()
             flush_socket:
 
             zmq::message_t request;
+            zmq::message_t z_message(2);
 
             bool res = z_receive_api->recv(&request, ZMQ_NOBLOCK);
             if (!res && zmq_errno () == EAGAIN) break;
@@ -554,11 +542,10 @@ void Worker_api::receive_payload()
 
                 /****** PUSH API PAYLOAD *******/
                 qDebug() << "PUSH WORKER CREATE PAYLOAD";
-                z_message->rebuild(l_payload.objsize());
-                memcpy(z_message->data(), (char*)l_payload.objdata(), l_payload.objsize());
+                z_message.rebuild(l_payload.objsize());
+                memcpy(z_message.data(), (char*)l_payload.objdata(), l_payload.objsize());
                 //z_push_api->send(*z_message, ZMQ_NOBLOCK);
-                z_push_api->send(*z_message);
-                //delete(z_message);
+                z_push_api->send(z_message);
                 /************************/
 
             }
@@ -588,10 +575,10 @@ void Worker_api::receive_payload()
 
                 /****** PUSH API PAYLOAD *******/
                 qDebug() << "PUSH WORKER NEXT PAYLOAD";
-                z_message->rebuild(l_payload.objsize());
-                memcpy(z_message->data(), (char*)l_payload.objdata(), l_payload.objsize());
+                z_message.rebuild(l_payload.objsize());
+                memcpy(z_message.data(), (char*)l_payload.objdata(), l_payload.objsize());
                 //z_push_api->send(*z_message, ZMQ_NOBLOCK);
-                z_push_api->send(*z_message);
+                z_push_api->send(z_message);
                 //delete(z_message);
                 /************************/
             }

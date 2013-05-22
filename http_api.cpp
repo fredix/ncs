@@ -46,7 +46,6 @@ Http_api::Http_api(QString basedirectory, QxtAbstractWebSessionManager * sm, QOb
     mongodb_ = Mongodb::getInstance ();
     zeromq_ = Zeromq::getInstance ();
 
-    z_message = new zmq::message_t(2);
     //m_context = new zmq::context_t(1);
     z_push_api = new zmq::socket_t(*zeromq_->m_context, ZMQ_PUSH);
 
@@ -951,10 +950,10 @@ void Http_api::payload_post(QxtWebRequestEvent* event, QString action)
 
     /****** PUSH API PAYLOAD *******/
     qDebug() << "PUSH HTTP API PAYLOAD";
-    z_message->rebuild(l_payload.objsize());
-    memcpy(z_message->data(), (char*)l_payload.objdata(), l_payload.objsize());
+    zmq::message_t z_message(l_payload.objsize());
+    memcpy(z_message.data(), (char*)l_payload.objdata(), l_payload.objsize());
     //z_push_api->send(*z_message, ZMQ_NOBLOCK);
-    z_push_api->send(*z_message);
+    z_push_api->send(z_message);
     /************************/
 
 }

@@ -153,7 +153,6 @@ Zerogw::Zerogw(QString basedirectory, int port, QString ipc_name="", QObject *pa
 void Zerogw::init()
 {
     // Socket to ZPULL class
-    z_message = new zmq::message_t(2);
     z_push_api = new zmq::socket_t(*m_context, ZMQ_PUSH);
 
     int hwm1 = 50000;
@@ -165,7 +164,6 @@ void Zerogw::init()
 
 
     // socket from ZEROGW
-    m_message = new zmq::message_t(2);
     m_socket_zerogw = new zmq::socket_t (*m_context, ZMQ_REP);
     int hwm = 50;
     m_socket_zerogw->setsockopt(ZMQ_SNDHWM, &hwm, sizeof (hwm));
@@ -216,9 +214,9 @@ void Zerogw::forward_payload_to_zpull(BSONObj payload)
     {
         /****** PUSH API PAYLOAD *******/
         std::cout << "PUSH HTTP API PAYLOAD : " << payload << std::endl;
-        z_message->rebuild(payload.objsize());
-        memcpy(z_message->data(), (char*)payload.objdata(), payload.objsize());
-        z_push_api->send(*z_message, ZMQ_NOBLOCK);
+        zmq::message_t z_message(payload.objsize());
+        memcpy(z_message.data(), (char*)payload.objdata(), payload.objsize());
+        z_push_api->send(z_message, ZMQ_NOBLOCK);
         //z_push_api->send(*z_message);
         /************************/
     }
@@ -630,10 +628,10 @@ void Api_payload::receive_http_payload()
             }
 
             // send response to client
-            m_message->rebuild(bodyMessage.length() +1);
-            memcpy(m_message->data(), bodyMessage.toAscii(), bodyMessage.length() +1);
+            zmq::message_t m_message(bodyMessage.length() +1);
+            memcpy(m_message.data(), bodyMessage.toAscii(), bodyMessage.length() +1);
 
-            m_socket_zerogw->send(*m_message, 0);
+            m_socket_zerogw->send(m_message, 0);
             qDebug() << "returning : " << bodyMessage;
             bodyMessage="";
             counter=-1;
@@ -761,11 +759,10 @@ void Api_node::receive_http_payload()
 
             }
             else bodyMessage = "BAD REQUEST";
+            zmq::message_t m_message(bodyMessage.length());
+            memcpy(m_message.data(), bodyMessage.toAscii(), bodyMessage.length());
 
-            m_message->rebuild(bodyMessage.length());
-            memcpy(m_message->data(), bodyMessage.toAscii(), bodyMessage.length());
-
-            m_socket_zerogw->send(*m_message, 0);
+            m_socket_zerogw->send(m_message, 0);
             qDebug() << "returning : " << bodyMessage;
         }
         counter++;
@@ -889,10 +886,10 @@ void Api_workflow::receive_http_payload()
                     mongodb_->Insert("workflows", l_workflow);
 
             }
-            m_message->rebuild(bodyMessage.length());
-            memcpy(m_message->data(), bodyMessage.toAscii(), bodyMessage.length());
+            zmq::message_t m_message(bodyMessage.length());
+            memcpy(m_message.data(), bodyMessage.toAscii(), bodyMessage.length());
 
-            m_socket_zerogw->send(*m_message, 0);
+            m_socket_zerogw->send(m_message, 0);
             qDebug() << "returning : " << bodyMessage;
         }
         counter++;
@@ -1062,11 +1059,10 @@ void Api_user::receive_http_payload()
                 }
                 bodyMessage = buildResponse("token", str_token);
             }
+            zmq::message_t m_message(bodyMessage.length());
+            memcpy(m_message.data(), bodyMessage.toAscii(), bodyMessage.length());
 
-            m_message->rebuild(bodyMessage.length());
-            memcpy(m_message->data(), bodyMessage.toAscii(), bodyMessage.length());
-
-            m_socket_zerogw->send(*m_message, 0);
+            m_socket_zerogw->send(m_message, 0);
             qDebug() << "returning : " << bodyMessage;
         }
         counter++;
@@ -1239,10 +1235,10 @@ void Api_session::receive_http_payload()
 
 
             }
-            m_message->rebuild(bodyMessage.length());
-            memcpy(m_message->data(), bodyMessage.toAscii(), bodyMessage.length());
+            zmq::message_t m_message(bodyMessage.length());
+            memcpy(m_message.data(), bodyMessage.toAscii(), bodyMessage.length());
 
-            m_socket_zerogw->send(*m_message, 0);
+            m_socket_zerogw->send(m_message, 0);
             qDebug() << "returning : " << bodyMessage;
         }
         counter++;
@@ -1383,10 +1379,10 @@ void Api_app::receive_http_payload()
 
 
             }
-            m_message->rebuild(bodyMessage.length());
-            memcpy(m_message->data(), bodyMessage.toAscii(), bodyMessage.length());
+            zmq::message_t m_message(bodyMessage.length());
+            memcpy(m_message.data(), bodyMessage.toAscii(), bodyMessage.length());
 
-            m_socket_zerogw->send(*m_message, 0);
+            m_socket_zerogw->send(m_message, 0);
             qDebug() << "returning : " << bodyMessage;
         }
         counter++;

@@ -74,7 +74,6 @@ private:
     QHash <QString, BSONObj> user_bson;
 
     zmq::socket_t *z_push_api;
-    zmq::message_t *z_message;
 
     Mongodb *mongodb_;
     Zeromq *zeromq_;

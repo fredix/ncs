@@ -41,10 +41,6 @@ private:
     zmq::socket_t *z_receive_api;
     zmq::socket_t *z_push_api;
     zmq::socket_t *z_publish_api;
-    zmq::message_t *z_message;
-    zmq::message_t *z_message_publish;
-    zmq::message_t *z_message_publish_replay;
-    zmq::message_t *z_message_command;
 
     Mongodb *mongodb_;
     Zeromq *zeromq_;
