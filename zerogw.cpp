@@ -1438,12 +1438,7 @@ void Api_ftpauth::receive_http_payload()
 
         std::cout << "Api_ftpauth::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
 
-
-        BSONObjBuilder session_builder;
-        session_builder.genOID();
         QString data_from_zerogw;
-
-
 
         switch(enumToZerogwHeaderFtpauth[counter])
         {

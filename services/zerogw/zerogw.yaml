@@ -127,7 +127,6 @@ Routing:
                 - !Method
                 - !Uri
                 - !Header X-user-token
-                - !Body ~
                 timeout: 2
                 retry: !RetryFirst
                   count: 3
@@ -154,7 +153,6 @@ Routing:
                 - !Uri
                 - !Header X-user-email
                 - !Header X-user-password
-                - !Body ~
                 timeout: 2
                 retry: !RetryFirst
                   count: 3
