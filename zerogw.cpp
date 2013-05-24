@@ -1406,10 +1406,10 @@ Api_ftpauth::Api_ftpauth(QString basedirectory, int port) : Zerogw(basedirectory
 {
     std::cout << "Api_ftpauth::Api_ftpauth constructeur" << std::endl;
 
-    enumToZerogwHeaderSession.insert(0, HTTP_METHOD);
-    enumToZerogwHeaderSession.insert(1, URI);
-    enumToZerogwHeaderSession.insert(2, X_user_email);
-    enumToZerogwHeaderSession.insert(3, X_user_password);
+    enumToZerogwHeaderFtpauth.insert(0, HTTP_METHOD);
+    enumToZerogwHeaderFtpauth.insert(1, URI);
+    enumToZerogwHeaderFtpauth.insert(2, X_user_email);
+    enumToZerogwHeaderFtpauth.insert(3, X_user_password);
 
 }
 
@@ -1445,7 +1445,7 @@ void Api_ftpauth::receive_http_payload()
 
 
 
-        switch(enumToZerogwHeaderSession[counter])
+        switch(enumToZerogwHeaderFtpauth[counter])
         {
         case HTTP_METHOD:
             // check METHOD
