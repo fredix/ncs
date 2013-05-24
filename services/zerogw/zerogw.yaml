@@ -1,7 +1,8 @@
 Server:
   max-requests: 100
-  zmq-io-threads: 1
-  disk-io-threads: 1
+  zmq-io-threads: 2
+  disk-io-threads: 2
+  network-timeout: 600
   listen:
     - host: 0.0.0.0
       port: 8000
@@ -58,7 +59,7 @@ Routing:
                   count: 3
             "/payload*":
               limits:
-                max-body-size: 512Mi
+                max-body-size: 256Mi
               zmq-forward:
                 enabled: yes
                 socket:
@@ -75,7 +76,7 @@ Routing:
                 - !Header X-payload-mime
                 - !Header X-payload-action
                 - !Body ~
-                timeout: 120
+                timeout: 600
             "/node*":
               zmq-forward:
                 enabled: yes
@@ -87,7 +88,7 @@ Routing:
                 - !Header X-user-token
                 - !Header X-node-name
                 - !Body ~
-                timeout: 2
+                timeout: 5
                 retry: !RetryFirst
                   count: 3
             "/workflow*":
@@ -101,7 +102,7 @@ Routing:
                 - !Header X-user-token
                 - !Header X-workflow-name
                 - !Body ~
-                timeout: 2
+                timeout: 5
                 retry: !RetryFirst
                   count: 3
             "/user*":
@@ -113,6 +114,46 @@ Routing:
                 - !Method
                 - !Uri
                 - !Header X-admin-token
+                - !Body ~
+                timeout: 5
+                retry: !RetryFirst
+                  count: 3
+            "/session*":
+              zmq-forward:
+                enabled: yes
+                socket:
+                - !zmq.Connect "tcp://127.0.0.1:2605"
+                contents:
+                - !Method
+                - !Uri
+                - !Header X-user-token
+                - !Body ~
+                timeout: 2
+                retry: !RetryFirst
+                  count: 3
+            "/app*":
+              zmq-forward:
+                enabled: yes
+                socket:
+                - !zmq.Connect "tcp://127.0.0.1:2606"
+                contents:
+                - !Method
+                - !Uri
+                - !Header X-admin-token
+                - !Body ~
+                timeout: 2
+                retry: !RetryFirst
+                  count: 3
+            "/ftpauth*":
+              zmq-forward:
+                enabled: yes
+                socket:
+                - !zmq.Connect "tcp://127.0.0.1:2607"
+                contents:
+                - !Method
+                - !Uri
+                - !Header X-user-email
+                - !Header X-user-password
                 - !Body ~
                 timeout: 2
                 retry: !RetryFirst

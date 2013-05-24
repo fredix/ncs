@@ -1394,3 +1394,149 @@ void Api_app::receive_http_payload()
 
 
 /******************************/
+
+
+
+
+
+
+
+/*********************/
+Api_ftpauth::Api_ftpauth(QString basedirectory, int port) : Zerogw(basedirectory, port)
+{
+    std::cout << "Api_ftpauth::Api_ftpauth constructeur" << std::endl;
+
+    enumToZerogwHeaderSession.insert(0, HTTP_METHOD);
+    enumToZerogwHeaderSession.insert(1, URI);
+    enumToZerogwHeaderSession.insert(2, X_user_email);
+    enumToZerogwHeaderSession.insert(3, X_user_password);
+
+}
+
+
+
+void Api_ftpauth::receive_http_payload()
+{
+    check_http_data->setEnabled(false);
+
+    std::cout << "Api_ftpauth::receive_payload" << std::endl;
+
+    QHash <QString, QString> zerogw;
+    QString key;
+    int counter=0;
+    QString bodyMessage="";
+
+    while (true)
+    {
+        zmq::message_t request;
+        bool res = m_socket_zerogw->recv(&request, ZMQ_NOBLOCK);
+        if (!res && zmq_errno () == EAGAIN) break;
+
+        qint32 events = 0;
+        std::size_t eventsSize = sizeof(events);
+        m_socket_zerogw->getsockopt(ZMQ_RCVMORE, &events, &eventsSize);
+
+        std::cout << "Api_ftpauth::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
+
+
+        BSONObjBuilder session_builder;
+        session_builder.genOID();
+        QString data_from_zerogw;
+
+
+
+        switch(enumToZerogwHeaderSession[counter])
+        {
+        case HTTP_METHOD:
+            // check METHOD
+            if (request.size() == 0) bodyMessage ="header METHOD is empty";
+            else
+            {
+                data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
+                zerogw["METHOD"] = data_from_zerogw;
+
+                if (zerogw["METHOD"] != "GET")
+                    bodyMessage = "BAD REQUEST : " + zerogw["METHOD"];
+            }
+            break;
+
+        case URI:
+            if (!bodyMessage.isEmpty()) break;
+
+            // Check URI
+            if (request.size() == 0) bodyMessage ="header URI is empty";
+            else
+            {
+                data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
+                zerogw["URI"] = data_from_zerogw;
+            }
+            break;
+
+        case X_user_email:
+            if (!bodyMessage.isEmpty()) break;
+
+            // Check X-user-email
+            if (request.size() == 0) bodyMessage ="header X-user-email is empty";
+            else
+            {
+                data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
+                zerogw["X-user-email"] = data_from_zerogw;
+            }
+            break;
+
+        case X_user_password:
+            if (!bodyMessage.isEmpty()) break;
+
+            // Check X-user-password
+            if (request.size() == 0) bodyMessage ="header X-user-password is empty";
+            else
+            {
+                data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
+                zerogw["X-user-password"] = data_from_zerogw;
+            }
+            break;
+        }
+
+
+
+        if (!(events & ZMQ_RCVMORE))
+        {
+            qDebug() << "ZMQ_RCVMORE";
+
+            if (bodyMessage.isEmpty())
+            {
+                QCryptographicHash cipher( QCryptographicHash::Sha1 );
+                cipher.addData(zerogw["X-user-password"].simplified().toAscii());
+                QByteArray password_hash = cipher.result();
+
+                qDebug() << "Api_ftpauth::receive_payload password_hash : " << password_hash.toHex();
+
+                BSONObj bauth = BSON("email" << zerogw["X-user-email"].toStdString() << "password" << QString::fromLatin1(password_hash.toHex()).toStdString());
+                BSONObj l_user = mongodb_->Find("users", bauth);
+
+                if (l_user.nFields() == 0)
+                {
+                    qDebug() << "Api_ftpauth::receive_payload auth failed !";
+                    bodyMessage = buildResponse("error", "auth", "unknown user");
+                }
+                else
+                {
+                    bodyMessage = buildResponse("token", QString::fromStdString(l_user.getFieldDotted("ftp.token").str()));
+                    qDebug() << "Api_ftpauth::receive_payload TOKEN : " << bodyMessage;
+                }
+            }
+            zmq::message_t m_message(bodyMessage.length());
+            memcpy(m_message.data(), bodyMessage.toAscii(), bodyMessage.length());
+
+            m_socket_zerogw->send(m_message, 0);
+            qDebug() << "returning : " << bodyMessage;
+        }
+        counter++;
+    }
+    qDebug() << "ZEROGW : " << zerogw;
+    check_http_data->setEnabled(true);
+}
+
+
+
+/******************************/

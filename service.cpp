@@ -279,6 +279,10 @@ Service::~Service()
     api_app->deleteLater();
     thread_api_app->wait();
 
+    qDebug() << "api_ftpauth->deleteLater();";
+    api_ftpauth->deleteLater();
+    thread_api_ftpauth->wait();
+
    /* delete(api_node);
     delete(api_workflow);
     delete(api_user);*/
@@ -386,6 +390,16 @@ void Service::Http_api_init()
 
     api_app->moveToThread(thread_api_app);
     thread_api_app->start();
+
+
+    thread_api_ftpauth = new QThread(this);
+    api_ftpauth = new Api_ftpauth(m_ncs_params.base_directory, port + 105);
+
+    connect(thread_api_ftpauth, SIGNAL(started()), api_ftpauth, SLOT(init()));
+    connect(api_ftpauth, SIGNAL(destroyed()), thread_api_ftpauth, SLOT(quit()), Qt::DirectConnection);
+
+    api_ftpauth->moveToThread(thread_api_ftpauth);
+    thread_api_ftpauth->start();
 }
 
 

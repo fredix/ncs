@@ -35,6 +35,7 @@
 #include <QCryptographicHash>
 #include <QRunnable>
 #include <QThreadPool>
+#include <QCryptographicHash>
 
 #include <zmq.hpp>
 #include "mongodb.h"
@@ -47,6 +48,8 @@ enum ZerogwHeader {
     HTTP_METHOD,
     URI,
     X_user_token,
+    X_user_email,
+    X_user_password,
     X_node_uuid,
     X_node_password,
     X_workflow_uuid,
@@ -201,6 +204,19 @@ private slots:
     void receive_http_payload();
 };
 
+
+class Api_ftpauth : public Zerogw
+{
+    Q_OBJECT
+public:
+    Api_ftpauth(QString basedirectory, int port);
+
+private:
+    IntToZerogwHeaderSession enumToZerogwHeaderSession;
+
+private slots:
+    void receive_http_payload();
+};
 
 
 #endif // ZEROGW_H
