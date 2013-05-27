@@ -67,7 +67,7 @@ enum ZerogwHeader {
 typedef QMap<int, ZerogwHeader> IntToZerogwHeaderPayload;
 typedef QMap<int, ZerogwHeader> IntToZerogwHeaderSession;
 typedef QMap<int, ZerogwHeader> IntToZerogwHeaderApp;
-typedef QMap<int, ZerogwHeader> IntToZerogwHeaderFtpauth;
+typedef QMap<int, ZerogwHeader> IntToZerogwHeaderFtp;
 
 
 
@@ -206,14 +206,14 @@ private slots:
 };
 
 
-class Api_ftpauth : public Zerogw
+class Api_ftp : public Zerogw
 {
     Q_OBJECT
 public:
-    Api_ftpauth(QString basedirectory, int port);
+    Api_ftp(QString basedirectory, int port);
 
 private:
-    IntToZerogwHeaderFtpauth enumToZerogwHeaderFtpauth;
+    IntToZerogwHeaderFtp enumToZerogwHeaderFtp;
 
 private slots:
     void receive_http_payload();

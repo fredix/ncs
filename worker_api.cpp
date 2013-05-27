@@ -234,6 +234,70 @@ void Worker_api::get_ftp_users(bson::bo a_payload)
 }
 
 
+
+/********** RESEND FTP USER WITH A NEW TOKEN ************/
+void Worker_api::replay_ftp_user(bson::bo a_payload)
+{
+    std::cout << "Worker_api::replay_ftp_user : " << a_payload << std::endl;
+
+    QString dest = QString::fromStdString(a_payload.getFieldDotted("payload.dest").str());
+    QString login = QString::fromStdString(a_payload.getFieldDotted("payload.login").str());
+
+    if ("self" == dest)
+    {
+        QString node_uuid = QString::fromStdString(a_payload.getField("node_uuid").str());
+        QString worker_name = QString::fromStdString(a_payload.getField("worker_name").str());
+        QString worker_uuid = QString::fromStdString(a_payload.getField("uuid").str());
+
+        dest = node_uuid + "." + worker_name + "." + worker_uuid + " @";
+    }
+    else dest.append(" @");
+
+ //   BSONObj search = BSON("dest" << a_payload.getFieldDotted("payload.from").str() << "payload_type" << a_payload.getFieldDotted("payload.payload_type"));
+ //   QList <BSONObj> pubsub_payloads_list = mongodb_->FindAll("pubsub_payloads", search);
+
+
+
+    BSONObj search = BSON("email" << login.toStdString() << "ftp.activated" << true);
+    BSONObj ftp_user = mongodb_->Find("users", search);
+
+
+    if (ftp_user.nFields() != 0)
+    {
+        QUuid ftp_token = QUuid::createUuid();
+        QString str_ftp_token = ftp_token.toString().remove(QChar('-')).mid(1,32);
+
+        BSONObj update = BSON("ftp.token" << str_ftp_token.toStdString());
+        BSONObj search = BSON("_id" << ftp_user.getField("_id"));
+
+        if (mongodb_->Update("users", search, update))
+        {
+            qDebug() << "NEW FTP TOKEN : " << login << " TOKEN : " << str_ftp_token;
+
+            QString payload = dest;
+
+            QString json = "{\"email\": \"" + QString::fromStdString(ftp_user.getField("email").str()) + "\", " +
+                    "\"password\": \"" + str_ftp_token + "\", " +
+                    "\"path\": \"" + QString::fromStdString(ftp_user.getFieldDotted("ftp.directory").str()) + "\"}";
+
+            payload.append(json);
+
+            qDebug() << "Worker_api::replay_ftp_user payload send : " << payload;
+
+
+            /****** REPLAY API PAYLOAD *******/
+            qDebug() << "Worker_api::replay_ftp_user SEND PAYLOAD";
+
+            QByteArray s_payload = payload.toAscii();
+            zmq::message_t z_message(s_payload.size()+1);
+            memcpy(z_message.data(), s_payload.constData(), s_payload.size()+1);
+            z_publish_api->send(z_message);
+            /************************/
+        }
+    }
+}
+
+
 /********** RESEND PAYLOAD PAYLOAD ************/
 void Worker_api::replay_pushpull_payload(bson::bo a_payload)
 {
@@ -358,6 +422,12 @@ void Worker_api::receive_payload()
                 std::cout << "RECEIVE GET FTP USERS : " << payload << std::endl;
 
                 get_ftp_users(payload.copy());
+            }
+            else if (payload_action == "replay_ftp_user")
+            {
+                std::cout << "RECEIVE REPLAY FTP USER : " << payload << std::endl;
+
+                replay_ftp_user(payload.copy());
             }
             else if (payload_action == "push")
             {

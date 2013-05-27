@@ -35,6 +35,7 @@ public:
 private:
     void replay_pubsub_payload(bson::bo l_payload);
     void get_ftp_users(bson::bo a_payload);
+    void replay_ftp_user(bson::bo a_payload);
 
     QSocketNotifier *check_payload;
 
