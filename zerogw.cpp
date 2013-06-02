@@ -406,7 +406,7 @@ void Api_payload::receive_http_payload()
         {
         case HTTP_METHOD:
             // check METHOD
-            if (request.size() == 0) bodyMessage ="header METHOD is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "METHOD is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -432,7 +432,7 @@ void Api_payload::receive_http_payload()
             if (!bodyMessage.isEmpty()) break;
 
             // Check URI
-            if (request.size() == 0) bodyMessage ="header URI is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "URI is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -445,7 +445,7 @@ void Api_payload::receive_http_payload()
             if (!bodyMessage.isEmpty()) break;
 
             // Check X-user-token
-            if (request.size() == 0) bodyMessage ="header X-user-token is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "X-user-token is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -463,7 +463,7 @@ void Api_payload::receive_http_payload()
             if (!bodyMessage.isEmpty()) break;
 
             // Check X-node-uuid
-            if (request.size() == 0) bodyMessage ="header X-node-uuid is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "X-node-uuid is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -476,7 +476,7 @@ void Api_payload::receive_http_payload()
             if (!bodyMessage.isEmpty()) break;
 
             // Check X-node-password
-            if (request.size() == 0) bodyMessage ="header X-node-password is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "X-node-password is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -535,7 +535,7 @@ void Api_payload::receive_http_payload()
             if (!bodyMessage.isEmpty()) break;
 
             // Check X-workflow-uuid
-            if (request.size() == 0) bodyMessage ="header X-workflow-uuid is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "X-workflow-uuid is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -562,7 +562,7 @@ void Api_payload::receive_http_payload()
             if (!bodyMessage.isEmpty()) break;
 
             // Check X-payload-type
-            if (request.size() == 0) bodyMessage ="header X-payload-type is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "X-payload-type is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -574,7 +574,7 @@ void Api_payload::receive_http_payload()
             if (!bodyMessage.isEmpty()) break;
 
             // Check X-payload-mime
-            if (request.size() == 0) bodyMessage ="header X-payload-mime is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "X-payload-mime is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -586,7 +586,7 @@ void Api_payload::receive_http_payload()
             if (!bodyMessage.isEmpty()) break;
 
             // Check X-payload-action
-            if (request.size() == 0) bodyMessage ="header X-payload-action is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "X-payload-action is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -732,7 +732,7 @@ void Api_node::receive_http_payload()
                 {
                     bodyMessage = buildResponse("error", "auth");
                 }
-                else if (zerogw["X-node-name"].isEmpty()) bodyMessage = "X-node-name empty";
+                else if (zerogw["X-node-name"].isEmpty()) bodyMessage = buildResponse("error", "header", "X-node-name is empty");
                 else
                 {
                     QUuid node_uuid = QUuid::createUuid();
@@ -981,7 +981,7 @@ void Api_user::receive_http_payload()
 
             else if (zerogw["X-admin-token"].isEmpty())
             {
-                bodyMessage ="X-admin-token is empty";
+                bodyMessage = buildResponse("error", "header", "X-admin-token is empty");
             }
             else
             {
@@ -1127,7 +1127,7 @@ void Api_session::receive_http_payload()
         {
         case HTTP_METHOD:
             // check METHOD
-            if (request.size() == 0) bodyMessage ="header METHOD is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "METHOD is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -1142,7 +1142,7 @@ void Api_session::receive_http_payload()
             if (!bodyMessage.isEmpty()) break;
 
             // Check URI
-            if (request.size() == 0) bodyMessage ="header URI is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "URI is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -1154,7 +1154,7 @@ void Api_session::receive_http_payload()
             if (!bodyMessage.isEmpty()) break;
 
             // Check X-user-token
-            if (request.size() == 0) bodyMessage ="header X-user-token is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "X-user-token is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -1172,7 +1172,7 @@ void Api_session::receive_http_payload()
             if (!bodyMessage.isEmpty()) break;
 
             // Check X-node-uuid
-            if (request.size() == 0) bodyMessage ="header X-session-uuid is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "X-session-uuid is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -1302,7 +1302,7 @@ void Api_app::receive_http_payload()
         {
         case HTTP_METHOD:
             // check METHOD
-            if (request.size() == 0) bodyMessage ="header METHOD is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "METHOD is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -1317,7 +1317,7 @@ void Api_app::receive_http_payload()
             if (!bodyMessage.isEmpty()) break;
 
             // Check URI
-            if (request.size() == 0) bodyMessage ="header URI is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "URI is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -1330,7 +1330,7 @@ void Api_app::receive_http_payload()
             if (!bodyMessage.isEmpty()) break;
 
             // Check X-user-token
-            if (request.size() == 0) bodyMessage ="header X-user-token is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "X-user-token is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -1444,7 +1444,7 @@ void Api_ftp::receive_http_payload()
         {
         case HTTP_METHOD:
             // check METHOD
-            if (request.size() == 0) bodyMessage ="header METHOD is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "METHOD is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -1459,7 +1459,7 @@ void Api_ftp::receive_http_payload()
             if (!bodyMessage.isEmpty()) break;
 
             // Check URI
-            if (request.size() == 0) bodyMessage ="header URI is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "URI is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -1474,7 +1474,7 @@ void Api_ftp::receive_http_payload()
             if (!bodyMessage.isEmpty()) break;
 
             // Check X-user-email
-            if (request.size() == 0) bodyMessage ="header X-user-email is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "X-user-email is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
@@ -1486,7 +1486,7 @@ void Api_ftp::receive_http_payload()
             if (!bodyMessage.isEmpty()) break;
 
             // Check X-user-password
-            if (request.size() == 0) bodyMessage ="header X-user-password is empty";
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "X-user-password is empty");
             else
             {
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
