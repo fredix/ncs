@@ -46,7 +46,7 @@ void Alert::sendEmail(QString worker)
 
 
 
-    m_smtp = new QxtSmtp();
+    m_smtp = new QxtSmtp(this);
 
     connect(m_smtp, SIGNAL(mailFailed(int,int)), this, SLOT(failed()));
     connect(m_smtp, SIGNAL(mailSent(int)), this, SLOT(success()));

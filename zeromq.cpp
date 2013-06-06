@@ -60,7 +60,7 @@ Ztracker::Ztracker(zmq::context_t *a_context, QObject *parent) : m_context(a_con
     m_data_socket->bind("ipc:///tmp/nodecast/workers");
     **********************************************/
 
-    worker_timer = new QTimer();
+    worker_timer = new QTimer(this);
     connect(worker_timer, SIGNAL(timeout()), this, SLOT(worker_update_ticker ()), Qt::DirectConnection);
     worker_timer->start (5000);
 }
@@ -786,7 +786,7 @@ Zdispatch::Zdispatch(zmq::context_t *a_context, QObject *parent) : m_context(a_c
 
 
 
-    replay_payload_timer = new QTimer();
+    replay_payload_timer = new QTimer(this);
     connect(replay_payload_timer, SIGNAL(timeout()), this, SLOT(replay_payload ()), Qt::DirectConnection);
     //replay_payload_timer->start (60000);
     replay_payload_timer->start (60000);

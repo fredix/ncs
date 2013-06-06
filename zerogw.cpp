@@ -49,8 +49,6 @@ void GridfsTask::run()
             }
             else
             {
-                delete(m_requestContent);
-
                 std::cout << "writefile : " << gfs_file_struct << std::endl;
                 //std::cout << "writefile id : " << gfs_file_struct.getField("_id") << " date : " << gfs_file_struct.getField("uploadDate") << std::endl;
 
@@ -77,10 +75,9 @@ void GridfsTask::run()
             payload_builder.append("gridfs", false);
             m_zerogw["data"] = QString::fromAscii(m_requestContent->constData(), m_requestContent->size());
             payload_builder.append("data", m_zerogw["data"].toStdString());
-
-            delete(m_requestContent);
         }
 
+        delete(m_requestContent);
 
 
         payload_builder.append("timestamp", m_zerogw["timestamp"].toUInt());
