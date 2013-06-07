@@ -720,20 +720,22 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
                     //if (chunk_length != 0)
                     if (chunk.len() != 0)
                     {
-                        const char *l_chunk_data = chunk.data( chunk_length );
+                        //const char *l_chunk_data = chunk.data( chunk_length );
                         std::cout << "Mongodb::ExtractByChunck CHUNCK LEN : " << chunk_length << std::endl;
 
                         //*chunk_data = (char*) malloc(chunk_length);
                         //memcpy(*chunk_data, l_chunk_data, chunk_length);
 
                         //chunk_data.setRawData(l_chunk_data, chunk_length);
-                        chunk_data.append(l_chunk_data, chunk_length);
+                        //chunk_data.append(l_chunk_data, chunk_length);
 
-                        std::cout << "Mongodb::ExtractByChunck CHUNCK SIZE : " << chunk_data.size() << std::endl;
+                        chunk_data.append(chunk.data( chunk_length ), chunk.len());
+
+
+                        std::cout << "Mongodb::ExtractByChunck CHUNCK SIZE : " << chunk.len() << std::endl;
 
                         replicaset.done();
                         delete(m_grid_file);
-                        delete[]l_chunk_data;
                         return QBool(true);
                     }
                     else
