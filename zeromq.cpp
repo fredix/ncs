@@ -1614,13 +1614,13 @@ void Zstream_push::stream_payload()
                     //out.write(requestContent);
                     //out.close();
 
-                    QByteArray chunk_data;
 
                     for ( int chunk_index = 0; chunk_index < num_chunck; chunk_index++ )
                     {
                         std::cout << "BEFORE GET CHUNCK " << std::endl;
 
                         int chunk_length;
+                        QByteArray chunk_data;
 
                         QBool res = mongodb_->ExtractByChunck(gfsid.firstElement(), chunk_index, chunk_data, chunk_length);
                         //std::cout << "AFTER GET CHUNCK chunk_data : " << chunk_data << std::endl;
@@ -1651,7 +1651,6 @@ void Zstream_push::stream_payload()
                                 break;
                             }
                         }
-
                         chunk_data.clear();
                     }
                     //out.close();

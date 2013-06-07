@@ -75,7 +75,7 @@ Mongodb::Mongodb(QString a_server, QString a_database) : m_server(a_server), m_d
 
 
     try {
-        scoped_ptr<ScopedDbConnection> connPtr( ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
+        QScopedPointer<ScopedDbConnection> connPtr( ScopedDbConnection::getScopedDbConnection( m_server.toStdString() ));
         ScopedDbConnection& replicaset = *connPtr;
 
         if (!replicaset.ok())
@@ -464,9 +464,9 @@ bo Mongodb::ExtractJSON(const be &gfs_id)
             }
 
             json_tmp.close();
-            delete(this->m_gf);
         }
-    }                
+        delete(m_gf);
+    }
     return m_bo_json;
 }
 
@@ -494,11 +494,11 @@ QBool Mongodb::ExtractBinary(const be &gfs_id, string path, QString &filename)
             string l_path = path + m_gf->getFilename();
             QFile binary_tmp(l_path.data());
             m_gf->write(binary_tmp.fileName().toStdString().c_str());
-            delete(m_gf);
             //qDebug() << "Find file : delete";
-        }            
+        }                                
+        delete(m_gf);
         return QBool(true);
-    }            
+    }
     return QBool(false);
 }
 
@@ -528,7 +528,6 @@ QBool Mongodb::ReadFile(const be &gfs_id, const mongo::GridFile **a_gf)
                 else break;
             }
             replicaset.done();
-            delete(*a_gf);
             return QBool(true);
         }
     }
@@ -732,6 +731,7 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
 
                         replicaset.done();
                         delete(m_grid_file);
+                        delete(l_chunk_data);
                         return QBool(true);
                     }
                     else
@@ -739,7 +739,8 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
                         //*chunk_data = NULL;
                         chunk_data.clear();
                         replicaset.done();
-                        delete(m_grid_file);
+                        delete(m_grid_file);                                                
+                        delete(l_chunk_data);
                         return QBool(false);
                     }
                 }
