@@ -554,10 +554,10 @@ int Mongodb::GetNumChunck(const be &gfs_id)
 
 
 
-            qDebug() << "Mongodb::ExtractByChunck BEFORE GRID";
+            qDebug() << "Mongodb::GetNumChunck BEFORE GRID";
             const mongo::GridFile *m_grid_file = new mongo::GridFile(gfs.findFile(gfs_id.wrap()));
 
-            qDebug() << "Mongodb::ExtractByChunck OPEN";
+            qDebug() << "Mongodb::GetNumChunck OPEN";
             if (!m_grid_file->exists()) {
                 std::cout << "Mongodb::ExtractByChunck file not found" << std::endl;
                 replicaset.done();
@@ -567,8 +567,8 @@ int Mongodb::GetNumChunck(const be &gfs_id)
             else
             {
                 const int num = m_grid_file->getNumChunks();
-                std::cout << "Mongodb::ExtractByChunck FILE NAME : " << m_grid_file->getFilename() << std::endl;
-                std::cout << "Mongodb::ExtractByChunck NUM CHUCK : " << num << std::endl;
+                std::cout << "Mongodb::GetNumChunck FILE NAME : " << m_grid_file->getFilename() << std::endl;
+                std::cout << "Mongodb::GetNumChunck NUM CHUCK : " << num << std::endl;
 
                 replicaset.done();
                 delete(m_grid_file);
@@ -714,13 +714,15 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
                     GridFSChunk chunk = m_grid_file->getChunk( chunk_index );
                     std::cout << "Mongodb::ExtractByChunck AFTER GET CHUNCK " << std::endl;
 
-                    const char *l_chunk_data = chunk.data( chunk_length );
-
-                    std::cout << "Mongodb::ExtractByChunck CHUNCK LEN : " << chunk_length << std::endl;
 
 
-                    if (chunk_length != 0)
+
+                    //if (chunk_length != 0)
+                    if (chunk.len() != 0)
                     {
+                        const char *l_chunk_data = chunk.data( chunk_length );
+                        std::cout << "Mongodb::ExtractByChunck CHUNCK LEN : " << chunk_length << std::endl;
+
                         //*chunk_data = (char*) malloc(chunk_length);
                         //memcpy(*chunk_data, l_chunk_data, chunk_length);
 
@@ -731,7 +733,7 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
 
                         replicaset.done();
                         delete(m_grid_file);
-                        delete(l_chunk_data);
+                        delete[]l_chunk_data;
                         return QBool(true);
                     }
                     else
@@ -739,8 +741,7 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
                         //*chunk_data = NULL;
                         chunk_data.clear();
                         replicaset.done();
-                        delete(m_grid_file);                                                
-                        delete(l_chunk_data);
+                        delete(m_grid_file);
                         return QBool(false);
                     }
                 }
