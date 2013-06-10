@@ -248,6 +248,7 @@ int Mongodb::Count(QString a_document)
     int counter = replicaset.conn().count(tmp.toStdString());
     replicaset.done();
 
+    mongo::dbexit(mongo::EXIT_CLEAN);
     return counter;
 }
 
@@ -284,6 +285,7 @@ void Mongodb::Flush(string a_document, BSONObj query)
         std::cout << "caught on remove into " << m_server.toAscii().data() << "." << a_document.data() << " : " << e.what() << std::endl;
     }
 
+    mongo::dbexit(mongo::EXIT_CLEAN);
 }
 
 BSONObj Mongodb::Find(string a_document, const bo a_query)
@@ -321,12 +323,14 @@ BSONObj Mongodb::Find(string a_document, const bo a_query)
 
             if ( !cursor->more() ) {
                 replicaset.done();
+                mongo::dbexit(mongo::EXIT_CLEAN);
                 return BSONObj();
             }
             else
             {
                 BSONObj data = cursor->nextSafe().copy();
                 replicaset.done();
+                mongo::dbexit(mongo::EXIT_CLEAN);
                 return data;
             }
         }
@@ -336,8 +340,9 @@ BSONObj Mongodb::Find(string a_document, const bo a_query)
     catch(mongo::DBException &e ) {
         std::cout << "caught on find into " << m_server.toAscii().data() << "." << a_document.data() << " : " << e.what() << std::endl;
         exit(1);
-    }
-     return BSONObj();
+    }    
+    mongo::dbexit(mongo::EXIT_CLEAN);
+    return BSONObj();
 }
 
 
@@ -371,12 +376,14 @@ BSONObj Mongodb::Find(string a_document, const BSONObj a_query, BSONObj *a_field
 
             if ( !cursor->more() ) {
                 replicaset.done();
+                mongo::dbexit(mongo::EXIT_CLEAN);
                 return BSONObj();
             }
             else
             {
                 BSONObj data = cursor->nextSafe().copy();
                 replicaset.done();
+                mongo::dbexit(mongo::EXIT_CLEAN);
                 return data;
             }
         }
@@ -385,6 +392,7 @@ BSONObj Mongodb::Find(string a_document, const BSONObj a_query, BSONObj *a_field
         std::cout << "caught on find into " << m_server.toAscii().data() << "." << a_document.data() << " : " << e.what() << std::endl;
         exit(1);
     }
+    mongo::dbexit(mongo::EXIT_CLEAN);
     return BSONObj();
 }
 
@@ -419,13 +427,16 @@ QList <BSONObj> Mongodb::FindAll(string a_document, const bo datas)
                 res << cursor->nextSafe().copy();
             }
             replicaset.done();
+            mongo::dbexit(mongo::EXIT_CLEAN);
             return res;
         }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on find into " << m_server.toAscii().data() << "." << a_document.data() << " : " << e.what() << std::endl;
-        exit(1);
+        mongo::dbexit(mongo::EXIT_CLEAN);
+        return res;
     }
+    mongo::dbexit(mongo::EXIT_CLEAN);
     return res;
 }
 
@@ -545,14 +556,17 @@ QBool Mongodb::ReadFile(const be &gfs_id, const mongo::GridFile **a_gf)
                 else break;
             }
             replicaset.done();
+            mongo::dbexit(mongo::EXIT_CLEAN);
             return QBool(true);
         }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on get file : " << e.what() << std::endl;
         qDebug() << "Mongodb::ReadFile ERROR ON GRIDFS";
+        mongo::dbexit(mongo::EXIT_CLEAN);
         return QBool(false);
     }
+    mongo::dbexit(mongo::EXIT_CLEAN);
     return QBool(false);
 }
 
@@ -579,6 +593,7 @@ int Mongodb::GetNumChunck(const be &gfs_id)
                 std::cout << "Mongodb::ExtractByChunck file not found" << std::endl;
                 replicaset.done();
                 delete(m_grid_file);
+                mongo::dbexit(mongo::EXIT_CLEAN);
                 return -1;
             }
             else
@@ -589,6 +604,7 @@ int Mongodb::GetNumChunck(const be &gfs_id)
 
                 replicaset.done();
                 delete(m_grid_file);
+                mongo::dbexit(mongo::EXIT_CLEAN);
                 return num;
             }
         }
@@ -596,8 +612,10 @@ int Mongodb::GetNumChunck(const be &gfs_id)
     catch(mongo::DBException &e ) {
         std::cout << "caught on get file : " << e.what() << std::endl;
         qDebug() << "Mongodb::GetNumChunck ERROR ON GRIDFS";
+        mongo::dbexit(mongo::EXIT_CLEAN);
         return -1;
     }
+    mongo::dbexit(mongo::EXIT_CLEAN);
     return -1;
 }
 
@@ -625,6 +643,7 @@ string Mongodb::GetFilename(const be &gfs_id)
                 std::cout << "Mongodb::GetFilename file not found" << std::endl;
                 replicaset.done();
                 delete(m_grid_file);
+                mongo::dbexit(mongo::EXIT_CLEAN);
                 return "";
             }
             else
@@ -633,6 +652,7 @@ string Mongodb::GetFilename(const be &gfs_id)
                 std::cout << "Mongodb::GetFilename FILE NAME : " << filename << std::endl;
                 replicaset.done();
                 delete(m_grid_file);
+                mongo::dbexit(mongo::EXIT_CLEAN);
                 return filename;
             }
         }
@@ -640,8 +660,10 @@ string Mongodb::GetFilename(const be &gfs_id)
     catch(mongo::DBException &e ) {
         std::cout << "caught on get file : " << e.what() << std::endl;
         qDebug() << "Mongodb::GetFilename ERROR ON GRIDFS";
+        mongo::dbexit(mongo::EXIT_CLEAN);
         return "";
     }
+    mongo::dbexit(mongo::EXIT_CLEAN);
     return "";
 }
 
@@ -672,6 +694,7 @@ BSONObj Mongodb::GetGfsid(const string filename)
                 std::cout << "Mongodb::GetGfsid file not found" << std::endl;
                 replicaset.done();
                 delete(m_grid_file);
+                mongo::dbexit(mongo::EXIT_CLEAN);
                 return gfsid_;
             }
             else
@@ -682,6 +705,7 @@ BSONObj Mongodb::GetGfsid(const string filename)
                 std::cout << "Mongodb::GetGfsid2 : " << gfsid_ << std::endl;
                 replicaset.done();
                 delete(m_grid_file);
+                mongo::dbexit(mongo::EXIT_CLEAN);
                 return gfsid_;
             }
         }
@@ -689,8 +713,10 @@ BSONObj Mongodb::GetGfsid(const string filename)
     catch(mongo::DBException &e ) {
         std::cout << "caught on get file : " << e.what() << std::endl;
         qDebug() << "Mongodb::GetGfsid ERROR ON GRIDFS";
+        mongo::dbexit(mongo::EXIT_CLEAN);
         return gfsid_;
     }
+    mongo::dbexit(mongo::EXIT_CLEAN);
     return gfsid_;
 }
 
@@ -753,6 +779,7 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
 
                         replicaset.done();
                         delete(m_grid_file);
+                        mongo::dbexit(mongo::EXIT_CLEAN);
                         return QBool(true);
                     }
                     else
@@ -761,11 +788,13 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
                         chunk_data.clear();
                         replicaset.done();
                         delete(m_grid_file);
+                        mongo::dbexit(mongo::EXIT_CLEAN);
                         return QBool(false);
                     }
                 }
             }
             replicaset.done();
+            mongo::dbexit(mongo::EXIT_CLEAN);
             return QBool(false);
         }
 
@@ -773,8 +802,10 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
     catch(mongo::DBException &e ) {
         std::cout << "caught on get file : " << e.what() << std::endl;
         qDebug() << "Mongodb::ExtractByChunck ERROR ON GRIDFS";        
+        mongo::dbexit(mongo::EXIT_CLEAN);
         return QBool(false);
     }
+    mongo::dbexit(mongo::EXIT_CLEAN);
     return QBool(false);
 }
 
@@ -806,6 +837,7 @@ BSONObj Mongodb::WriteFile(const string filename, const char *data, int size)
         std::cout << "caught on write file : " << e.what() << std::endl;
         qDebug() << "Mongodb::WriteFile ERROR ON GRIDFS";
     }        
+    mongo::dbexit(mongo::EXIT_CLEAN);
     return struct_file;
 }
 
@@ -829,6 +861,7 @@ QBool Mongodb::Insert(QString a_document, BSONObj a_datas)
         {
             replicaset.conn().insert(tmp.toAscii().data(), a_datas);
             replicaset.done();
+            mongo::dbexit(mongo::EXIT_CLEAN);
             return QBool(true);
         }
         qDebug() << m_server + "." + a_document + " inserted";
@@ -838,6 +871,7 @@ QBool Mongodb::Insert(QString a_document, BSONObj a_datas)
         std::cout << "caught on insert into " << m_server.toAscii().data() << "." << a_document.toAscii().data() << " : " << e.what() << std::endl;
         //return QBool(false);
     }
+    mongo::dbexit(mongo::EXIT_CLEAN);
     return QBool(false);
 }
 
@@ -861,6 +895,7 @@ QBool Mongodb::Remove(QString a_document, BSONObj a_datas)
         {
             replicaset.conn().remove(tmp.toAscii().data(), a_datas);
             replicaset.done();
+            mongo::dbexit(mongo::EXIT_CLEAN);
             return QBool(true);
         }
         qDebug() << m_server + "." + a_document + " removed";
@@ -870,6 +905,7 @@ QBool Mongodb::Remove(QString a_document, BSONObj a_datas)
         std::cout << "caught on insert into " << m_server.toAscii().data() << "." << a_document.toAscii().data() << " : " << e.what() << std::endl;
         //return QBool(false);
     }
+    mongo::dbexit(mongo::EXIT_CLEAN);
     return QBool(false);
 }
 
@@ -900,14 +936,17 @@ QBool Mongodb::Update(QString a_document, const BSONObj &element_id, const BSONO
         {
             replicaset.conn().update(tmp.toAscii().data(), mongo::Query(element_id), data, upsert ,multi);
             replicaset.done();
+            mongo::dbexit(mongo::EXIT_CLEAN);
             qDebug() << m_server + "." + a_document + " updated";
             return QBool(true);
         }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on update into " << m_server.toAscii().data() << "." << a_document.toAscii().data() << " : " << e.what() << std::endl;
+        mongo::dbexit(mongo::EXIT_CLEAN);
         return QBool(false);
     }
+    mongo::dbexit(mongo::EXIT_CLEAN);
     return QBool(false);
 }
 
@@ -938,14 +977,17 @@ QBool Mongodb::Update(QString a_document, const BSONObj &element_id, const BSONO
         {
             replicaset.conn().update(tmp.toAscii().data(), mongo::Query(element_id), data, upsert ,multi);
             replicaset.done();
+            mongo::dbexit(mongo::EXIT_CLEAN);
             qDebug() << m_server + "." + a_document + " updated";
             return QBool(true);
         }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on update into " << m_server.toAscii().data() << "." << a_document.toAscii().data() << " : " << e.what() << std::endl;
+        mongo::dbexit(mongo::EXIT_CLEAN);
         return QBool(false);
     }
+    mongo::dbexit(mongo::EXIT_CLEAN);
     return QBool(false);
 }
 
@@ -971,14 +1013,17 @@ QBool Mongodb::Update_raw(mongo_query a_query)
         {
             replicaset.conn().update(db.toAscii().data(), a_query.query, a_query.data, true);
             replicaset.done();
+            mongo::dbexit(mongo::EXIT_CLEAN);
             qDebug() << m_server + "." + a_query.document + " updated";
             return QBool(true);
         }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on update into " << db.toAscii().data() << " : " << e.what() << std::endl;
+        mongo::dbexit(mongo::EXIT_CLEAN);
         return QBool(false);
     }
+    mongo::dbexit(mongo::EXIT_CLEAN);
     return QBool(false);
 }
 
@@ -1003,14 +1048,17 @@ QBool Mongodb::Addtoarray(QString a_document, const BSONObj &element_id, const B
         {
             replicaset.conn().update(tmp.toAscii().data(), mongo::Query(element_id), data);
             replicaset.done();
+            mongo::dbexit(mongo::EXIT_CLEAN);
             qDebug() << m_server + "." + a_document + " updated";
             return QBool(true);
         }
     }
     catch(mongo::DBException &e ) {
         std::cout << "caught on update into " << m_server.toAscii().data() << "." << a_document.toAscii().data() << " : " << e.what() << std::endl;
+        mongo::dbexit(mongo::EXIT_CLEAN);
         return QBool(false);
     }
+    mongo::dbexit(mongo::EXIT_CLEAN);
     return QBool(false);
 }
 
