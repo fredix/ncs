@@ -125,6 +125,24 @@ private:
     BSONObj m_grid_file;
     BSONObj m_datas;
     QMutex *m_mutex;
+
+    QMutex *m_mutex_Count;
+    QMutex *m_mutex_Flush;
+    QMutex *m_mutex_Find;
+    QMutex *m_mutex_FindAll;
+    QMutex *m_mutex_GetNumChunck;
+    QMutex *m_mutex_GetFilename;
+    QMutex *m_mutex_GetGfsid;
+    QMutex *m_mutex_ExtractByChunck;
+    QMutex *m_mutex_WriteFile;
+    QMutex *m_mutex_Insert;
+    QMutex *m_mutex_Remove;
+    QMutex *m_mutex_Update;
+    QMutex *m_mutex_Update_raw;
+    QMutex *m_mutex_Addtoarray;
+
+
+
     QMutex *m_rf_mutex;
 
     QMutex *user_buffer_lock;

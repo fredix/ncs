@@ -60,7 +60,24 @@ Mongodb::Mongodb(QString a_server, QString a_database) : m_server(a_server), m_d
 {
     qDebug() << "Mongodb construct param";
 
-  //  m_mutex = new QMutex();
+    m_mutex = new QMutex();
+    m_mutex_Count = new QMutex();
+    m_mutex_Flush = new QMutex();
+    m_mutex_Find = new QMutex();
+    m_mutex_FindAll = new QMutex();
+    m_mutex_GetNumChunck = new QMutex();
+    m_mutex_GetFilename = new QMutex();
+    m_mutex_GetGfsid = new QMutex();
+    m_mutex_ExtractByChunck = new QMutex();
+    m_mutex_WriteFile = new QMutex();
+    m_mutex_Insert = new QMutex();
+    m_mutex_Remove = new QMutex();
+    m_mutex_Update = new QMutex();
+    m_mutex_Update_raw = new QMutex();
+    m_mutex_Addtoarray = new QMutex();
+
+
+
 //    m_rf_mutex = new QMutex();
 
     user_buffer_lock = new QMutex();
@@ -217,7 +234,7 @@ void Mongodb::push_payload(BSONObj a_payload)
 
 int Mongodb::Count(QString a_document)
 {
-  //  QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex_Count);
 
     qDebug() << "Mongodb::Count";
 
@@ -238,7 +255,7 @@ int Mongodb::Count(QString a_document)
 
 void Mongodb::Flush(string a_document, BSONObj query)
 {
-  //  QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex_Flush);
 
     std::cout << "Mongodb::Flush, query : " << query.toString() << std::endl;
 
@@ -271,7 +288,7 @@ void Mongodb::Flush(string a_document, BSONObj query)
 
 BSONObj Mongodb::Find(string a_document, const bo a_query)
 {
-//    QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex_Find);
     qDebug() << "Mongodb::Find";
 
     QString tmp;
@@ -327,7 +344,7 @@ BSONObj Mongodb::Find(string a_document, const bo a_query)
 
 BSONObj Mongodb::Find(string a_document, const BSONObj a_query, BSONObj *a_fields)
 {
-  //  QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex_Find);
     qDebug() << "Mongodb::Find with field's filter";
 
     QString tmp;
@@ -375,7 +392,7 @@ BSONObj Mongodb::Find(string a_document, const BSONObj a_query, BSONObj *a_field
 
 QList <BSONObj> Mongodb::FindAll(string a_document, const bo datas)
 {
-  //  QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex_FindAll);
     qDebug() << "Mongodb::FindAll";
 
     QString tmp;
@@ -416,7 +433,7 @@ QList <BSONObj> Mongodb::FindAll(string a_document, const bo datas)
 
 bo Mongodb::ExtractJSON(const be &gfs_id)
 {        
-//    QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex);
 
     qDebug() << "Mongodb::ExtractJSON";
     bo m_bo_json;
@@ -474,7 +491,7 @@ bo Mongodb::ExtractJSON(const be &gfs_id)
 
 QBool Mongodb::ExtractBinary(const be &gfs_id, string path, QString &filename)
 {
- //   QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex);
 
     qDebug() << "Mongodb::ExtractBinary";
 
@@ -541,7 +558,7 @@ QBool Mongodb::ReadFile(const be &gfs_id, const mongo::GridFile **a_gf)
 
 int Mongodb::GetNumChunck(const be &gfs_id)
 {
- //   QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex_GetNumChunck);
 
     std::cout << "Mongodb::GetNumChunck : " << gfs_id << std::endl;
     try {
@@ -587,7 +604,7 @@ int Mongodb::GetNumChunck(const be &gfs_id)
 
 string Mongodb::GetFilename(const be &gfs_id)
 {
-  //  QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex_GetFilename);
 
     std::cout << "Mongodb::GetFilename : " << gfs_id << std::endl;
 
@@ -632,7 +649,7 @@ string Mongodb::GetFilename(const be &gfs_id)
 
 BSONObj Mongodb::GetGfsid(const string filename)
 {
-  //  QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex_GetGfsid);
 
     std::cout << "Mongodb::GetGfsid : " << filename << std::endl;
     BSONElement gfsid;
@@ -682,7 +699,7 @@ BSONObj Mongodb::GetGfsid(const string filename)
 
 QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &chunk_data, int &chunk_length)
 {
-//    QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex_ExtractByChunck);
 
     std::cout << "Mongodb::ExtractByChunck : " << gfs_id << std::endl;
     try {
@@ -770,7 +787,7 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
 
 BSONObj Mongodb::WriteFile(const string filename, const char *data, int size)
 {        
-  //  QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex_WriteFile);
 
     BSONObj struct_file;
     try {
@@ -794,7 +811,7 @@ BSONObj Mongodb::WriteFile(const string filename, const char *data, int size)
 
 QBool Mongodb::Insert(QString a_document, BSONObj a_datas)
 {        
- //   QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex_Insert);
 
     qDebug() << "Mongodb::Insert";
     QString tmp;
@@ -827,7 +844,7 @@ QBool Mongodb::Insert(QString a_document, BSONObj a_datas)
 
 QBool Mongodb::Remove(QString a_document, BSONObj a_datas)
 {
-  //  QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex_Remove);
 
     qDebug() << "Mongodb::Remove";
     QString tmp;
@@ -863,7 +880,7 @@ QBool Mongodb::Remove(QString a_document, BSONObj a_datas)
 
 QBool Mongodb::Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas, bool upsert, bool multi)
 {        
- //   QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex_Update);
 
     qDebug() << "Mongodb::Update";
     QString tmp;
@@ -898,7 +915,7 @@ QBool Mongodb::Update(QString a_document, const BSONObj &element_id, const BSONO
 
 QBool Mongodb::Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas, BSONObj a_options, bool upsert, bool multi)
 {
- //   QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex_Update);
 
     qDebug() << "Mongodb::Update with options";
     QString tmp;
@@ -935,7 +952,7 @@ QBool Mongodb::Update(QString a_document, const BSONObj &element_id, const BSONO
 
 QBool Mongodb::Update_raw(mongo_query a_query)
 {
-  //  QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex_Update_raw);
 
     qDebug() << "Mongodb::Update_raw";
     QString db;
@@ -968,7 +985,7 @@ QBool Mongodb::Update_raw(mongo_query a_query)
 
 QBool Mongodb::Addtoarray(QString a_document, const BSONObj &element_id, const BSONObj &a_datas)
 {
- //   QMutexLocker locker(m_mutex);
+    QMutexLocker locker(m_mutex_Addtoarray);
 
     qDebug() << "Mongodb::Addtoarray";
     QString tmp;
