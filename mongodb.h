@@ -66,7 +66,7 @@ public:
     QBool Update(QString a_document, const BSONObj &element_id, const BSONObj &a_datas, BSONObj a_options, bool upsert=false, bool multi=false);
     QBool Addtoarray(QString a_document, const BSONObj &element_id, const BSONObj &a_datas);
     BSONObj WriteFile(const string filename, const char *data, int size);
-    QBool ReadFile(const be &gfs_id, const mongo::GridFile **a_gf);        
+    QBool ReadFile(const be &gfs_id, const mongo::GridFile **a_gf);
     int GetNumChunck(const be &gfs_id);
     string GetFilename(const be &gfs_id);
     BSONObj GetGfsid(const string filename);
@@ -121,8 +121,7 @@ private:
     DBClientReplicaSet *m_mongo_replicaset_connection;
     string m_errmsg;
     //mongo::GridFS *m_gfs;
-    const mongo::GridFile *m_gf;
-    BSONObj m_grid_file;
+   // const mongo::GridFile *m_gf;
     BSONObj m_datas;
     QMutex *m_mutex;
 

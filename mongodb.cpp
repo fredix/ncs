@@ -450,6 +450,7 @@ bo Mongodb::ExtractJSON(const be &gfs_id)
 
     qDebug() << "Mongodb::ExtractJSON";
     bo m_bo_json;
+    const mongo::GridFile *m_gf;
 
     cout << "gfs_id : " << gfs_id.jsonString(TenGen) << endl;
 
@@ -509,6 +510,7 @@ QBool Mongodb::ExtractBinary(const be &gfs_id, string path, QString &filename)
     qDebug() << "Mongodb::ExtractBinary";
 
     bo gfsid = BSON("_id" << gfs_id);
+    const mongo::GridFile *m_gf;
 
     cout << "gfs_id : " << gfsid.firstElement() << endl;
 
@@ -588,24 +590,25 @@ int Mongodb::GetNumChunck(const be &gfs_id)
 
 
             qDebug() << "Mongodb::GetNumChunck BEFORE GRID";
-            const mongo::GridFile *m_grid_file = new mongo::GridFile(gfs.findFile(gfs_id.wrap()));
+            //const mongo::GridFile *m_grid_file = new mongo::GridFile(gfs.findFile(gfs_id.wrap()));
+            mongo::GridFile grid_file (gfs.findFile(gfs_id.wrap()));
 
             qDebug() << "Mongodb::GetNumChunck OPEN";
-            if (!m_grid_file->exists()) {
-                std::cout << "Mongodb::ExtractByChunck file not found" << std::endl;
+            if (!grid_file.exists()) {
+                std::cout << "Mongodb::GetNumChunck file not found" << std::endl;
                 replicaset.done();
-                delete(m_grid_file);
+                //delete(m_grid_file);
                 mongo::ReplicaSetMonitor::remove(m_server.toStdString(), true);
                 return -1;
             }
             else
             {
-                const int num = m_grid_file->getNumChunks();
-                std::cout << "Mongodb::GetNumChunck FILE NAME : " << m_grid_file->getFilename() << std::endl;
+                const int num = grid_file.getNumChunks();
+                std::cout << "Mongodb::GetNumChunck FILE NAME : " << grid_file.getFilename() << std::endl;
                 std::cout << "Mongodb::GetNumChunck NUM CHUCK : " << num << std::endl;
 
                 replicaset.done();
-                delete(m_grid_file);
+                //delete(m_grid_file);
                 mongo::ReplicaSetMonitor::remove(m_server.toStdString(), true);
                 return num;
             }
@@ -638,22 +641,23 @@ string Mongodb::GetFilename(const be &gfs_id)
             GridFS gfs(replicaset.conn(), m_database.toAscii().data());
 
             //const mongo::GridFile *m_grid_file = new mongo::GridFile(this->m_gfs->findFile(gfs_id.wrap()));
-            const mongo::GridFile *m_grid_file = new mongo::GridFile(gfs.findFile(gfs_id.wrap()));
+            //const mongo::GridFile *m_grid_file = new mongo::GridFile(gfs.findFile(gfs_id.wrap()));
+            mongo::GridFile grid_file (gfs.findFile(gfs_id.wrap()));
 
             qDebug() << "Mongodb::GetFilename OPEN";
-            if (!m_grid_file->exists()) {
+            if (!grid_file.exists()) {
                 std::cout << "Mongodb::GetFilename file not found" << std::endl;
                 replicaset.done();
-                delete(m_grid_file);
+                //delete(m_grid_file);
                 mongo::ReplicaSetMonitor::remove(m_server.toStdString(), true);
                 return "";
             }
             else
             {
-                string filename = m_grid_file->getFilename();
+                string filename = grid_file.getFilename();
                 std::cout << "Mongodb::GetFilename FILE NAME : " << filename << std::endl;
                 replicaset.done();
-                delete(m_grid_file);
+                //delete(m_grid_file);
                 mongo::ReplicaSetMonitor::remove(m_server.toStdString(), true);
                 return filename;
             }
@@ -689,24 +693,25 @@ BSONObj Mongodb::GetGfsid(const string filename)
             GridFS gfs(replicaset.conn(), m_database.toAscii().data());
 
 
-            const mongo::GridFile *m_grid_file = new mongo::GridFile(gfs.findFile(filename));
+            //const mongo::GridFile *m_grid_file = new mongo::GridFile(gfs.findFile(filename));
+            mongo::GridFile grid_file (gfs.findFile(filename));
 
             qDebug() << "Mongodb::GetGfsid OPEN";
-            if (!m_grid_file->exists()) {
+            if (!grid_file.exists()) {
                 std::cout << "Mongodb::GetGfsid file not found" << std::endl;
                 replicaset.done();
-                delete(m_grid_file);
+                //delete(m_grid_file);
                 mongo::ReplicaSetMonitor::remove(m_server.toStdString(), true);
                 return gfsid_;
             }
             else
             {
-                gfsid = m_grid_file->getFileField("_id");
+                gfsid = grid_file.getFileField("_id");
                 std::cout << "Mongodb::GetGfsid : " << gfsid << std::endl;
                 gfsid_ = BSON("_id" << gfsid);
                 std::cout << "Mongodb::GetGfsid2 : " << gfsid_ << std::endl;
                 replicaset.done();
-                delete(m_grid_file);
+                //delete(m_grid_file);
                 mongo::ReplicaSetMonitor::remove(m_server.toStdString(), true);
                 return gfsid_;
             }
@@ -745,18 +750,19 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
             {
                 qDebug() << "Mongodb::ExtractByChunck BEFORE GRID";
                 //const mongo::GridFile *m_grid_file = new mongo::GridFile(this->m_gfs->findFile(gfs_id.wrap()));
-                const mongo::GridFile *m_grid_file = new mongo::GridFile(gfs.findFile(gfs_id.wrap()));
+                //const mongo::GridFile *m_grid_file = new mongo::GridFile(gfs.findFile(gfs_id.wrap()));
+                mongo::GridFile grid_file (gfs.findFile(gfs_id.wrap()));
 
                 qDebug() << "Mongodb::ExtractByChunck OPEN";
-                if (!m_grid_file->exists()) {
+                if (!grid_file.exists()) {
                     std::cout << "file not found, sleep and retry, counter : " << i << std::endl;
-                    delete(m_grid_file);
+                    //delete(m_grid_file);
                     sleep(1);
                 }
                 else
                 {
                     std::cout << "Mongodb::ExtractByChunck BEFORE GET CHUNCK " << std::endl;
-                    GridFSChunk chunk = m_grid_file->getChunk( chunk_index );
+                    GridFSChunk chunk = grid_file.getChunk( chunk_index );
                     std::cout << "Mongodb::ExtractByChunck AFTER GET CHUNCK " << std::endl;
 
 
@@ -780,7 +786,7 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
                         std::cout << "Mongodb::ExtractByChunck CHUNCK SIZE : " << chunk.len() << std::endl;
 
                         replicaset.done();
-                        delete(m_grid_file);
+                        //delete(m_grid_file);
                         mongo::ReplicaSetMonitor::remove(m_server.toStdString(), true);
                         return QBool(true);
                     }
@@ -789,7 +795,7 @@ QBool Mongodb::ExtractByChunck(const be &gfs_id, int chunk_index, QByteArray &ch
                         //*chunk_data = NULL;
                         chunk_data.clear();
                         replicaset.done();
-                        delete(m_grid_file);
+                        //delete(m_grid_file);
                         mongo::ReplicaSetMonitor::remove(m_server.toStdString(), true);
                         return QBool(false);
                     }
