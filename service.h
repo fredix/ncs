@@ -98,6 +98,7 @@ public:
     Api_session *api_session;
     Api_app *api_app;
     Api_ftp *api_ftp;
+    Api_echo *api_echo;
 
 
 private:
@@ -110,6 +111,7 @@ private:
     QThread *thread_api_session;
     QThread *thread_api_app;
     QThread *thread_api_ftp;
+    QThread *thread_api_echo;
 
 
     QThread *thread_xmpp_server;

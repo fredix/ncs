@@ -50,11 +50,10 @@ Routing:
               zmq-forward:
                 enabled: yes
                 socket:
-                - !zmq.Bind "tcp://127.0.0.1:7001"
+                - !zmq.Bind "tcp://127.0.0.1:2500"
                 contents:
                 - !Uri ~
-                - !Body ~
-                timeout: 2
+                timeout: 5
                 retry: !RetryFirst
                   count: 3
             "/payload*":
@@ -156,20 +155,3 @@ Routing:
                 timeout: 2
                 retry: !RetryFirst
                   count: 3
-            "/chat*":
-              websocket:
-                enabled: yes
-                forward:
-                - !zmq.Bind "tcp://127.0.0.1:7002"
-                subscribe:
-                - !zmq.Bind "tcp://127.0.0.1:7003"
-            "/crossdomain.xml":
-              responses:
-                default:
-                  headers:
-                    Content-Type: text/xml; charset="utf-8"
-                  body: |
-                    <?xml version="1.0"?>
-                    <cross-domain-policy>
-                        <allow-access-from domain="*" />
-                    </cross-domain-policy>

@@ -197,6 +197,7 @@ Zerogw::~Zerogw()
 
     delete(m_socket_zerogw);
     delete(z_push_api);
+    delete(check_http_data);
 }
 
 
@@ -1537,6 +1538,126 @@ void Api_ftp::receive_http_payload()
                     else bodyMessage = buildResponse("error", "URI", "unknown");
 
                 }
+            }
+            zmq::message_t m_message(bodyMessage.length());
+            memcpy(m_message.data(), bodyMessage.toAscii(), bodyMessage.length());
+
+            m_socket_zerogw->send(m_message, 0);
+            qDebug() << "returning : " << bodyMessage;
+        }
+        counter++;
+    }
+    qDebug() << "ZEROGW : " << zerogw;
+    check_http_data->setEnabled(true);
+}
+
+
+
+/******************************/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*********************/
+Api_echo::Api_echo(QString basedirectory, int port) : Zerogw(basedirectory, port)
+{
+    std::cout << "Api_echo::Api_echo constructor" << std::endl;
+
+    enumToZerogwHeaderEcho.insert(0, HTTP_METHOD);
+    enumToZerogwHeaderEcho.insert(1, URI);
+}
+
+
+
+void Api_echo::receive_http_payload()
+{
+    check_http_data->setEnabled(false);
+
+    std::cout << "Api_echo::receive_payload" << std::endl;
+
+    QHash <QString, QString> zerogw;
+    QString key;
+    int counter=0;
+    QString bodyMessage="";
+
+    while (true)
+    {
+        zmq::message_t request;
+        bool res = m_socket_zerogw->recv(&request, ZMQ_NOBLOCK);
+        if (!res && zmq_errno () == EAGAIN) break;
+
+        qint32 events = 0;
+        std::size_t eventsSize = sizeof(events);
+        m_socket_zerogw->getsockopt(ZMQ_RCVMORE, &events, &eventsSize);
+
+        std::cout << "Api_echo::receive_payload received request: [" << (char*) request.data() << "]" << std::endl;
+
+        QString data_from_zerogw;
+
+        switch(enumToZerogwHeaderEcho[counter])
+        {
+        case HTTP_METHOD:
+            // check METHOD
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "METHOD is empty");
+            else
+            {
+                data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
+                zerogw["METHOD"] = data_from_zerogw;
+
+                if (zerogw["METHOD"] != "GET")
+                    bodyMessage = "BAD REQUEST : " + zerogw["METHOD"];
+            }
+            break;
+
+        case URI:
+            if (!bodyMessage.isEmpty()) break;
+
+            // Check URI
+            if (request.size() == 0) bodyMessage = buildResponse("error", "header", "URI is empty");
+            else
+            {
+                data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
+
+                QList <QString> uri_params = data_from_zerogw.split("/");
+                qDebug() << "URI PARAMS " << uri_params[2];
+                zerogw["URI"] = uri_params[2];
+            }
+            break;
+        }
+
+
+
+        if (!(events & ZMQ_RCVMORE))
+        {
+            qDebug() << "ZMQ_RCVMORE";
+
+            if (bodyMessage.isEmpty())
+            {
+                if (zerogw["URI"] == "echo")
+                {
+                    bodyMessage = buildResponse("status", "OK");
+                    qDebug() << "Api_echo::receive_payload TOKEN : " << bodyMessage;
+                }
+                else bodyMessage = buildResponse("error", "URI", "unknown");
+
+
             }
             zmq::message_t m_message(bodyMessage.length());
             memcpy(m_message.data(), bodyMessage.toAscii(), bodyMessage.length());

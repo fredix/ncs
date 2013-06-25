@@ -44,6 +44,9 @@ ZerogwProxy::~ZerogwProxy()
     thread_payload[0]->wait();
     qDebug() << "!!!!!!! ApiPayload::wait 1 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
     thread_payload[1]->wait();
+
+    delete(check_zerogw);
+    delete(check_reply);
 }
 
 void ZerogwProxy::init()
@@ -180,8 +183,8 @@ Service::Service(params a_ncs_params, QObject *parent) : m_ncs_params(a_ncs_para
    // m_http_api = NULL;
     m_xmpp_server = NULL;
     m_xmpp_client = NULL;
-    zerogwToPayload[0] = NULL;
-    zerogwToPayload[1] = NULL;
+   // zerogwToPayload[0] = NULL;
+   // zerogwToPayload[1] = NULL;
 }
 
 Service::~Service()
@@ -225,7 +228,7 @@ Service::~Service()
     worker_api->deleteLater();
     worker_thread_api->wait();
 
-
+/*
     if (zerogwToPayload[0])
     {
      //   delete(zerogwToPayload[0]);
@@ -239,14 +242,15 @@ Service::~Service()
     }
     if (zerogwToPayload[1])
     {
-        /*delete(zerogwToPayload[1]);
-        zerogwToPayload[1]->thread->quit();
-        while(!zerogwToPayload[1]->thread->isFinished ()){};
-        */
+    //    delete(zerogwToPayload[1]);
+    //    zerogwToPayload[1]->thread->quit();
+    //    while(!zerogwToPayload[1]->thread->isFinished ()){};
+
 
         qDebug() << "zerogwToPayload[1]->deleteLater();";
         zerogwToPayload[1]->deleteLater();
     }
+*/
 
     qDebug() << "zerogw_payload->deleteLater();";
     zerogw_payload->deleteLater();
@@ -256,6 +260,10 @@ Service::~Service()
     zerogw_payload2->deleteLater();
     thread_ZerogwProxy2->wait();
 
+
+    qDebug() << "api_echo->deleteLater();";
+    api_echo->deleteLater();
+    thread_api_echo->wait();
 
     qDebug() << "api_node->deleteLater();";
     api_node->deleteLater();
@@ -315,6 +323,17 @@ void Service::Http_api_init()
 
     //zerogwToPayload[0] = new ZerogwProxy(m_ncs_params, port);
    // zerogwToPayload[1] = new ZerogwProxy(m_ncs_params, port+1);
+
+
+    thread_api_echo = new QThread(this);
+    api_echo = new Api_echo(m_ncs_params.base_directory, 2500);
+
+    connect(thread_api_echo, SIGNAL(started()), api_echo, SLOT(init()));
+    connect(api_echo, SIGNAL(destroyed()), thread_api_echo, SLOT(quit()), Qt::DirectConnection);
+
+    api_echo->moveToThread(thread_api_echo);
+    thread_api_echo->start();
+
 
     thread_ZerogwProxy = new QThread(this);
     zerogw_payload = new ZerogwProxy(m_ncs_params, port);
@@ -399,7 +418,7 @@ void Service::Http_api_init()
     connect(api_ftp, SIGNAL(destroyed()), thread_api_ftp, SLOT(quit()), Qt::DirectConnection);
 
     api_ftp->moveToThread(thread_api_ftp);
-    thread_api_ftp->start();
+    thread_api_ftp->start();            
 }
 
 

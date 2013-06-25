@@ -68,6 +68,7 @@ typedef QMap<int, ZerogwHeader> IntToZerogwHeaderPayload;
 typedef QMap<int, ZerogwHeader> IntToZerogwHeaderSession;
 typedef QMap<int, ZerogwHeader> IntToZerogwHeaderApp;
 typedef QMap<int, ZerogwHeader> IntToZerogwHeaderFtp;
+typedef QMap<int, ZerogwHeader> IntToZerogwHeaderEcho;
 
 
 
@@ -219,5 +220,19 @@ private slots:
     void receive_http_payload();
 };
 
+
+
+class Api_echo : public Zerogw
+{
+    Q_OBJECT
+public:
+    Api_echo(QString basedirectory, int port);
+
+private:
+    IntToZerogwHeaderEcho enumToZerogwHeaderEcho;
+
+private slots:
+    void receive_http_payload();
+};
 
 #endif // ZEROGW_H
