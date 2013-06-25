@@ -52,6 +52,7 @@ Routing:
                 socket:
                 - !zmq.Connect "tcp://127.0.0.1:2500"
                 contents:
+                - !Method
                 - !Uri ~
                 timeout: 5
                 retry: !RetryFirst
