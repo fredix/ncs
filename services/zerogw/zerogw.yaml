@@ -50,7 +50,7 @@ Routing:
               zmq-forward:
                 enabled: yes
                 socket:
-                - !zmq.Bind "tcp://127.0.0.1:2500"
+                - !zmq.Connect "tcp://127.0.0.1:2500"
                 contents:
                 - !Uri ~
                 timeout: 5
@@ -142,7 +142,7 @@ Routing:
                 timeout: 2
                 retry: !RetryFirst
                   count: 3
-            "/ftpauth*":
+            "/ftp*":
               zmq-forward:
                 enabled: yes
                 socket:
