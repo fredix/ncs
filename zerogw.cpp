@@ -1463,8 +1463,15 @@ void Api_ftp::receive_http_payload()
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
 
                 QList <QString> uri_params = data_from_zerogw.split("/");
-                qDebug() << "URI PARAMS " << uri_params[2];
-                zerogw["URI"] = uri_params[2];
+                if (uri_params.size() < 2)
+                {
+                    bodyMessage = buildResponse("error", "header", "bad URI");
+                }
+                else
+                {
+                    qDebug() << "URI PARAMS " << uri_params[2];
+                    zerogw["URI"] = uri_params[2];
+                }
             }
             break;
 
@@ -1636,8 +1643,8 @@ void Api_echo::receive_http_payload()
                 data_from_zerogw = QString::fromAscii((char*)request.data(), request.size());
 
                 QList <QString> uri_params = data_from_zerogw.split("/");
-                qDebug() << "URI PARAMS " << uri_params[2];
-                zerogw["URI"] = uri_params[2];
+                qDebug() << "URI PARAMS " << uri_params[1];
+                zerogw["URI"] = uri_params[1];
             }
             break;
         }
