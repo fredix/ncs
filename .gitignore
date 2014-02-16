@@ -1,7 +1,23 @@
 ncs
-*.o
-moc*
 core*
 *~
-ncs.pro.user
+
+
+# C++ objects and libs
+
+*.slo
+*.lo
+*.o
+*.a
+*.la
+*.lai
+*.so
+
+# Qt-es
+
+*.pro.user
+*.pro.user.*
+moc_*.cpp
+qrc_*.cpp
 Makefile
+*-build-*

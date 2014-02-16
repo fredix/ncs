@@ -4,6 +4,7 @@
 [submodule "externals/qxmpp"]
 	path = externals/qxmpp
 	url = git://github.com/nodecast/qxmpp.git
+	branch = 0.7.6
 [submodule "externals/cppzmq"]
 	path = externals/cppzmq
 	url = git://github.com/zeromq/cppzmq.git
@@ -14,4 +15,4 @@
 [submodule "externals/mongo-cxx-driver"]
 	path = externals/mongo-cxx-driver
 	url = git://github.com/nodecast/mongo-cxx-driver.git
-	branch = 2.4.8
+	branch = 2.4.9
