@@ -10,8 +10,8 @@
 	url = git://github.com/zeromq/cppzmq.git
 [submodule "externals/zeromq"]
 	path = externals/zeromq
-	url = git://github.com/nodecast/zeromq.git
-	branch = 4.0.3
+	url = git@github.com:nodecast/zeromq.git
+	branch = 4.0.4
 [submodule "externals/mongo-cxx-driver"]
 	path = externals/mongo-cxx-driver
 	url = git://github.com/nodecast/mongo-cxx-driver.git
