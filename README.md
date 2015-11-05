@@ -1,8 +1,5 @@
 # NCS
 
-ncs is the nodecast server. Go to http://nodecast.github.com/ncs/
-
-
 ## INSTALL
 
 first, install some debs :
